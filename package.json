@@ -1,0 +1,27 @@
+{
+  "name": "@myorg/careiq-builder",
+  "version": "0.0.052",
+  "private": false,
+  "description": "Component that connects to the CareIQ platform for creating and maintaining assessments.",
+  "keywords": [
+    "ServiceNow",
+    "Next Experience UI Component",
+    "@myorg/careiq-builder"
+  ],
+  "readme": "./README.md",
+  "engines": {
+    "node": ">=22"
+  },
+  "module": "src/index.js",
+  "dependencies": {
+    "@servicenow/sass-kit": "latest",
+    "@servicenow/ui-core": "24.1.1",
+    "@servicenow/ui-effect-http": "24.1.1",
+    "@servicenow/ui-renderer-snabbdom": "24.1.1"
+  },
+  "devDependencies": {
+    "@babel/runtime": "7.25.7",
+    "ajv": "^6.12.6",
+    "sass": "1.53.0"
+  }
+}

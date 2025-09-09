@@ -1,0 +1,71 @@
+@import '@servicenow/sass-kit/host';
+
+.careiq-builder {
+  position: relative;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.version-display {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  z-index: 1000;
+  user-select: none;
+}
+
+.config-status {
+  background-color: #f0f8ff;
+  border: 1px solid #0066cc;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  
+  p {
+    margin: 0.5rem 0;
+    font-weight: 500;
+    
+    &:first-child {
+      color: #006600;
+      font-weight: 600;
+    }
+  }
+}
+
+.error {
+  background-color: #fff5f5;
+  border: 1px solid #e53e3e;
+  border-radius: 6px;
+  padding: 1rem;
+  color: #c53030;
+  font-weight: 500;
+}
+
+.loading {
+  background-color: #fffaf0;
+  border: 1px solid #f6ad55;
+  border-radius: 6px;
+  padding: 1rem;
+  color: #c05621;
+  font-weight: 500;
+}
+
+.debug-info {
+  background-color: #f7fafc;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-family: monospace;
+  font-size: 0.9rem;
+  
+  p {
+    margin: 0.25rem 0;
+  }
+}

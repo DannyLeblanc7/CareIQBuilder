@@ -1,0 +1,18 @@
+{
+  "components": {
+    "cadal-careiq-builder": {
+      "innerComponents": [],
+      "uiBuilder": {
+        "associatedTypes": [
+          "global.core",
+          "global.landing-page"
+        ],
+        "label": "CareIQ Builder",
+        "tileIcon": "./tile-icon/generic-tile-icon.svg",
+        "description": "Component that connects to the CareIQ platform for creating and maintaining assessments.",
+        "category": "primitives"
+      }
+    }
+  },
+  "scopeName": "x_cadal_myorg_ca_0"
+}
