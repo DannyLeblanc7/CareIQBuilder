@@ -6,41 +6,1138 @@ import packageJson from '../../package.json';
 
 const {COMPONENT_BOOTSTRAPPED} = actionTypes;
 
+// Group assessments by master_id
+const groupAssessmentsByMasterId = (assessments) => {
+	const grouped = {};
+	
+	assessments.forEach(assessment => {
+		const masterId = assessment.master_id;
+		if (!grouped[masterId]) {
+			grouped[masterId] = [];
+		}
+		grouped[masterId].push(assessment);
+	});
+	
+	// Sort versions within each group by version number (descending)
+	Object.keys(grouped).forEach(masterId => {
+		grouped[masterId].sort((a, b) => {
+			const versionA = parseFloat(a.version) || 0;
+			const versionB = parseFloat(b.version) || 0;
+			return versionB - versionA; // Descending order (newest first)
+		});
+	});
+	
+	return grouped;
+};
+
+// Paginate assessments for client-side display
+const paginateAssessments = (assessments, currentPage, pageSize) => {
+	if (!assessments || assessments.length === 0) return [];
+	
+	const startIndex = currentPage * pageSize;
+	const endIndex = startIndex + pageSize;
+	
+	return assessments.slice(startIndex, endIndex);
+};
+
 // Load CareIQ config using dispatch action
 const loadCareIQConfig = (dispatch) => {
 	console.log('Dispatching LOAD_CAREIQ_CONFIG action...');
 	dispatch('LOAD_CAREIQ_CONFIG');
 };
 
+// Calculate which questions should be visible based on selected answers and their relationships
+const calculateVisibleQuestions = (selectedAnswers, currentQuestions, answerRelationships = {}) => {
+	if (!currentQuestions || currentQuestions.length === 0) {
+		return [];
+	}
+	
+	let visibleQuestions = [];
+	
+	// Start with questions that don't have a 'hidden' flag or have hidden: false
+	currentQuestions.forEach(question => {
+		if (!question.hidden) {
+			visibleQuestions.push(question.ids.id); // Use correct UUID path
+		}
+	});
+	
+	console.log('calculateVisibleQuestions - Starting with non-hidden questions:', visibleQuestions.length);
+	console.log('calculateVisibleQuestions - Selected answers:', selectedAnswers);
+	console.log('calculateVisibleQuestions - Available relationships:', Object.keys(answerRelationships));
+	
+	// Add questions that should be shown based on triggered_questions relationships
+	Object.keys(selectedAnswers).forEach(questionId => {
+		const selectedAnswerIds = selectedAnswers[questionId];
+		console.log('Processing question:', questionId, 'with selected answers:', selectedAnswerIds);
+		
+		selectedAnswerIds.forEach(answerId => {
+			// Find the answer in the questions using correct UUID paths
+			const question = currentQuestions.find(q => q.ids.id === questionId);
+			const answer = question?.answers?.find(a => a.ids.id === answerId);
+			
+			console.log('Found question:', question?.label, 'Found answer:', answer?.label);
+			
+			// First check if the answer has triggered_questions in the section data
+			if (answer?.triggered_questions && Array.isArray(answer.triggered_questions)) {
+				console.log('Found triggered_questions in section data for answer:', answer.label, answer.triggered_questions);
+				answer.triggered_questions.forEach(triggeredQuestionId => {
+					if (!visibleQuestions.includes(triggeredQuestionId)) {
+						console.log('Adding triggered question to visible list:', triggeredQuestionId);
+						visibleQuestions.push(triggeredQuestionId);
+					}
+				});
+			}
+			// Otherwise, check if we have relationship data for this answer
+			else if (answerRelationships[answerId] && answerRelationships[answerId].questions?.questions?.length > 0) {
+				console.log('Found triggered questions in relationships data for answer:', answer?.label);
+				answerRelationships[answerId].questions.questions.forEach(triggeredQuestion => {
+					if (!visibleQuestions.includes(triggeredQuestion.id)) {
+						console.log('Adding triggered question from relationships:', triggeredQuestion.id, triggeredQuestion.label);
+						visibleQuestions.push(triggeredQuestion.id);
+					}
+				});
+			} else {
+				console.log('No triggered_questions found for answer:', answer?.label);
+			}
+		});
+	});
+	
+	console.log('calculateVisibleQuestions - Final visible questions:', visibleQuestions);
+	return visibleQuestions;
+};
+
 const view = (state, {updateState, dispatch}) => {
 	console.log('Component rendered with state:', state);
+	
+	// Auto-scroll system message box to bottom after render
+	setTimeout(() => {
+		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
+		systemWindows.forEach(window => {
+			console.log('Scrolling system window to bottom, scrollHeight:', window.scrollHeight);
+			window.scrollTop = window.scrollHeight;
+		});
+	}, 10); // Reduced delay for better responsiveness
 	
 	return (
 		<div className="careiq-builder">
 			<h1>CareIQ Builder</h1>
-			<p>Component that connects to the CareIQ platform for creating and maintaining assessments.</p>
 			
-			{state.loading && <p className="loading">🔄 Loading CareIQ configuration...</p>}
-			{state.error && (
-				<div className="error">
-					❌ <strong>Configuration Error:</strong><br/>
-					{state.error}
+			<div className={`system-window-container ${state.systemMessagesCollapsed ? 'collapsed' : ''}`}>
+				<div className="system-window-header">
+					<h3>System Messages</h3>
+					<span 
+						className="system-window-toggle"
+						onclick={() => dispatch('TOGGLE_SYSTEM_MESSAGES')}
+					>
+						{state.systemMessagesCollapsed ? '▼' : '▲'}
+					</span>
+				</div>
+				{!state.systemMessagesCollapsed && (
+					<div 
+						className="system-window"
+					hook={{
+						insert: (vnode) => {
+							console.log('System window inserted, scrolling to bottom');
+							vnode.elm.scrollTop = vnode.elm.scrollHeight;
+						},
+						update: (oldVnode, vnode) => {
+							console.log('System window updated, scrolling to bottom');
+							setTimeout(() => {
+								vnode.elm.scrollTop = vnode.elm.scrollHeight;
+							}, 5);
+						}
+					}}
+				>
+					{state.loading && (
+						<div className="system-message loading">
+							🔄 <strong>Connecting to the CareIQ Platform...</strong>
+						</div>
+					)}
+					{state.careiqConfig && state.accessToken && (
+						<div className="system-message success">
+							✅ <strong>Connected to the CareIQ Platform</strong>
+						</div>
+					)}
+					{state.categoriesLoading && (
+						<div className="system-message loading">
+							🔄 <strong>Loading use case categories...</strong>
+						</div>
+					)}
+					{state.useCaseCategories && state.useCaseCategories.length > 0 && (
+						<div className="system-message success">
+							📋 <strong>Loaded {state.useCaseCategories.length} Use Case Categories:</strong>
+							<ul className="categories-list">
+								{state.useCaseCategories.map(category => (
+									<li key={category.id} className="category-item">
+										{category.name} (ID: {category.id})
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+					{state.useCaseCategories && state.useCaseCategories.length === 0 && !state.categoriesLoading && (
+						<div className="system-message warning">
+							⚠️ <strong>No use case categories found for CM</strong>
+						</div>
+					)}
+					{state.error && (
+						<div className="system-message error">
+							❌ <strong>Error:</strong> {state.error}
+						</div>
+					)}
+					</div>
+				)}
+			</div>
+			
+			{state.careiqConfig && state.accessToken && !state.builderView && (
+				<div className="assessments-section">
+					<div className="assessments-header">
+						<h2>Assessments</h2>
+						<div className="assessments-controls">
+							<input 
+								type="text" 
+								className="search-input" 
+								placeholder="Search assessments..." 
+								value={state.searchTerm || ''}
+								oninput={(e) => {
+									updateState({searchTerm: e.target.value});
+									dispatch('SEARCH_ASSESSMENTS', {searchTerm: e.target.value});
+								}}
+							/>
+							<div className="page-size-controls">
+								<label className="page-size-label">Show:</label>
+								<select 
+									className="page-size-select"
+									value={state.assessmentsPagination.displayPageSize}
+									onchange={(e) => dispatch('CHANGE_PAGE_SIZE', {pageSize: parseInt(e.target.value)})}
+								>
+									<option value={5}>5</option>
+									<option value={10} selected>10</option>
+									<option value={25}>25</option>
+									<option value={50}>50</option>
+								</select>
+								<span className="page-size-label">per page</span>
+							</div>
+							<button 
+								className="new-assessment-btn"
+								onclick={() => dispatch('CREATE_NEW_ASSESSMENT')}
+							>
+								+ New Assessment
+							</button>
+						</div>
+					</div>
+					
+					{state.assessmentsLoading && (
+						<div className="assessments-loading">
+							🔄 Loading assessments...
+						</div>
+					)}
+					
+					{state.assessments && state.assessments.length > 0 && (
+						<div className="assessments-container">
+							<div className="assessments-grid">
+								{paginateAssessments(
+									state.filteredAssessments || state.assessments, 
+									state.assessmentsPagination.displayPage, 
+									state.assessmentsPagination.displayPageSize
+								).map(assessment => {
+									const isExpanded = state.expandedAssessments[assessment.id];
+									const versions = state.assessmentVersions[assessment.id];
+									const baseTitle = assessment.title.replace(/ - v\d+(\.\d+)?$/, '');
+									
+									return (
+										<div key={assessment.id} className="assessment-group">
+											<div 
+												className={`assessment-card clickable ${isExpanded ? 'expanded' : ''}`}
+												onclick={() => dispatch('OPEN_ASSESSMENT_BUILDER', {
+													assessmentId: assessment.id,
+													assessmentTitle: assessment.title
+												})}
+											>
+												<div className="assessment-card-header">
+													<h3 className="assessment-title">
+														{baseTitle}
+														<span className="version-count">
+															(Latest: v{assessment.version})
+														</span>
+													</h3>
+													<div className="assessment-status-group">
+														<span className={`assessment-status ${assessment.status}`}>
+															{assessment.status}
+														</span>
+														<span 
+															className="expand-icon"
+															onclick={() => dispatch('EXPAND_ASSESSMENT_VERSIONS', {
+																assessmentId: assessment.id,
+																assessmentTitle: assessment.title
+															})}
+														>
+															{isExpanded ? '−' : '+'}
+														</span>
+													</div>
+												</div>
+												<div className="assessment-card-body">
+													<p className="assessment-policy">Policy: {assessment.policy_number}</p>
+													<p className="assessment-category">
+														Category: {assessment.use_case_category.name}
+													</p>
+													<p className="assessment-usage">Usage: {assessment.usage}</p>
+													<p className="assessment-version">Version: {assessment.version}</p>
+													<p className="assessment-dates">
+														Created: {new Date(assessment.created_date).toLocaleDateString()}
+													</p>
+												</div>
+											</div>
+											
+											{isExpanded && versions && (
+												<div className="version-list">
+													{versions.map(version => (
+														<div key={version.id} className="version-card">
+															<div className="version-header">
+																<span className="version-title">Version {version.version}</span>
+																<span className={`version-status ${version.status}`}>
+																	{version.status}
+																</span>
+															</div>
+															<div className="version-body">
+																<p>Created: {new Date(version.created_date).toLocaleDateString()}</p>
+																{version.end_date && (
+																	<p>Ended: {new Date(version.end_date).toLocaleDateString()}</p>
+																)}
+																<p>Most Recent: {version.most_recent ? 'Yes' : 'No'}</p>
+															</div>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									);
+								})}
+							</div>
+							
+							{(() => {
+								const dataToShow = state.filteredAssessments || state.assessments;
+								const totalItems = dataToShow ? dataToShow.length : 0;
+								const totalPages = Math.ceil(totalItems / state.assessmentsPagination.displayPageSize);
+								const startItem = (state.assessmentsPagination.displayPage * state.assessmentsPagination.displayPageSize) + 1;
+								const endItem = Math.min((state.assessmentsPagination.displayPage + 1) * state.assessmentsPagination.displayPageSize, totalItems);
+								
+								return totalPages > 1 ? (
+									<div className="pagination">
+										<div className="pagination-left">
+											<button 
+												className="pagination-btn"
+												disabled={state.assessmentsPagination.displayPage === 0}
+												onclick={() => dispatch('GOTO_FIRST_PAGE')}
+											>
+												⏮ First
+											</button>
+											<button 
+												className="pagination-btn"
+												disabled={state.assessmentsPagination.displayPage === 0}
+												onclick={() => dispatch('GOTO_PREVIOUS_PAGE')}
+											>
+												← Previous
+											</button>
+										</div>
+										<span className="pagination-info">
+											Showing {startItem} - {endItem} of {totalItems}
+										</span>
+										<div className="pagination-right">
+											<button 
+												className="pagination-btn"
+												disabled={state.assessmentsPagination.displayPage >= totalPages - 1}
+												onclick={() => dispatch('GOTO_NEXT_PAGE')}
+											>
+												Next →
+											</button>
+											<button 
+												className="pagination-btn"
+												disabled={state.assessmentsPagination.displayPage >= totalPages - 1}
+												onclick={() => dispatch('GOTO_LAST_PAGE')}
+											>
+												Last ⏭
+											</button>
+										</div>
+									</div>
+								) : null;
+							})()}
+						</div>
+					)}
+					
+					{state.assessments && state.assessments.length === 0 && !state.assessmentsLoading && (
+						<div className="no-assessments">
+							No assessments found.
+						</div>
+					)}
 				</div>
 			)}
-			{state.careiqConfig && (
-				<div className="config-status">
-					✅ <strong>Connected to CareIQ Platform</strong>
-					<p>API Key: {state.careiqConfig.apikey}</p>
-					<p>App: {state.careiqConfig.app}</p>
-					<p>ID: {state.careiqConfig.id}</p>
-					<p>OAuth Token: {state.careiqConfig.otoken}</p>
-					<p>Region: {state.careiqConfig.region}</p>
-					<p>Version: {state.careiqConfig.version}</p>
-					{state.accessToken && <p>Token: {state.accessToken}</p>}
+			
+			{state.careiqConfig && state.accessToken && state.builderView && (
+				<div className="builder-section">
+					<div className="builder-header">
+						<h2>
+							{state.currentAssessment ? state.currentAssessment.title : 'Assessment Builder'}
+						</h2>
+						<div className="builder-controls">
+							{state.currentAssessment?.status === 'draft' ? [
+								<button 
+									key="edit-btn"
+									className={`mode-toggle-btn ${state.builderMode ? 'active' : ''}`}
+									onclick={() => dispatch('TOGGLE_BUILDER_MODE', {mode: true})}
+								>
+									🔧 Edit Mode
+								</button>,
+								<button 
+									key="preview-btn"
+									className={`mode-toggle-btn ${!state.builderMode ? 'active' : ''}`}
+									onclick={() => dispatch('TOGGLE_BUILDER_MODE', {mode: false})}
+								>
+									👁️ Preview Mode
+								</button>
+							] : null}
+							{state.currentAssessment?.status === 'published' ? (
+								<span className="published-indicator">
+									📋 Published Version - Read Only
+								</span>
+							) : null}
+							<button 
+								className="close-builder-btn"
+								onclick={() => dispatch('CLOSE_ASSESSMENT_BUILDER')}
+							>
+								← Back to Assessments
+							</button>
+						</div>
+					</div>
+					
+					{state.assessmentDetailsLoading && (
+						<div className="builder-loading">
+							🔄 Loading assessment details...
+						</div>
+					)}
+					
+					{state.currentAssessment && !state.assessmentDetailsLoading && (
+						<div className="builder-content">
+							<div className="sections-sidebar">
+								<h3>Sections</h3>
+								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
+									<div className="sections-list">
+										{state.currentAssessment.sections.map(section => (
+											<div key={section.id} className="section-item">
+												<div className="section-header">
+													<span className="section-label">{section.label}</span>
+													<span className="section-info">
+														({section.questions_quantity || 0} questions)
+													</span>
+												</div>
+												
+												{section.subsections && section.subsections.length > 0 && (
+													<div className="subsections-list">
+														{section.subsections.map(subsection => (
+															<div 
+																key={subsection.id} 
+																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''}`}
+																draggable="true"
+																onclick={() => dispatch('SELECT_SECTION', {
+																	sectionId: subsection.id,
+																	sectionLabel: subsection.label
+																})}
+															>
+																<span className="subsection-label">{subsection.label}</span>
+																<span className="subsection-info">
+																	({subsection.questions_quantity || 0} questions)
+																</span>
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+								) : (
+									<div className="no-sections">
+										No sections found for this assessment.
+									</div>
+								)}
+							</div>
+							
+							<div className="questions-panel">
+								<h3>
+									{state.selectedSectionLabel ? 
+										`Questions - ${state.selectedSectionLabel}` : 
+										'Questions & Problems'
+									}
+								</h3>
+								
+								{state.questionsLoading && (
+									<div className="questions-loading">
+										🔄 Loading questions...
+									</div>
+								)}
+								
+								{!state.selectedSection && !state.questionsLoading && (
+									<div className="questions-placeholder">
+										Select a section to view questions
+									</div>
+								)}
+								
+								{state.currentQuestions && state.currentQuestions.questions && !state.questionsLoading && (
+									<div className="questions-list">
+										{state.currentQuestions.questions
+											.filter(question => {
+												// In edit mode, show all questions
+												if (state.builderMode) return true;
+												// In preview mode, only show visible questions
+												return state.visibleQuestions.includes(question.ids.id) || 
+													   (!question.hidden && state.visibleQuestions.length === 0);
+											})
+											.map((question, qIndex) => {
+												const isEditable = state.builderMode && state.currentAssessment?.status === 'draft';
+											return (
+											<div 
+												key={question.ids.id} 
+												className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`} 
+												draggable={isEditable}
+												ondragstart={isEditable ? (e) => {
+													e.dataTransfer.setData('text/plain', JSON.stringify({
+														type: 'question',
+														questionId: question.ids.id,
+														sourceIndex: qIndex
+													}));
+													e.currentTarget.classList.add('dragging');
+												} : null}
+												ondragend={isEditable ? (e) => {
+													e.currentTarget.classList.remove('dragging');
+												} : null}
+												ondragover={isEditable ? (e) => {
+													e.preventDefault();
+													e.currentTarget.classList.add('drag-over');
+												} : null}
+												ondragleave={isEditable ? (e) => {
+													e.currentTarget.classList.remove('drag-over');
+												} : null}
+												ondrop={isEditable ? (e) => {
+													e.preventDefault();
+													e.currentTarget.classList.remove('drag-over');
+													
+													try {
+														const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+														if (dragData.type === 'question') {
+															dispatch('REORDER_QUESTIONS', {
+																sourceIndex: dragData.sourceIndex,
+																targetIndex: qIndex
+															});
+														}
+													} catch (error) {
+														console.error('Error handling question drop:', error);
+													}
+												} : null}
+											>
+												<div className="question-header">
+													{isEditable ? <div className="drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+													{isEditable ? (
+														<div className="question-edit-header">
+															<div className="question-number">{qIndex + 1}.</div>
+															<div className="question-main-edit">
+																<input 
+																	type="text" 
+																	className="question-label-input"
+																	value={question.label}
+																	placeholder="Enter question text..."
+																/>
+																<div className="tooltip-edit">
+																	<input 
+																		type="text" 
+																		className="tooltip-input"
+																		value={question.tooltip || ''}
+																		placeholder="Add helpful tooltip text..."
+																	/>
+																</div>
+															</div>
+															<div className="question-controls">
+																<label className="checkbox-control">
+																	<input 
+																		type="checkbox" 
+																		checked={question.required}
+																	/>
+																	Required
+																</label>
+																<select className="question-type-select" value={question.type}>
+																	<option value="Single Select">Single Select</option>
+																	<option value="Multiselect">Multiselect</option>
+																	<option value="Text">Text</option>
+																	<option value="Date">Date</option>
+																	<option value="Numeric">Numeric</option>
+																</select>
+																<button className="delete-question-btn" title="Delete Question">🗑️</button>
+															</div>
+														</div>
+													) : (
+														<div className="question-preview-header">
+															<h4 className="question-label">
+																{qIndex + 1}. {question.label}
+																{question.required && <span className="required-indicator">*</span>}
+																{question.tooltip && (
+																	<span className="tooltip-icon" title={question.tooltip}>ⓘ</span>
+																)}
+															</h4>
+															<div className="question-meta">
+																<span className="question-type">{question.type}</span>
+																{question.hidden && <span className="hidden-indicator">Hidden</span>}
+															</div>
+														</div>
+													)}
+												</div>
+												
+												<div className="question-body">
+													{/* Single Select Questions */}
+													{question.type === 'Single Select' && (
+														<div className="answer-options single-select">
+															{question.answers.map((answer, aIndex) => (
+																<div 
+																	key={answer.ids.id} 
+																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
+																	draggable={isEditable}
+																	ondragstart={isEditable ? (e) => {
+																		e.dataTransfer.setData('text/plain', JSON.stringify({
+																			type: 'answer',
+																			questionId: question.ids.id,
+																			answerId: answer.ids.id,
+																			sourceIndex: aIndex
+																		}));
+																		e.currentTarget.classList.add('dragging');
+																		e.stopPropagation(); // Prevent question drag
+																	} : null}
+																	ondragend={isEditable ? (e) => {
+																		e.currentTarget.classList.remove('dragging');
+																	} : null}
+																	ondragover={isEditable ? (e) => {
+																		e.preventDefault();
+																		e.stopPropagation();
+																		e.currentTarget.classList.add('drag-over');
+																	} : null}
+																	ondragleave={isEditable ? (e) => {
+																		e.currentTarget.classList.remove('drag-over');
+																	} : null}
+																	ondrop={isEditable ? (e) => {
+																		e.preventDefault();
+																		e.stopPropagation();
+																		e.currentTarget.classList.remove('drag-over');
+																		
+																		try {
+																			const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+																			if (dragData.type === 'answer' && dragData.questionId === question.ids.id) {
+																				dispatch('REORDER_ANSWERS', {
+																					questionId: question.ids.id,
+																					sourceIndex: dragData.sourceIndex,
+																					targetIndex: aIndex
+																				});
+																			}
+																		} catch (error) {
+																			console.error('Error handling answer drop:', error);
+																		}
+																	} : null}
+																>
+																	{isEditable ? <div className="answer-drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+																	{isEditable ? (
+																		<div className="answer-edit">
+																			<div className="answer-edit-header">
+																				<span className="answer-number">{aIndex + 1}.</span>
+																				<input 
+																					type="text"
+																					className="answer-label-input"
+																					value={answer.label}
+																					placeholder="Enter answer text..."
+																				/>
+																				<div className="answer-controls">
+																					<select className="secondary-input-select" value={answer.secondary_input_type || ''}>
+																						<option value="">No secondary input</option>
+																						<option value="text">Text input</option>
+																						<option value="date">Date input</option>
+																						<option value="numeric">Numeric input</option>
+																					</select>
+																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
+																				</div>
+																			</div>
+																			<div className="answer-tooltip-edit">
+																				<input 
+																					type="text"
+																					className="answer-tooltip-input"
+																					value={answer.tooltip || ''}
+																					placeholder="Add answer tooltip..."
+																				/>
+																			</div>
+																			{/* Show triggered questions indicator in edit mode */}
+																			{answer.triggered_questions && answer.triggered_questions.length > 0 && (
+																				<div className="triggered-questions-indicator">
+																					<span className="trigger-icon">🔗</span>
+																					<span className="trigger-text">
+																						Triggers {answer.triggered_questions.length} question{answer.triggered_questions.length !== 1 ? 's' : ''}
+																					</span>
+																					<div className="trigger-details">
+																						{answer.triggered_questions.map((triggeredId, triggerIndex) => {
+																							// Find the triggered question to show its label
+																							const triggeredQuestion = state.currentQuestions?.questions?.find(q => q.ids.id === triggeredId);
+																							return (
+																								<span key={triggerIndex} className="triggered-question-label">
+																									→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
+																								</span>
+																							);
+																						})}
+																					</div>
+																				</div>
+																			)}
+																			
+																			{/* Relationship viewer/loader */}
+																			{isEditable && (
+																				<div className="answer-relationships">
+																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
+																						<button 
+																							className="load-relationships-btn"
+																							onclick={() => {
+																								dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																									answerId: answer.ids.id
+																								});
+																							}}
+																						>
+																							🔍 View Relationships
+																						</button>
+																					) : state.relationshipsLoading[answer.ids.id] ? (
+																						<div className="relationships-loading">
+																							⏳ Loading relationships...
+																						</div>
+																					) : state.answerRelationships[answer.ids.id] ? (
+																						<div className="relationships-display">
+																							<div className="relationships-header">
+																								🔍 <strong>Relationships for "{answer.label}"</strong>
+																							</div>
+																							<div className="relationships-content">
+																								{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
+																												<span key={qIndex} className="relationship-item">
+																													→ {question.label}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
+																												<span key={pIndex} className="relationship-item">
+																													→ {problem.label || problem.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
+																												<span key={bIndex} className="relationship-item">
+																													→ {barrier.label || barrier.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
+																												<span key={gIndex} className="relationship-item">
+																													→ {guideline.label || guideline.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{/* Show message if no relationships */}
+																								{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
+																								  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
+																								  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
+																								  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
+																									<div className="no-relationships">
+																										No relationships found for this answer.
+																									</div>
+																								)}
+																							</div>
+																						</div>
+																					) : null}
+																				</div>
+																			)}
+																		</div>
+																	) : (
+																		<label className="answer-label">
+																			<input 
+																				type="radio" 
+																				name={`question-${question.ids.id}`}
+																				value={answer.ids.id}
+																				checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
+																				onchange={(event) => {
+																					if (event.target.checked) {
+																						// Handle mutually exclusive logic first
+																						if (answer.mutually_exclusive) {
+																							dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
+																								questionId: question.ids.id,
+																								answerId: answer.ids.id
+																							});
+																						} else {
+																							dispatch('SELECT_ANSWER', {
+																								questionId: question.ids.id,
+																								answerId: answer.ids.id,
+																								questionType: question.type
+																							});
+																						}
+																					}
+																				}}
+																			/>
+																			<span className="answer-text">
+																				{answer.label}
+																				{answer.secondary_input_type && (
+																					<span className="secondary-indicator">📝</span>
+																				)}
+																				{answer.tooltip && (
+																					<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
+																				)}
+																			</span>
+																			{/* Show secondary input if this answer is selected */}
+																			{!state.builderMode && state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) && answer.secondary_input_type && (
+																				<div className="secondary-input">
+																					{answer.secondary_input_type === 'text' && (
+																						<input type="text" placeholder="Please specify..." className="secondary-text-input" />
+																					)}
+																					{answer.secondary_input_type === 'date' && (
+																						<input type="date" className="secondary-date-input" />
+																					)}
+																					{answer.secondary_input_type === 'numeric' && (
+																						<input type="number" placeholder="Enter number..." className="secondary-numeric-input" />
+																					)}
+																				</div>
+																			)}
+																		</label>
+																	)}
+																</div>
+															))}
+															{isEditable ? <button className="add-answer-btn">+ Add Answer</button> : null}
+														</div>
+													)}
+													
+													{/* Multiselect Questions */}
+													{question.type === 'Multiselect' && (
+														<div className="answer-options multiselect">
+															{question.answers.map((answer, aIndex) => (
+																<div 
+																	key={answer.ids.id} 
+																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
+																	draggable={isEditable}
+																	ondragstart={isEditable ? (e) => {
+																		e.dataTransfer.setData('text/plain', JSON.stringify({
+																			type: 'answer',
+																			questionId: question.ids.id,
+																			answerId: answer.ids.id,
+																			sourceIndex: aIndex
+																		}));
+																		e.currentTarget.classList.add('dragging');
+																		e.stopPropagation(); // Prevent question drag
+																	} : null}
+																	ondragend={isEditable ? (e) => {
+																		e.currentTarget.classList.remove('dragging');
+																	} : null}
+																	ondragover={isEditable ? (e) => {
+																		e.preventDefault();
+																		e.stopPropagation();
+																		e.currentTarget.classList.add('drag-over');
+																	} : null}
+																	ondragleave={isEditable ? (e) => {
+																		e.currentTarget.classList.remove('drag-over');
+																	} : null}
+																	ondrop={isEditable ? (e) => {
+																		e.preventDefault();
+																		e.stopPropagation();
+																		e.currentTarget.classList.remove('drag-over');
+																		
+																		try {
+																			const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+																			if (dragData.type === 'answer' && dragData.questionId === question.ids.id) {
+																				dispatch('REORDER_ANSWERS', {
+																					questionId: question.ids.id,
+																					sourceIndex: dragData.sourceIndex,
+																					targetIndex: aIndex
+																				});
+																			}
+																		} catch (error) {
+																			console.error('Error handling answer drop:', error);
+																		}
+																	} : null}
+																>
+																	{isEditable ? <div className="answer-drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+																	{isEditable ? (
+																		<div className="answer-edit">
+																			<div className="answer-edit-header">
+																				<span className="answer-number">{aIndex + 1}.</span>
+																				<input 
+																					type="text"
+																					className="answer-label-input"
+																					value={answer.label}
+																					placeholder="Enter answer text..."
+																				/>
+																				<div className="answer-controls">
+																					<label className="checkbox-control">
+																						<input 
+																							type="checkbox" 
+																							checked={answer.mutually_exclusive}
+																						/>
+																						Exclusive
+																					</label>
+																					<select className="secondary-input-select" value={answer.secondary_input_type || ''}>
+																						<option value="">No secondary input</option>
+																						<option value="text">Text input</option>
+																						<option value="date">Date input</option>
+																						<option value="numeric">Numeric input</option>
+																					</select>
+																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
+																				</div>
+																			</div>
+																			<div className="answer-tooltip-edit">
+																				<input 
+																					type="text"
+																					className="answer-tooltip-input"
+																					value={answer.tooltip || ''}
+																					placeholder="Add answer tooltip..."
+																				/>
+																			</div>
+																			{/* Show triggered questions indicator in edit mode */}
+																			{answer.triggered_questions && answer.triggered_questions.length > 0 && (
+																				<div className="triggered-questions-indicator">
+																					<span className="trigger-icon">🔗</span>
+																					<span className="trigger-text">
+																						Triggers {answer.triggered_questions.length} question{answer.triggered_questions.length !== 1 ? 's' : ''}
+																					</span>
+																					<div className="trigger-details">
+																						{answer.triggered_questions.map((triggeredId, triggerIndex) => {
+																							// Find the triggered question to show its label
+																							const triggeredQuestion = state.currentQuestions?.questions?.find(q => q.ids.id === triggeredId);
+																							return (
+																								<span key={triggerIndex} className="triggered-question-label">
+																									→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
+																								</span>
+																							);
+																						})}
+																					</div>
+																				</div>
+																			)}
+																			
+																			{/* Relationship viewer/loader */}
+																			{isEditable && (
+																				<div className="answer-relationships">
+																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
+																						<button 
+																							className="load-relationships-btn"
+																							onclick={() => {
+																								dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																									answerId: answer.ids.id
+																								});
+																							}}
+																						>
+																							🔍 View Relationships
+																						</button>
+																					) : state.relationshipsLoading[answer.ids.id] ? (
+																						<div className="relationships-loading">
+																							⏳ Loading relationships...
+																						</div>
+																					) : state.answerRelationships[answer.ids.id] ? (
+																						<div className="relationships-display">
+																							<div className="relationships-header">
+																								🔍 <strong>Relationships for "{answer.label}"</strong>
+																							</div>
+																							<div className="relationships-content">
+																								{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
+																												<span key={qIndex} className="relationship-item">
+																													→ {question.label}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
+																												<span key={pIndex} className="relationship-item">
+																													→ {problem.label || problem.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
+																												<span key={bIndex} className="relationship-item">
+																													→ {barrier.label || barrier.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
+																									<div className="relationship-section">
+																										<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
+																										<div className="relationship-items">
+																											{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
+																												<span key={gIndex} className="relationship-item">
+																													→ {guideline.label || guideline.name}
+																												</span>
+																											))}
+																										</div>
+																									</div>
+																								)}
+																								{/* Show message if no relationships */}
+																								{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
+																								  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
+																								  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
+																								  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
+																									<div className="no-relationships">
+																										No relationships found for this answer.
+																									</div>
+																								)}
+																							</div>
+																						</div>
+																					) : null}
+																				</div>
+																			)}
+																		</div>
+																	) : (
+																		<label className="answer-label">
+																			<input 
+																				type="checkbox"
+																				name={`question-${question.ids.id}`}
+																				value={answer.ids.id}
+																				checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
+																				onchange={(event) => {
+																					// Handle mutually exclusive logic first
+																					if (answer.mutually_exclusive && event.target.checked) {
+																						dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
+																							questionId: question.ids.id,
+																							answerId: answer.ids.id
+																						});
+																					} else {
+																						dispatch('SELECT_ANSWER', {
+																							questionId: question.ids.id,
+																							answerId: answer.ids.id,
+																							questionType: question.type
+																						});
+																					}
+																				}}
+																			/>
+																			<span className="answer-text">
+																				{answer.label}
+																				{answer.secondary_input_type && (
+																					<span className="secondary-indicator">📝</span>
+																				)}
+																				{answer.tooltip && (
+																					<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
+																				)}
+																			</span>
+																			{/* Show secondary input if this answer is selected */}
+																			{!state.builderMode && state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) && answer.secondary_input_type && (
+																				<div className="secondary-input">
+																					{answer.secondary_input_type === 'text' && (
+																						<input type="text" placeholder="Please specify..." className="secondary-text-input" />
+																					)}
+																					{answer.secondary_input_type === 'date' && (
+																						<input type="date" className="secondary-date-input" />
+																					)}
+																					{answer.secondary_input_type === 'numeric' && (
+																						<input type="number" placeholder="Enter number..." className="secondary-numeric-input" />
+																					)}
+																				</div>
+																			)}
+																		</label>
+																	)}
+																</div>
+															))}
+															{isEditable ? <button className="add-answer-btn">+ Add Answer</button> : null}
+														</div>
+													)}
+													
+													{/* Text Questions */}
+													{question.type === 'Text' && (
+														<div className="text-input-container">
+															<input 
+																type="text" 
+																className="text-input"
+																placeholder="Enter your answer..."
+															/>
+														</div>
+													)}
+													
+													{/* Date Questions */}
+													{question.type === 'Date' && (
+														<div className="date-input-container">
+															<input 
+																type="date" 
+																className="date-input"
+															/>
+														</div>
+													)}
+													
+													{/* Numeric Questions */}
+													{question.type === 'Numeric' && (
+														<div className="numeric-input-container">
+															<input 
+																type="number" 
+																className="numeric-input"
+																placeholder="Enter number..."
+															/>
+														</div>
+													)}
+												</div>
+											</div>
+											);
+										})}
+										
+										{/* Add Question Button - only show in edit mode for draft assessments */}
+										{state.builderMode && state.currentAssessment?.status === 'draft' && (
+											<button 
+												className="add-question-btn"
+												onclick={() => dispatch('ADD_QUESTION', {
+													sectionId: state.selectedSection
+												})}
+											>
+												+ Add Question
+											</button>
+										)}
+									</div>
+								)}
+								
+								{state.selectedSection && state.currentQuestions && state.currentQuestions.questions && state.currentQuestions.questions.length === 0 && !state.questionsLoading && (
+									<div className="no-questions">
+										No questions found in this section.
+									</div>
+								)}
+							</div>
+						</div>
+					)}
 				</div>
 			)}
 			
-			<p>You might want to read the <a href="https://developer.servicenow.com/dev.do#!/reference/next-experience/latest/ui-framework/getting-started/introduction">documentation</a> on the ServiceNow developer site.</p>
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
 	);
@@ -51,11 +1148,45 @@ createCustomElement('cadal-careiq-builder', {
 	view,
 	styles,
 	initialState: {
-		loading: false,
+		loading: true,
 		error: null,
 		careiqConfig: null,
 		configLoadAttempted: false,
-		accessToken: null
+		accessToken: null,
+		useCaseCategories: null,
+		categoriesLoading: false,
+		assessments: null,
+		assessmentsLoading: false,
+		assessmentsPagination: {
+			total: 0,
+			apiOffset: 0,
+			apiLimit: 200,
+			displayPage: 0,
+			displayPageSize: 10,
+			totalPages: 0
+		},
+		searchTerm: '',
+		filteredAssessments: null,
+		expandedAssessments: {},
+		assessmentVersions: {},
+		currentRequest: null,
+		// Assessment Builder state
+		builderView: false,
+		currentAssessment: null,
+		assessmentDetailsLoading: false,
+		selectedSection: null,
+		selectedSectionLabel: null,
+		currentQuestions: null,
+		questionsLoading: false,
+		builderMode: true, // true = edit mode, false = preview mode
+		// Answer selection state for preview mode
+		selectedAnswers: {}, // Format: { questionId: [answerId1, answerId2, ...] }
+		visibleQuestions: [], // Questions that should be shown based on answer relationships
+		// Answer relationships state
+		answerRelationships: {}, // Format: { answerId: { problems: [], barriers: [], guidelines: [], questions: [] } }
+		relationshipsLoading: {},
+		// UI state
+		systemMessagesCollapsed: false
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -107,9 +1238,8 @@ createCustomElement('cadal-careiq-builder', {
 					error: `Missing system properties: ${missing.map(p => 'x_1628056_careiq.careiq.platform.' + p).join(', ')}`
 				});
 			} else {
-				console.log('Setting loading to false - success');
+				console.log('Config loaded - keeping loading state until token exchange completes');
 				updateState({
-					loading: false,
 					error: null,
 					careiqConfig: props
 				});
@@ -148,6 +1278,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			const requestBody = JSON.stringify({
+				app: config.app,
 				region: config.region,
 				version: config.version,
 				apikey: config.apikey,
@@ -172,13 +1303,31 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'TOKEN_EXCHANGE_SUCCESS': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, dispatch, state} = coeffects;
 			console.log('Token Exchange Success - Full Response:', action.payload);
 			// Use either access_token (real) or mock_access_token (debug)
 			const token = action.payload.access_token || action.payload.mock_access_token;
 			console.log('Access Token:', token);
 			updateState({
+				loading: false,
 				accessToken: token
+			});
+			
+			// Automatically fetch use case categories after token success
+			console.log('About to dispatch FETCH_USE_CASE_CATEGORIES with config and token');
+			dispatch('FETCH_USE_CASE_CATEGORIES', {
+				config: state.careiqConfig,
+				accessToken: token
+			});
+			
+			// Automatically fetch assessments after token success
+			console.log('About to dispatch FETCH_ASSESSMENTS with config and token');
+			dispatch('FETCH_ASSESSMENTS', {
+				config: state.careiqConfig,
+				accessToken: token,
+				offset: 0,
+				limit: 200,
+				latestVersionOnly: true
 			});
 		},
 
@@ -189,7 +1338,884 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				error: 'Failed to exchange token: ' + (action.payload?.message || 'Unknown error')
 			});
-		}
+		},
+
+		'FETCH_USE_CASE_CATEGORIES': (coeffects) => {
+			const {action, dispatch, updateState} = coeffects;
+			const {config, accessToken} = action.payload;
+			
+			console.log('FETCH_USE_CASE_CATEGORIES handler called');
+			
+			updateState({categoriesLoading: true});
+			
+			const requestBody = JSON.stringify({
+				app: config.app,
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				useCase: 'CM'
+			});
+			
+			console.log('Use Case Categories request body:', requestBody);
+			
+			dispatch('MAKE_USE_CASE_CATEGORIES_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_USE_CASE_CATEGORIES_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/use-case-categories', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			startActionType: 'USE_CASE_CATEGORIES_FETCH_START',
+			successActionType: 'USE_CASE_CATEGORIES_SUCCESS',
+			errorActionType: 'USE_CASE_CATEGORIES_ERROR'
+		}),
+
+		'USE_CASE_CATEGORIES_FETCH_START': (coeffects) => {
+			const {updateState} = coeffects;
+			console.log('USE_CASE_CATEGORIES_FETCH_START - HTTP request started');
+			updateState({categoriesLoading: true});
+		},
+
+		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.log('USE_CASE_CATEGORIES_SUCCESS - Full Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+			console.log('Response keys:', Object.keys(action.payload || {}));
+			
+			// Check if response has use_case_categories
+			const categories = action.payload?.use_case_categories;
+			console.log('Categories found:', categories);
+			console.log('Categories type:', typeof categories);
+			console.log('Categories length:', Array.isArray(categories) ? categories.length : 'not array');
+			
+			updateState({
+				useCaseCategories: categories || [],
+				categoriesLoading: false
+			});
+		},
+
+		'USE_CASE_CATEGORIES_ERROR': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.error('USE_CASE_CATEGORIES_ERROR - Full Response:', action.payload);
+			console.error('Error type:', typeof action.payload);
+			console.error('Error keys:', Object.keys(action.payload || {}));
+			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
+			
+			const errorMessage = action.payload?.message || 
+							   action.payload?.error || 
+							   action.payload?.statusText || 
+							   'Unknown error';
+			
+			updateState({
+				error: 'Failed to fetch use case categories: ' + errorMessage,
+				categoriesLoading: false
+			});
+		},
+
+		'FETCH_ASSESSMENTS': (coeffects) => {
+			const {action, dispatch, updateState} = coeffects;
+			const {config, accessToken, offset, limit, latestVersionOnly, searchValue} = action.payload;
+			
+			console.log('FETCH_ASSESSMENTS handler called');
+			
+			updateState({assessmentsLoading: true});
+			
+			const requestBody = JSON.stringify({
+				app: config.app,
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				useCase: 'CM',
+				offset: offset,
+				limit: limit,
+				contentSource: 'Organization',
+				latestVersionOnly: latestVersionOnly,
+				searchValue: searchValue
+			});
+			
+			console.log('Assessments request body:', requestBody);
+			
+			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_ASSESSMENTS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-templates', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			startActionType: 'ASSESSMENTS_FETCH_START',
+			successActionType: 'ASSESSMENTS_SUCCESS',
+			errorActionType: 'ASSESSMENTS_ERROR'
+		}),
+
+		'ASSESSMENTS_FETCH_START': (coeffects) => {
+			const {updateState} = coeffects;
+			console.log('ASSESSMENTS_FETCH_START - HTTP request started');
+			updateState({assessmentsLoading: true});
+		},
+
+		'ASSESSMENTS_SUCCESS': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			console.log('ASSESSMENTS_SUCCESS - Full Response:', action.payload);
+			
+			const assessments = action.payload?.results || [];
+			const total = action.payload?.total || 0;
+			const offset = action.payload?.offset || 0;
+			const limit = action.payload?.limit || 10;
+			
+			console.log('Assessments found:', assessments.length);
+			console.log('Total assessments:', total);
+			
+			// Check if this is a version fetch request
+			const isVersionFetch = state.currentRequest?.isVersionFetch;
+			const targetAssessmentId = state.currentRequest?.targetAssessmentId;
+			
+			if (isVersionFetch && targetAssessmentId) {
+				// This is a version fetch - cache the versions and expand
+				const newVersions = {...state.assessmentVersions};
+				newVersions[targetAssessmentId] = assessments;
+				
+				const newExpandedState = {...state.expandedAssessments};
+				newExpandedState[targetAssessmentId] = true;
+				
+				updateState({
+					assessmentVersions: newVersions,
+					expandedAssessments: newExpandedState,
+					assessmentsLoading: false,
+					currentRequest: null
+				});
+			} else {
+				// Normal assessment fetch - sort alphabetically by title
+				const sortedAssessments = assessments.sort((a, b) => {
+					const titleA = a.title.toLowerCase();
+					const titleB = b.title.toLowerCase();
+					return titleA.localeCompare(titleB);
+				});
+				
+				updateState({
+					assessments: sortedAssessments,
+					assessmentsLoading: false,
+					filteredAssessments: sortedAssessments,
+					assessmentsPagination: {
+						...state.assessmentsPagination,
+						total: total,
+						apiOffset: offset,
+						apiLimit: limit,
+						displayPage: 0,
+						totalPages: Math.ceil(sortedAssessments.length / state.assessmentsPagination.displayPageSize)
+					}
+				});
+			}
+		},
+
+		'ASSESSMENTS_ERROR': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.error('ASSESSMENTS_ERROR - Full Response:', action.payload);
+			
+			const errorMessage = action.payload?.message || 
+							   action.payload?.error || 
+							   action.payload?.statusText || 
+							   'Unknown error';
+			
+			updateState({
+				error: 'Failed to fetch assessments: ' + errorMessage,
+				assessmentsLoading: false
+			});
+		},
+
+		'CREATE_NEW_ASSESSMENT': (coeffects) => {
+			console.log('Create new assessment clicked');
+			// TODO: Implement new assessment creation
+		},
+
+		'GOTO_NEXT_PAGE': (coeffects) => {
+			const {state, updateState} = coeffects;
+			const dataToShow = state.filteredAssessments || state.assessments;
+			const totalPages = Math.ceil(dataToShow.length / state.assessmentsPagination.displayPageSize);
+			const newPage = Math.min(state.assessmentsPagination.displayPage + 1, totalPages - 1);
+			
+			console.log('Going to next page:', newPage);
+			
+			updateState({
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: newPage
+				}
+			});
+		},
+
+		'GOTO_PREVIOUS_PAGE': (coeffects) => {
+			const {state, updateState} = coeffects;
+			const newPage = Math.max(0, state.assessmentsPagination.displayPage - 1);
+			
+			console.log('Going to previous page:', newPage);
+			
+			updateState({
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: newPage
+				}
+			});
+		},
+
+		'GOTO_FIRST_PAGE': (coeffects) => {
+			const {state, updateState} = coeffects;
+			
+			console.log('Going to first page');
+			
+			updateState({
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: 0
+				}
+			});
+		},
+
+		'GOTO_LAST_PAGE': (coeffects) => {
+			const {state, updateState} = coeffects;
+			const dataToShow = state.filteredAssessments || state.assessments;
+			const totalPages = Math.ceil(dataToShow.length / state.assessmentsPagination.displayPageSize);
+			const lastPage = Math.max(0, totalPages - 1);
+			
+			console.log('Going to last page:', lastPage);
+			
+			updateState({
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: lastPage
+				}
+			});
+		},
+
+		'CHANGE_PAGE_SIZE': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {pageSize} = action.payload;
+			
+			console.log('Changing page size to:', pageSize);
+			
+			// Update the page size and reset to first page
+			updateState({
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPageSize: pageSize,
+					displayPage: 0
+				}
+			});
+		},
+
+		'EXPAND_ASSESSMENT_VERSIONS': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+			
+			console.log('Expanding versions for assessment:', assessmentTitle);
+			
+			// Extract base title (remove version suffix)
+			const baseTitle = assessmentTitle.replace(/ - v\d+(\.\d+)?$/, '');
+			
+			// Check if we already have the versions cached
+			if (state.assessmentVersions[assessmentId]) {
+				// Toggle expansion state
+				const newExpandedState = {...state.expandedAssessments};
+				newExpandedState[assessmentId] = !newExpandedState[assessmentId];
+				
+				updateState({
+					expandedAssessments: newExpandedState
+				});
+			} else {
+				// Fetch all versions using search_value
+				updateState({
+					assessmentsLoading: true
+				});
+				
+				dispatch('FETCH_ASSESSMENT_VERSIONS', {
+					assessmentId: assessmentId,
+					baseTitle: baseTitle
+				});
+			}
+		},
+
+		'FETCH_ASSESSMENT_VERSIONS': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {assessmentId, baseTitle} = action.payload;
+			
+			console.log('Fetching all versions for:', baseTitle);
+			
+			// Set current request info
+			updateState({
+				currentRequest: {
+					isVersionFetch: true,
+					targetAssessmentId: assessmentId
+				}
+			});
+			
+			dispatch('FETCH_ASSESSMENTS', {
+				config: state.careiqConfig,
+				accessToken: state.accessToken,
+				offset: 0,
+				limit: 200,
+				latestVersionOnly: false,
+				searchValue: baseTitle
+			});
+		},
+
+		'SEARCH_ASSESSMENTS': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {searchTerm} = action.payload;
+			
+			if (!state.assessments) return;
+			
+			const filtered = searchTerm.trim() === '' ? state.assessments : 
+				state.assessments.filter(assessment => 
+					assessment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+					assessment.policy_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+					assessment.use_case_category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+					assessment.usage.toLowerCase().includes(searchTerm.toLowerCase())
+				);
+			
+			updateState({
+				filteredAssessments: filtered,
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: 0
+				}
+			});
+		},
+
+		'OPEN_ASSESSMENT_BUILDER': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+			
+			console.log('Opening assessment builder for:', assessmentTitle, 'ID:', assessmentId);
+			
+			// Switch to builder view and start loading assessment details
+			updateState({
+				builderView: true,
+				assessmentDetailsLoading: true,
+				currentAssessment: null,
+				selectedSection: null
+			});
+			
+			// Fetch full assessment details
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: assessmentId,
+				assessmentTitle: assessmentTitle
+			});
+		},
+
+		'FETCH_ASSESSMENT_DETAILS': (coeffects) => {
+			const {action, state, dispatch} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+			
+			console.log('Fetching assessment details for:', assessmentTitle);
+			
+			const requestBody = JSON.stringify({
+				app: state.careiqConfig.app,
+				region: state.careiqConfig.region,
+				version: state.careiqConfig.version,
+				accessToken: state.accessToken,
+				assessmentId: assessmentId
+			});
+			
+			console.log('Assessment details request body:', requestBody);
+			
+			dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_ASSESSMENT_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-sections', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			startActionType: 'ASSESSMENT_DETAILS_FETCH_START',
+			successActionType: 'ASSESSMENT_DETAILS_SUCCESS',
+			errorActionType: 'ASSESSMENT_DETAILS_ERROR'
+		}),
+
+		'ASSESSMENT_DETAILS_FETCH_START': (coeffects) => {
+			const {updateState} = coeffects;
+			console.log('ASSESSMENT_DETAILS_FETCH_START - HTTP request started');
+			updateState({assessmentDetailsLoading: true});
+		},
+
+		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
+			const {action, updateState, dispatch} = coeffects;
+			console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
+			
+			updateState({
+				currentAssessment: action.payload,
+				assessmentDetailsLoading: false
+			});
+			
+			// Auto-select first section for immediate editing
+			const firstSection = action.payload?.sections?.[0];
+			const firstSubsection = firstSection?.subsections?.[0];
+			
+			if (firstSubsection) {
+				console.log('Auto-selecting first section:', firstSubsection.label);
+				dispatch('SELECT_SECTION', {
+					sectionId: firstSubsection.id,
+					sectionLabel: firstSubsection.label
+				});
+			}
+		},
+
+		'ASSESSMENT_DETAILS_ERROR': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.error('ASSESSMENT_DETAILS_ERROR - Full Response:', action.payload);
+			
+			const errorMessage = action.payload?.message || 
+							   action.payload?.error || 
+							   action.payload?.statusText || 
+							   'Unknown error';
+			
+			updateState({
+				error: 'Failed to fetch assessment details: ' + errorMessage,
+				assessmentDetailsLoading: false
+			});
+		},
+
+		'CLOSE_ASSESSMENT_BUILDER': (coeffects) => {
+			const {updateState} = coeffects;
+			console.log('Closing assessment builder');
+			
+			updateState({
+				builderView: false,
+				currentAssessment: null,
+				assessmentDetailsLoading: false,
+				selectedSection: null,
+				selectedSectionLabel: null,
+				currentQuestions: null,
+				questionsLoading: false
+			});
+		},
+
+		'SELECT_SECTION': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			
+			console.log('Selecting section:', sectionLabel, 'ID:', sectionId);
+			
+			// Update selected section and start loading questions
+			updateState({
+				selectedSection: sectionId,
+				selectedSectionLabel: sectionLabel,
+				questionsLoading: true,
+				currentQuestions: null
+			});
+			
+			// Fetch questions for the selected section
+			dispatch('FETCH_SECTION_QUESTIONS', {
+				sectionId: sectionId,
+				sectionLabel: sectionLabel
+			});
+		},
+
+		'FETCH_SECTION_QUESTIONS': (coeffects) => {
+			const {action, state, dispatch} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			
+			console.log('Fetching questions for section:', sectionLabel);
+			
+			const requestBody = JSON.stringify({
+				app: state.careiqConfig.app,
+				region: state.careiqConfig.region,
+				version: state.careiqConfig.version,
+				accessToken: state.accessToken,
+				sectionId: sectionId
+			});
+			
+			console.log('Section questions request body:', requestBody);
+			
+			dispatch('MAKE_SECTION_QUESTIONS_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_SECTION_QUESTIONS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-section-questions', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			startActionType: 'SECTION_QUESTIONS_FETCH_START',
+			successActionType: 'SECTION_QUESTIONS_SUCCESS',
+			errorActionType: 'SECTION_QUESTIONS_ERROR'
+		}),
+
+		'SECTION_QUESTIONS_FETCH_START': (coeffects) => {
+			const {updateState} = coeffects;
+			console.log('SECTION_QUESTIONS_FETCH_START - HTTP request started');
+			updateState({questionsLoading: true});
+		},
+
+		'SECTION_QUESTIONS_SUCCESS': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.log('SECTION_QUESTIONS_SUCCESS - Full Response:', action.payload);
+			
+			// Sort questions by sort_order
+			const questions = action.payload?.questions || [];
+			const sortedQuestions = questions.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+			
+			// Sort answers within each question by sort_order
+			const questionsWithSortedAnswers = sortedQuestions.map(question => ({
+				...question,
+				answers: question.answers ? question.answers.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : []
+			}));
+			
+			// Debug: log the questions structure to understand triggered_questions format
+			console.log('Questions loaded with structure:', questionsWithSortedAnswers);
+			questionsWithSortedAnswers.forEach((question, qIndex) => {
+				console.log(`Question ${qIndex + 1} (${question.ids?.id}):`, question.label, 'Hidden:', question.hidden);
+				question.answers?.forEach((answer, aIndex) => {
+					if (answer.triggered_questions && answer.triggered_questions.length > 0) {
+						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Triggers:', answer.triggered_questions);
+					}
+				});
+			});
+			
+			// Initialize visible questions for preview mode (no relationships loaded yet)
+			const initialVisibleQuestions = calculateVisibleQuestions({}, questionsWithSortedAnswers, {});
+			console.log('Initial visible questions:', initialVisibleQuestions);
+			
+			updateState({
+				currentQuestions: {
+					...action.payload,
+					questions: questionsWithSortedAnswers
+				},
+				questionsLoading: false,
+				visibleQuestions: initialVisibleQuestions
+			});
+		},
+
+		'SECTION_QUESTIONS_ERROR': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.error('SECTION_QUESTIONS_ERROR - Full Response:', action.payload);
+			
+			const errorMessage = action.payload?.message || 
+							   action.payload?.error || 
+							   action.payload?.statusText || 
+							   'Unknown error';
+			
+			updateState({
+				error: 'Failed to fetch section questions: ' + errorMessage,
+				questionsLoading: false
+			});
+		},
+
+		'TOGGLE_BUILDER_MODE': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {mode} = action.payload;
+			
+			console.log('Toggling builder mode to:', mode ? 'Edit' : 'Preview');
+			
+			updateState({
+				builderMode: mode,
+				// Reset answer selections when switching to preview mode
+				selectedAnswers: mode ? {} : {},
+				visibleQuestions: mode ? [] : []
+			});
+		},
+
+		'SELECT_ANSWER': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId, answerId, questionType} = action.payload;
+			
+			console.log('Selecting answer:', {questionId, answerId, questionType});
+			
+			let newSelectedAnswers = {...state.selectedAnswers};
+			
+			// Handle different question types
+			if (questionType === 'Single Select') {
+				// Single select: replace any existing selection
+				newSelectedAnswers[questionId] = [answerId];
+			} else if (questionType === 'Multiselect') {
+				// Multiselect: add to existing selections or toggle off
+				if (!newSelectedAnswers[questionId]) {
+					newSelectedAnswers[questionId] = [];
+				}
+				const currentSelections = newSelectedAnswers[questionId];
+				const answerIndex = currentSelections.indexOf(answerId);
+				
+				if (answerIndex > -1) {
+					// Answer already selected, remove it
+					newSelectedAnswers[questionId] = currentSelections.filter(id => id !== answerId);
+				} else {
+					// Answer not selected, add it
+					newSelectedAnswers[questionId] = [...currentSelections, answerId];
+				}
+			}
+			
+			// Check if we need to load relationships for this answer to get triggered questions
+			const answerWasSelected = (questionType === 'Single Select') || 
+									  (questionType === 'Multiselect' && newSelectedAnswers[questionId].includes(answerId));
+			
+			console.log('Answer selection check:', {
+				answerWasSelected,
+				answerId,
+				hasRelationships: !!state.answerRelationships[answerId],
+				isLoading: !!state.relationshipsLoading[answerId],
+				currentRelationships: state.answerRelationships,
+				currentLoadingStates: state.relationshipsLoading
+			});
+			
+			if (answerWasSelected && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
+				console.log('Auto-loading relationships for selected answer:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
+			
+			// Calculate visible questions based on answer relationships
+			const visibleQuestions = calculateVisibleQuestions(newSelectedAnswers, state.currentQuestions?.questions || [], state.answerRelationships);
+			
+			updateState({
+				selectedAnswers: newSelectedAnswers,
+				visibleQuestions: visibleQuestions
+			});
+		},
+
+		'HANDLE_MUTUALLY_EXCLUSIVE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, answerId} = action.payload;
+			
+			console.log('Handling mutually exclusive answer:', {questionId, answerId});
+			
+			// Find the answer to check if it's mutually exclusive
+			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+			const answer = question?.answers?.find(a => a.ids.id === answerId);
+			
+			if (answer?.mutually_exclusive) {
+				// Clear all other selections for this question
+				let newSelectedAnswers = {...state.selectedAnswers};
+				newSelectedAnswers[questionId] = [answerId];
+				
+				const visibleQuestions = calculateVisibleQuestions(newSelectedAnswers, state.currentQuestions?.questions || [], state.answerRelationships);
+				
+				updateState({
+					selectedAnswers: newSelectedAnswers,
+					visibleQuestions: visibleQuestions
+				});
+			}
+		},
+
+		'REORDER_QUESTIONS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sourceIndex, targetIndex} = action.payload;
+			
+			console.log('Reordering questions:', {sourceIndex, targetIndex});
+			
+			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
+				return;
+			}
+			
+			const questions = [...state.currentQuestions.questions];
+			const [movedQuestion] = questions.splice(sourceIndex, 1);
+			questions.splice(targetIndex, 0, movedQuestion);
+			
+			// Update sort_order for all questions
+			const updatedQuestions = questions.map((question, index) => ({
+				...question,
+				sort_order: index + 1
+			}));
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				}
+			});
+		},
+
+		'REORDER_ANSWERS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, sourceIndex, targetIndex} = action.payload;
+			
+			console.log('Reordering answers:', {questionId, sourceIndex, targetIndex});
+			
+			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
+				return;
+			}
+			
+			const questions = [...state.currentQuestions.questions];
+			const questionIndex = questions.findIndex(q => q.ids.id === questionId);
+			
+			if (questionIndex === -1 || !questions[questionIndex].answers) {
+				return;
+			}
+			
+			const answers = [...questions[questionIndex].answers];
+			const [movedAnswer] = answers.splice(sourceIndex, 1);
+			answers.splice(targetIndex, 0, movedAnswer);
+			
+			// Update sort_order for all answers
+			const updatedAnswers = answers.map((answer, index) => ({
+				...answer,
+				sort_order: index + 1
+			}));
+			
+			questions[questionIndex] = {
+				...questions[questionIndex],
+				answers: updatedAnswers
+			};
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: questions
+				}
+			});
+		},
+
+		'ADD_QUESTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId} = action.payload;
+			
+			console.log('Adding new question to section:', sectionId);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			// Generate a temporary UUID for the new question
+			const newQuestionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+			const nextSortOrder = state.currentQuestions.questions.length + 1;
+			
+			const newQuestion = {
+				ids: { id: newQuestionId },
+				label: 'New Question',
+				type: 'Single Select',
+				required: false,
+				hidden: false,
+				tooltip: '',
+				sort_order: nextSortOrder,
+				answers: [
+					{
+						ids: { id: 'temp_answer_' + Date.now() + '_1' },
+						label: 'Option 1',
+						sort_order: 1,
+						secondary_input_type: null,
+						mutually_exclusive: false,
+						tooltip: '',
+						triggered_questions: []
+					}
+				]
+			};
+			
+			const updatedQuestions = [...state.currentQuestions.questions, newQuestion];
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				}
+			});
+		},
+
+		'LOAD_ANSWER_RELATIONSHIPS': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {answerId} = action.payload;
+			
+			console.log('=== LOAD_ANSWER_RELATIONSHIPS ACTION TRIGGERED ===');
+			console.log('Loading answer relationships for answerId:', answerId);
+			console.log('Current access token:', state.accessToken);
+			console.log('Current careiq config:', state.careiqConfig);
+			
+			// Set loading state for this answer
+			updateState({
+				relationshipsLoading: {
+					...state.relationshipsLoading,
+					[answerId]: true
+				}
+			});
+			
+			// Build request body for CareIQ API call
+			const requestBody = {
+				region: state.careiqConfig?.region || 'stg',
+				version: state.careiqConfig?.version || 'v1', 
+				app: state.careiqConfig?.app || 'app',
+				accessToken: state.accessToken,
+				answerId: answerId
+			};
+			
+			console.log('Answer relationships request body:', requestBody);
+			
+			dispatch('MAKE_ANSWER_RELATIONSHIPS_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_ANSWER_RELATIONSHIPS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/answer-relationships', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ANSWER_RELATIONSHIPS_SUCCESS',
+			errorActionType: 'ANSWER_RELATIONSHIPS_ERROR'
+		}),
+
+		'ANSWER_RELATIONSHIPS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
+			console.log('Full Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+			console.log('Response keys:', Object.keys(action.payload || {}));
+			
+			// The answerId should be in the response, let's use that
+			const answerId = action.payload?.id;
+			
+			if (!answerId) {
+				console.error('No answer ID found in relationships response');
+				return;
+			}
+			
+			// Update the relationships for this specific answer
+			const updatedRelationships = {
+				...state.answerRelationships,
+				[answerId]: action.payload
+			};
+			
+			const updatedLoading = {
+				...state.relationshipsLoading,
+				[answerId]: false
+			};
+			
+			// If we're in preview mode, recalculate visible questions with the new relationships data
+			const visibleQuestions = !state.builderMode ? 
+				calculateVisibleQuestions(state.selectedAnswers, state.currentQuestions?.questions || [], updatedRelationships) :
+				state.visibleQuestions;
+			
+			console.log('Recalculating visible questions after relationships loaded:', visibleQuestions);
+			
+			updateState({
+				answerRelationships: updatedRelationships,
+				relationshipsLoading: updatedLoading,
+				visibleQuestions: visibleQuestions
+			});
+		},
+
+		'ANSWER_RELATIONSHIPS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.error('ANSWER_RELATIONSHIPS_ERROR - Full Response:', action.payload);
+			
+			// We'll need to track which answer this was for in loading state
+			// For now, clear all loading states on error
+			updateState({
+				relationshipsLoading: {},
+				error: 'Failed to fetch answer relationships: ' + (action.payload?.error || 'Unknown error')
+			});
+		},
+
+		'TOGGLE_SYSTEM_MESSAGES': (coeffects) => {
+			const {updateState, state} = coeffects;
+			
+			updateState({
+				systemMessagesCollapsed: !state.systemMessagesCollapsed
+			});
+		},
+
 	},
 	reducers: {}
 });
