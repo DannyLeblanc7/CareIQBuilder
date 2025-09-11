@@ -642,7 +642,9 @@ const view = (state, {updateState, dispatch}) => {
 													builderMode: state.builderMode,
 													assessmentStatus: state.currentAssessment?.status,
 													isEditable: isEditable,
-													questionId: question.ids.id
+													questionId: question.ids.id,
+													voice: question.voice,
+													label: question.label
 												});
 											return (
 											<div 
@@ -732,20 +734,29 @@ const view = (state, {updateState, dispatch}) => {
 													{isEditable ? (
 														<div className="question-edit-header">
 															<div className="question-number">{qIndex + 1}.</div>
-															<div className="question-main-edit">
-																<input 
-																	type="text" 
-																	className="question-label-input"
-																	value={question.label}
-																	placeholder="Enter question text..."
-																/>
-																<div className="tooltip-edit">
+															<div className="question-voice-and-label">
+																<select 
+																	className="voice-select"
+																>
+																	<option value="CaseManager" selected={question.voice === 'CaseManager'}>Case Manager</option>
+																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
+																	<option value="Patient" selected={question.voice === 'Patient'}>Patient</option>
+																</select>
+																<div className="question-main-edit">
 																	<input 
 																		type="text" 
-																		className="tooltip-input"
-																		value={question.tooltip || ''}
-																		placeholder="Add helpful tooltip text..."
+																		className="question-label-input"
+																		value={question.label}
+																		placeholder="Enter question text..."
 																	/>
+																	<div className="tooltip-edit">
+																		<input 
+																			type="text" 
+																			className="tooltip-input"
+																			value={question.tooltip || ''}
+																			placeholder="Add helpful tooltip text..."
+																		/>
+																	</div>
 																</div>
 															</div>
 															<div className="question-controls">
@@ -768,13 +779,16 @@ const view = (state, {updateState, dispatch}) => {
 														</div>
 													) : (
 														<div className="question-preview-header">
-															<h4 className="question-label">
-																{qIndex + 1}. {question.label}
-																{question.required && <span className="required-indicator">*</span>}
-																{question.tooltip && (
-																	<span className="tooltip-icon" title={question.tooltip}>ⓘ</span>
-																)}
-															</h4>
+															<div className="question-preview-line">
+																<span className="voice-display">{question.voice === 'CaseManager' ? 'CASE MANAGER' : question.voice === 'Caregiver' ? 'CAREGIVER' : question.voice === 'Patient' ? 'PATIENT' : 'CASE MANAGER'}</span>
+																<h4 className="question-label">
+																	{qIndex + 1}. {question.label}
+																	{question.required && <span className="required-indicator">*</span>}
+																	{question.tooltip && (
+																		<span className="tooltip-icon" title={question.tooltip}>ⓘ</span>
+																	)}
+																</h4>
+															</div>
 															<div className="question-meta">
 																<span className="question-type">{question.type}</span>
 																{question.hidden && <span className="hidden-indicator">Hidden</span>}
