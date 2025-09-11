@@ -1,0 +1,81 @@
+[draggable] {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Required to make elements draggable in old WebKit */
+  -khtml-user-drag: element;
+  -webkit-user-drag: element;
+}
+
+div{
+    --col-header-color: rgb(242, 242, 242);
+    --taskboard-border-color: rgb(210, 214, 215); 
+    --col-highlight-color: rgb(255, 255, 210);
+}
+
+#drag-n-drop{
+    background-color:white;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+#taskboard-container {
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-rows: 85px auto;
+    border: 1px solid var(--taskboard-border-color);
+    height: 600px;
+}
+
+.taskboard-header {
+    grid-column: 1/5;
+    font-weight: bold;
+    border-bottom: 1px solid var(--taskboard-border-color);
+}
+
+.taskboard-header>h1 {
+    text-align:center;
+}
+
+.task-col {
+    overflow-y: auto;
+    display:flex;
+    flex-direction: column;
+}
+
+.task-col-content{
+    padding: 6px;
+    height: 100%;
+}
+
+.task-col-content.over {
+    background-color: var(--col-highlight-color);
+}
+
+.task-col-header {
+    background-color: var(--col-header-color);
+    text-align: center;
+    font-weight: bold;
+}
+
+.task-col.right-border {
+    border-right: 1px solid var(--taskboard-border-color);
+}
+
+.task {
+    margin: 6px;
+    box-shadow: 2px 2px 2px 1px rgba(0,0,0,0.37);
+    border-radius: 3px;
+    padding: 3px;
+    cursor: grab;
+    pointer-events: all;
+}
+
+.task.disabled {
+    pointer-events:none;
+}
+
+.task-header {
+    font-weight: bold;
+}

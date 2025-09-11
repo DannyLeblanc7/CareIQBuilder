@@ -1,0 +1,92 @@
+<div id="drag-n-drop">
+    <!-- script for accessing angular from outside -->
+    <script>
+        //gets the angular scope from outside because 
+        //we don't have access to it for drag events
+        function getScope() {
+            return angular.element('#drag-n-drop').scope().c;
+        }
+    </script>
+    <!-- container for drag n drop task board -->
+    <div id="taskboard-container">
+        <div class="taskboard-header">
+            <h1>My Mock Task Board</h1>
+        </div>
+        <div class="task-col right-border" id="todo">
+            <div class="task-col-header">
+                To Do
+            </div>
+            <div class="task-col-content" ondragenter="getScope().dragEnter(event)" 
+            ondragleave="getScope().dragLeave(event)" 
+            ondragover="getScope().dragOver(event)" 
+            ondrop="getScope().drop(event)">
+                <div class="task" ng-repeat="task in c.data.tasks" ng-if="task.state=='todo'" id="{{task.id}}"
+                draggable="true" ondragstart="getScope().dragStart(event)" ondragend="getScope().dragEnd(event)">
+                    <div class="task-header">
+                        {{task.title}}
+                    </div>
+                    <div class="task-description">
+                        {{task.description}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="task-col right-border" id="in-progress">
+            <div class="task-col-header">
+                In Progress
+            </div>
+            <div class="task-col-content" ondragenter="getScope().dragEnter(event)" 
+            ondragleave="getScope().dragLeave(event)" 
+            ondragover="getScope().dragOver(event)" 
+            ondrop="getScope().drop(event)">
+                <div class="task" ng-repeat="task in c.data.tasks" ng-if="task.state=='in-progress'" id="{{task.id}}"
+                draggable="true" ondragstart="getScope().dragStart(event)" ondragend="getScope().dragEnd(event)">
+                    <div class="task-header">
+                        {{task.title}}
+                    </div>
+                    <div class="task-description">
+                        {{task.description}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="task-col right-border" id="review">
+            <div class="task-col-header">
+                Review
+            </div>
+            <div class="task-col-content" ondragenter="getScope().dragEnter(event)" 
+            ondragleave="getScope().dragLeave(event)" 
+            ondragover="getScope().dragOver(event)" 
+            ondrop="getScope().drop(event)">
+                <div class="task" ng-repeat="task in c.data.tasks" ng-if="task.state=='review'" id="{{task.id}}"
+                draggable="true" ondragstart="getScope().dragStart(event)" ondragend="getScope().dragEnd(event)">
+                    <div class="task-header">
+                        {{task.title}}
+                    </div>
+                    <div class="task-description">
+                        {{task.description}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="task-col" id="done">
+            <div class="task-col-header">
+                Done
+            </div>
+            <div class="task-col-content" ondragenter="getScope().dragEnter(event)" 
+            ondragleave="getScope().dragLeave(event)" 
+            ondragover="getScope().dragOver(event)" 
+            ondrop="getScope().drop(event)">
+                <div class="task" ng-repeat="task in c.data.tasks" ng-if="task.state=='done'" id="{{task.id}}"
+                draggable="true" ondragstart="getScope().dragStart(event)" ondragend="getScope().dragEnd(event)">
+                    <div class="task-header">
+                        {{task.title}}
+                    </div>
+                    <div class="task-description">
+                        {{task.description}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -25,6 +25,32 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
   }
   ```
 
+### HTTP Effect Body Pattern (CRITICAL!)
+- **ALWAYS wrap request data in `data` property** for ServiceNow server-side APIs
+- **Common Error**: "Missing required fields" means data isn't properly wrapped
+- **Correct Pattern**:
+  ```javascript
+  body: (coeffects) => {
+      return JSON.stringify({
+          data: {
+              region: state.careiqConfig.region,
+              version: state.careiqConfig.version,
+              accessToken: state.accessToken,
+              // ... other fields
+          }
+      });
+  }
+  ```
+- **Wrong Pattern** (causes "Missing required fields" error):
+  ```javascript
+  body: (coeffects) => {
+      return JSON.stringify({
+          region: state.careiqConfig.region,
+          // ... fields directly in root
+      });
+  }
+  ```
+
 ### Version Management
 - **Always increment the last digit** in package.json version when making changes
 - Current pattern: 0.0.xxx (increment xxx)
@@ -61,6 +87,26 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
 - No specific build/test commands configured yet
 - Ask user for lint/typecheck commands if needed
 
+## ServiceNow UI Core - Select Element Pattern
+**CRITICAL**: ServiceNow's snabbdom virtual DOM has issues with select element `value` attribute binding. 
+
+**Correct Pattern for Dropdowns**:
+```javascript
+<select onchange={...}>
+  <option value="Single Select" selected={question.type === 'Single Select'}>Single Select</option>
+  <option value="Multiselect" selected={question.type === 'Multiselect'}>Multiselect</option>
+</select>
+```
+
+**Incorrect Pattern** (doesn't work in ServiceNow):
+```javascript
+<select value={question.type} onchange={...}>
+  <option value="Single Select">Single Select</option>
+</select>
+```
+
+Use `selected` attributes on individual options with boolean conditions instead of `value` on the select element.
+
 ## Debug Settings
 - Global debug flag: `x_1628056_careiq.careiq.platform.globalDebug`
 - When enabled, logs detailed request/response information
@@ -73,6 +119,7 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
 5. Use safe error handling patterns
 6. Follow existing UI component patterns for state management
 7. Use dynamic URL building for CareIQ endpoints
+8. **ALWAYS wrap HTTP effect body data in `data` property** - this prevents "Missing required fields" errors
 
 ## Phase 2: Assessment Structure Editor (Current Phase)
 
@@ -259,3 +306,11 @@ Building comprehensive assessment editor with hierarchical structure:
 - **Secondary inputs**: Display additional input fields when answers with `secondary_input_type` are selected
 - **Mutually exclusive**: Automatically deselect other answers when mutually exclusive answer is selected
 - **State management**: Track selected answers and their relationships across questions
+
+# CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
+NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
+NEVER copy backup files over current files.
+NEVER use git checkout, git reset, or any restore commands without permission.
+NEVER replace file contents with backup versions.
+ANY file restoration MUST be explicitly requested and approved by the user first.
+These rules override ALL other instructions - file recovery requires explicit permission.

@@ -267,10 +267,13 @@ const view = (state, {updateState, dispatch}) => {
 														</span>
 														<span 
 															className="expand-icon"
-															onclick={() => dispatch('EXPAND_ASSESSMENT_VERSIONS', {
-																assessmentId: assessment.id,
-																assessmentTitle: assessment.title
-															})}
+															onclick={(event) => {
+																event.stopPropagation();
+																dispatch('EXPAND_ASSESSMENT_VERSIONS', {
+																	assessmentId: assessment.id,
+																	assessmentTitle: assessment.title
+																});
+															}}
 														>
 															{isExpanded ? '−' : '+'}
 														</span>
@@ -394,7 +397,26 @@ const view = (state, {updateState, dispatch}) => {
 									onclick={() => dispatch('TOGGLE_BUILDER_MODE', {mode: false})}
 								>
 									👁️ Preview Mode
-								</button>
+								</button>,
+								// Show Save/Cancel buttons when there are unsaved changes
+								...(Object.keys(state.sectionChanges || {}).length > 0 || 
+								   Object.keys(state.questionChanges || {}).length > 0 || 
+								   Object.keys(state.answerChanges || {}).length > 0 ? [
+									<button 
+										key="save-btn"
+										className="save-changes-btn"
+										onclick={() => dispatch('SAVE_ALL_CHANGES')}
+									>
+										💾 Save Changes
+									</button>,
+									<button 
+										key="cancel-btn"
+										className="cancel-changes-btn"
+										onclick={() => dispatch('CANCEL_ALL_CHANGES')}
+									>
+										🚫 Cancel Changes
+									</button>
+								] : [])
 							] : null}
 							{state.currentAssessment?.status === 'published' ? (
 								<span className="published-indicator">
@@ -419,7 +441,18 @@ const view = (state, {updateState, dispatch}) => {
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
 						<div className="builder-content">
 							<div className="sections-sidebar">
-								<h3>Sections</h3>
+								<div className="sections-header">
+									<h3>Sections</h3>
+									{state.builderMode && state.currentAssessment?.status === 'draft' && (
+										<button 
+											className="add-section-btn"
+											onclick={() => dispatch('ADD_SECTION')}
+											title="Add new section"
+										>
+											+
+										</button>
+									)}
+								</div>
 								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
 									<div className="sections-list">
 										{state.currentAssessment.sections.map(section => (
@@ -436,17 +469,129 @@ const view = (state, {updateState, dispatch}) => {
 														{section.subsections.map(subsection => (
 															<div 
 																key={subsection.id} 
-																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''}`}
-																draggable="true"
-																onclick={() => dispatch('SELECT_SECTION', {
-																	sectionId: subsection.id,
-																	sectionLabel: subsection.label
-																})}
+																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''} ${state.dragOverSection === subsection.id ? 'drag-over' : ''}`}
+																draggable={state.builderMode && state.currentAssessment?.status === 'draft'}
+																ondragstart={(e) => {
+																	if (state.builderMode && state.currentAssessment?.status === 'draft') {
+																		dispatch('DRAG_SECTION_START', {
+																			sectionId: subsection.id,
+																			sectionIndex: section.subsections.indexOf(subsection)
+																		});
+																		e.dataTransfer.effectAllowed = 'move';
+																	}
+																}}
+																ondragover={(e) => {
+																	if (state.draggingSection) {
+																		e.preventDefault();
+																		e.dataTransfer.dropEffect = 'move';
+																		dispatch('DRAG_SECTION_OVER', {sectionId: subsection.id});
+																	}
+																}}
+																ondragleave={(e) => {
+																	dispatch('DRAG_SECTION_LEAVE');
+																}}
+																ondrop={(e) => {
+																	e.preventDefault();
+																	if (state.draggingSection && state.draggingSection !== subsection.id) {
+																		dispatch('DROP_SECTION', {
+																			targetSectionId: subsection.id,
+																			targetIndex: section.subsections.indexOf(subsection)
+																		});
+																	}
+																}}
+																ondragend={(e) => {
+																	dispatch('DRAG_SECTION_END');
+																}}
+																onclick={(e) => {
+																	// Only handle click if we're not in edit mode and not clicking on edit/delete elements
+																	if (state.editingSectionId !== subsection.id && 
+																		!e.target.closest('.section-name-edit-container') &&
+																		!e.target.closest('.delete-section-btn')) {
+																		dispatch('SELECT_SECTION', {
+																			sectionId: subsection.id,
+																			sectionLabel: subsection.label
+																		});
+																	}
+																}}
 															>
-																<span className="subsection-label">{subsection.label}</span>
-																<span className="subsection-info">
-																	({subsection.questions_quantity || 0} questions)
-																</span>
+																{state.editingSectionId === subsection.id ? (
+																	<div className="section-name-edit-container">
+																		<input
+																			type="text"
+																			className="section-name-edit-input"
+																			value={state.editingSectionName !== null ? state.editingSectionName : subsection.label}
+																			oninput={(e) => dispatch('UPDATE_SECTION_NAME', {
+																				sectionName: e.target.value
+																			})}
+																			onkeydown={(e) => {
+																				if (e.key === 'Enter') {
+																					dispatch('SAVE_SECTION_NAME', {
+																						sectionId: subsection.id,
+																						sectionLabel: state.editingSectionName !== null ? state.editingSectionName : subsection.label
+																					});
+																				} else if (e.key === 'Escape') {
+																					dispatch('CANCEL_SECTION_EDIT');
+																				}
+																			}}
+																			autoFocus
+																		/>
+																		<div className="section-edit-buttons">
+																			<button
+																				className="section-edit-save-btn"
+																				onclick={() => dispatch('SAVE_SECTION_NAME', {
+																					sectionId: subsection.id,
+																					sectionLabel: state.editingSectionName !== null ? state.editingSectionName : subsection.label
+																				})}
+																				title="Save changes"
+																			>
+																				✓
+																			</button>
+																			<button
+																				className="section-edit-cancel-btn"
+																				onclick={() => dispatch('CANCEL_SECTION_EDIT')}
+																				title="Cancel changes"
+																			>
+																				✕
+																			</button>
+																		</div>
+																	</div>
+																) : (
+																	<span 
+																		className="subsection-label"
+																		ondblclick={(e) => {
+																			if (state.builderMode && state.currentAssessment?.status === 'draft') {
+																				e.stopPropagation();
+																				e.preventDefault();
+																				dispatch('EDIT_SECTION_NAME', {
+																					sectionId: subsection.id,
+																					sectionLabel: subsection.label
+																				});
+																			}
+																		}}
+																	>
+																		{subsection.label}
+																		{state.sectionChanges[subsection.id] && (
+																			<span className="unsaved-indicator" title="Unsaved changes">●</span>
+																		)}
+																	</span>
+																)}
+																{state.editingSectionId !== subsection.id && (
+																	<span className="subsection-info">
+																		({subsection.questions_quantity || 0} questions)
+																	</span>
+																)}
+																{state.builderMode && state.currentAssessment?.status === 'draft' && state.editingSectionId === subsection.id && (
+																	<button 
+																		className="delete-section-btn"
+																		onclick={(e) => {
+																			e.stopPropagation();
+																			dispatch('DELETE_SECTION', {sectionId: subsection.id, sectionName: subsection.label});
+																		}}
+																		title="Delete section"
+																	>
+																		🗑️
+																	</button>
+																)}
 															</div>
 														))}
 													</div>
@@ -493,17 +638,28 @@ const view = (state, {updateState, dispatch}) => {
 											})
 											.map((question, qIndex) => {
 												const isEditable = state.builderMode && state.currentAssessment?.status === 'draft';
+												console.log('Question render debug:', {
+													builderMode: state.builderMode,
+													assessmentStatus: state.currentAssessment?.status,
+													isEditable: isEditable,
+													questionId: question.ids.id
+												});
 											return (
 											<div 
 												key={question.ids.id} 
 												className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`} 
 												draggable={isEditable}
+												onclick={() => {
+													console.log('Question clicked! Editable:', isEditable, 'Draggable:', isEditable);
+												}}
 												ondragstart={isEditable ? (e) => {
+													console.log('Question drag start:', {questionId: question.ids.id, sourceIndex: qIndex});
 													e.dataTransfer.setData('text/plain', JSON.stringify({
 														type: 'question',
 														questionId: question.ids.id,
 														sourceIndex: qIndex
 													}));
+													e.dataTransfer.effectAllowed = 'move';
 													e.currentTarget.classList.add('dragging');
 												} : null}
 												ondragend={isEditable ? (e) => {
@@ -520,9 +676,16 @@ const view = (state, {updateState, dispatch}) => {
 													e.preventDefault();
 													e.currentTarget.classList.remove('drag-over');
 													
+													console.log('Question drop event:', {targetIndex: qIndex});
+													
 													try {
 														const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
+														console.log('Drop data:', dragData);
 														if (dragData.type === 'question') {
+															console.log('Dispatching REORDER_QUESTIONS:', {
+																sourceIndex: dragData.sourceIndex,
+																targetIndex: qIndex
+															});
 															dispatch('REORDER_QUESTIONS', {
 																sourceIndex: dragData.sourceIndex,
 																targetIndex: qIndex
@@ -534,7 +697,38 @@ const view = (state, {updateState, dispatch}) => {
 												} : null}
 											>
 												<div className="question-header">
-													{isEditable ? <div className="drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+													{isEditable ? (
+														<div 
+															className="drag-handle" 
+															title="Drag to reorder"
+															onclick={(e) => {
+																e.stopPropagation();
+																console.log('Question drag handle clicked!', e);
+																
+																// Test: try to trigger a drag event manually
+																const questionElement = e.currentTarget.closest('.question-item');
+																console.log('Question element:', questionElement);
+																console.log('Draggable attribute:', questionElement.draggable);
+																
+																// Try to start a drag programmatically
+																const dragEvent = new DragEvent('dragstart', {
+																	bubbles: true,
+																	cancelable: true
+																});
+																
+																if (questionElement.draggable) {
+																	console.log('Attempting to dispatch dragstart event...');
+																	questionElement.dispatchEvent(dragEvent);
+																}
+															}}
+															onmousedown={(e) => {
+																e.stopPropagation();
+																console.log('Question drag handle mousedown!', e);
+															}}
+														>
+															⋮⋮
+														</div>
+													) : null}
 													{isEditable ? (
 														<div className="question-edit-header">
 															<div className="question-number">{qIndex + 1}.</div>
@@ -598,7 +792,24 @@ const view = (state, {updateState, dispatch}) => {
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
 																	draggable={isEditable}
+																	data-debugeditable={isEditable}
+																	data-debugbuildermode={state.builderMode}
+																	data-debugstatus={state.currentAssessment?.status}
+																	onclick={(e) => {
+																		if (isEditable) {
+																			e.stopPropagation();
+																			console.log('Answer option clicked!', answer.ids.id);
+																			console.log('This answer option is draggable:', e.currentTarget.draggable);
+																			console.log('Debug attributes:');
+																			console.log('  data-debugeditable:', e.currentTarget.getAttribute('data-debugeditable'));
+																			console.log('  data-debugbuildermode:', e.currentTarget.getAttribute('data-debugbuildermode'));
+																			console.log('  data-debugstatus:', e.currentTarget.getAttribute('data-debugstatus'));
+																			console.log('  isEditable value:', isEditable);
+																			console.log('Try holding mouse down and DRAGGING this entire answer box');
+																		}
+																	}}
 																	ondragstart={isEditable ? (e) => {
+																		console.log('Answer drag start:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
 																		e.dataTransfer.setData('text/plain', JSON.stringify({
 																			type: 'answer',
 																			questionId: question.ids.id,
@@ -638,7 +849,22 @@ const view = (state, {updateState, dispatch}) => {
 																		}
 																	} : null}
 																>
-																	{isEditable ? <div className="answer-drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+																	{isEditable ? (
+																			<div 
+																				className="answer-drag-handle" 
+																				title="Drag to reorder"
+																				onclick={(e) => {
+																					e.stopPropagation();
+																					console.log('Answer drag handle clicked!', e);
+																				}}
+																				onmousedown={(e) => {
+																					e.stopPropagation();
+																					console.log('Answer drag handle mousedown!', e);
+																				}}
+																			>
+																				⋮⋮
+																			</div>
+																		) : null}
 																	{isEditable ? (
 																		<div className="answer-edit">
 																			<div className="answer-edit-header">
@@ -839,7 +1065,24 @@ const view = (state, {updateState, dispatch}) => {
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
 																	draggable={isEditable}
+																	data-debugeditable={isEditable}
+																	data-debugbuildermode={state.builderMode}
+																	data-debugstatus={state.currentAssessment?.status}
+																	onclick={(e) => {
+																		if (isEditable) {
+																			e.stopPropagation();
+																			console.log('Answer option clicked!', answer.ids.id);
+																			console.log('This answer option is draggable:', e.currentTarget.draggable);
+																			console.log('Debug attributes:');
+																			console.log('  data-debugeditable:', e.currentTarget.getAttribute('data-debugeditable'));
+																			console.log('  data-debugbuildermode:', e.currentTarget.getAttribute('data-debugbuildermode'));
+																			console.log('  data-debugstatus:', e.currentTarget.getAttribute('data-debugstatus'));
+																			console.log('  isEditable value:', isEditable);
+																			console.log('Try holding mouse down and DRAGGING this entire answer box');
+																		}
+																	}}
 																	ondragstart={isEditable ? (e) => {
+																		console.log('Answer drag start:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
 																		e.dataTransfer.setData('text/plain', JSON.stringify({
 																			type: 'answer',
 																			questionId: question.ids.id,
@@ -879,7 +1122,22 @@ const view = (state, {updateState, dispatch}) => {
 																		}
 																	} : null}
 																>
-																	{isEditable ? <div className="answer-drag-handle" title="Drag to reorder">⋮⋮</div> : null}
+																	{isEditable ? (
+																			<div 
+																				className="answer-drag-handle" 
+																				title="Drag to reorder"
+																				onclick={(e) => {
+																					e.stopPropagation();
+																					console.log('Answer drag handle clicked!', e);
+																				}}
+																				onmousedown={(e) => {
+																					e.stopPropagation();
+																					console.log('Answer drag handle mousedown!', e);
+																				}}
+																			>
+																				⋮⋮
+																			</div>
+																		) : null}
 																	{isEditable ? (
 																		<div className="answer-edit">
 																			<div className="answer-edit-header">
@@ -1186,7 +1444,23 @@ createCustomElement('cadal-careiq-builder', {
 		answerRelationships: {}, // Format: { answerId: { problems: [], barriers: [], guidelines: [], questions: [] } }
 		relationshipsLoading: {},
 		// UI state
-		systemMessagesCollapsed: false
+		systemMessagesCollapsed: false,
+		// Section editing state
+		editingSectionId: null,
+		editingSectionName: null,
+		sectionChanges: {},
+		// Change tracking for all components
+		questionChanges: {},
+		answerChanges: {},
+		// Original data backup for cancel functionality
+		originalAssessmentData: null,
+		// Section reselection after save
+		pendingReselectionSection: null,
+		pendingReselectionSectionLabel: null,
+		// Drag and drop state
+		draggingSection: null,
+		dragOverSection: null,
+		draggingSectionIndex: null
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -1742,23 +2016,47 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
-			const {action, updateState, dispatch} = coeffects;
+			const {action, updateState, dispatch, state} = coeffects;
 			console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
+			
+			// Check if we need to re-select a section after save
+			const pendingReselection = state.pendingReselectionSection;
+			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
 			
 			updateState({
 				currentAssessment: action.payload,
-				assessmentDetailsLoading: false
+				assessmentDetailsLoading: false,
+				// Store original data for cancel functionality
+				originalAssessmentData: JSON.parse(JSON.stringify(action.payload)),
+				// Clear pending reselection
+				pendingReselectionSection: null,
+				pendingReselectionSectionLabel: null
 			});
 			
-			// Auto-select first section for immediate editing
-			const firstSection = action.payload?.sections?.[0];
-			const firstSubsection = firstSection?.subsections?.[0];
+			// Re-select the section we were editing, or auto-select first section
+			let sectionToSelect = null;
+			let sectionLabelToSelect = null;
 			
-			if (firstSubsection) {
-				console.log('Auto-selecting first section:', firstSubsection.label);
+			if (pendingReselection && pendingReselectionLabel) {
+				console.log('Re-selecting section after save:', pendingReselectionLabel);
+				sectionToSelect = pendingReselection;
+				sectionLabelToSelect = pendingReselectionLabel;
+			} else {
+				// Auto-select first section for immediate editing
+				const firstSection = action.payload?.sections?.[0];
+				const firstSubsection = firstSection?.subsections?.[0];
+				
+				if (firstSubsection) {
+					console.log('Auto-selecting first section:', firstSubsection.label);
+					sectionToSelect = firstSubsection.id;
+					sectionLabelToSelect = firstSubsection.label;
+				}
+			}
+			
+			if (sectionToSelect && sectionLabelToSelect) {
 				dispatch('SELECT_SECTION', {
-					sectionId: firstSubsection.id,
-					sectionLabel: firstSubsection.label
+					sectionId: sectionToSelect,
+					sectionLabel: sectionLabelToSelect
 				});
 			}
 		},
@@ -2214,6 +2512,450 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessagesCollapsed: !state.systemMessagesCollapsed
 			});
+		},
+
+		'ADD_SECTION': (coeffects) => {
+			const {updateState, state} = coeffects;
+			
+			console.log('Adding new section');
+			
+			// Create a new section object
+			const newSection = {
+				id: 'new-' + Date.now(),
+				label: 'New Section',
+				sort_order: (state.currentAssessment.sections?.length || 0) + 1,
+				questions_quantity: 0
+			};
+			
+			// Add to the parent section's subsections (assuming first section is parent)
+			const updatedSections = [...state.currentAssessment.sections];
+			if (updatedSections.length > 0) {
+				const parentSection = updatedSections[0];
+				if (!parentSection.subsections) {
+					parentSection.subsections = [];
+				}
+				parentSection.subsections.push(newSection);
+			}
+			
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
+				editingSectionId: newSection.id
+			});
+		},
+
+		'EDIT_SECTION_NAME': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			
+			updateState({
+				editingSectionId: sectionId,
+				editingSectionName: sectionLabel
+			});
+		},
+
+		'UPDATE_SECTION_NAME': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {sectionName} = action.payload;
+			
+			updateState({
+				editingSectionName: sectionName
+			});
+		},
+
+		'SAVE_SECTION_NAME': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			
+			console.log('Saving section name:', sectionLabel);
+			
+			// Update the section label in the assessment
+			const updatedSections = state.currentAssessment.sections.map(section => ({
+				...section,
+				subsections: section.subsections?.map(subsection => 
+					subsection.id === sectionId 
+						? {...subsection, label: sectionLabel}
+						: subsection
+				) || []
+			}));
+			
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
+				editingSectionId: null,
+				editingSectionName: null,
+				sectionChanges: {
+					...state.sectionChanges,
+					[sectionId]: {
+						label: sectionLabel
+					}
+				}
+			});
+		},
+
+		'CANCEL_SECTION_EDIT': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				editingSectionId: null,
+				editingSectionName: null
+			});
+		},
+
+		'DELETE_SECTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId, sectionName} = action.payload;
+			
+			console.log('Deleting section:', sectionName);
+			
+			if (confirm(`Are you sure you want to delete section "${sectionName}"?`)) {
+				// Remove the section from all parent sections
+				const updatedSections = state.currentAssessment.sections.map(section => ({
+					...section,
+					subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
+				}));
+				
+				updateState({
+					currentAssessment: {
+						...state.currentAssessment,
+						sections: updatedSections
+					},
+					selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
+					selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel,
+					sectionChanges: {
+						...state.sectionChanges,
+						[sectionId]: {
+							deleted: true
+						}
+					}
+				});
+			}
+		},
+
+		'DRAG_SECTION_START': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {sectionId, sectionIndex} = action.payload;
+			
+			console.log('Starting drag for section:', sectionId, 'at index:', sectionIndex);
+			
+			updateState({
+				draggingSection: sectionId,
+				draggingSectionIndex: sectionIndex,
+				dragOverSection: null
+			});
+		},
+
+		'DRAG_SECTION_OVER': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {sectionId} = action.payload;
+			
+			updateState({
+				dragOverSection: sectionId
+			});
+		},
+
+		'DRAG_SECTION_LEAVE': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				dragOverSection: null
+			});
+		},
+
+		'DROP_SECTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {targetSectionId, targetIndex} = action.payload;
+			const draggingSection = state.draggingSection;
+			const draggingIndex = state.draggingSectionIndex;
+			
+			console.log('Dropping section:', draggingSection, 'onto:', targetSectionId);
+			console.log('Moving from index:', draggingIndex, 'to index:', targetIndex);
+			
+			if (draggingSection && draggingSection !== targetSectionId) {
+				// Find the sections array and reorder
+				const updatedSections = state.currentAssessment.sections.map(section => {
+					if (section.subsections && section.subsections.length > 0) {
+						// Find if this section contains both dragging and target subsections
+						const draggingSubsection = section.subsections.find(sub => sub.id === draggingSection);
+						const targetSubsection = section.subsections.find(sub => sub.id === targetSectionId);
+						
+						if (draggingSubsection && targetSubsection) {
+							// Reorder within this section
+							const newSubsections = [...section.subsections];
+							const draggedItem = newSubsections.splice(draggingIndex, 1)[0];
+							newSubsections.splice(targetIndex, 0, draggedItem);
+							
+							// Update sort_order based on new positions
+							const reorderedSubsections = newSubsections.map((subsection, index) => ({
+								...subsection,
+								sort_order: index + 1
+							}));
+							
+							return {
+								...section,
+								subsections: reorderedSubsections
+							};
+						}
+					}
+					return section;
+				});
+				
+				// Track which sections had their sort_order changed
+				const reorderedSection = updatedSections.find(section => 
+					section.subsections?.some(sub => sub.id === draggingSection || sub.id === targetSectionId)
+				);
+				
+				const newSectionChanges = {...state.sectionChanges};
+				if (reorderedSection && reorderedSection.subsections) {
+					reorderedSection.subsections.forEach(subsection => {
+						// Store complete section data for all reordered sections
+						newSectionChanges[subsection.id] = {
+							label: subsection.label,
+							tooltip: subsection.tooltip || '',
+							alternative_wording: subsection.alternative_wording || '',
+							required: subsection.required || false,
+							custom_attributes: subsection.custom_attributes || {},
+							sort_order: subsection.sort_order
+						};
+					});
+				}
+				
+				updateState({
+					currentAssessment: {
+						...state.currentAssessment,
+						sections: updatedSections
+					},
+					sectionChanges: newSectionChanges,
+					draggingSection: null,
+					dragOverSection: null,
+					draggingSectionIndex: null
+				});
+			}
+		},
+
+		'DRAG_SECTION_END': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				draggingSection: null,
+				dragOverSection: null,
+				draggingSectionIndex: null
+			});
+		},
+
+		'SAVE_ALL_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			
+			console.log('Saving all changes to backend');
+			console.log('Section changes:', state.sectionChanges);
+			console.log('Question changes:', state.questionChanges);
+			console.log('Answer changes:', state.answerChanges);
+			
+			// Start with section changes
+			const sectionChanges = Object.keys(state.sectionChanges || {});
+			
+			if (sectionChanges.length > 0) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'loading',
+							message: 'Saving changes to backend...',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				
+				// Save each section change
+				sectionChanges.forEach(sectionId => {
+					const sectionData = state.sectionChanges[sectionId];
+					console.log('Saving section:', sectionId, sectionData);
+					
+					// Skip deleted sections for now (would need DELETE API)
+					if (sectionData.deleted) {
+						console.log('Skipping deleted section:', sectionId);
+						return;
+					}
+					
+					dispatch('SAVE_SECTION', {
+						sectionId: sectionId,
+						sectionData: sectionData,
+						config: state.careiqConfig,
+						accessToken: state.accessToken
+					});
+				});
+			} else {
+				// No changes to save
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'warning',
+							message: 'No changes to save.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
+			
+			// TODO: Implement question and answer changes saving
+			// For now, just clear those tracking objects
+			if (Object.keys(state.questionChanges || {}).length > 0 || Object.keys(state.answerChanges || {}).length > 0) {
+				console.log('Question/Answer changes not yet implemented - clearing tracking');
+			}
+		},
+
+		'SAVE_SECTION': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {sectionId, sectionData, config, accessToken} = action.payload;
+			
+			console.log('SAVE_SECTION handler called for section:', sectionId);
+			console.log('Section data:', sectionData);
+			console.log('Config:', config);
+			console.log('Access token exists:', !!accessToken);
+			
+			const requestBody = JSON.stringify({
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				app: config.app,
+				sectionId: sectionId,
+				label: sectionData.label || '',
+				tooltip: sectionData.tooltip || '',
+				alternative_wording: sectionData.alternative_wording || '',
+				required: sectionData.required || false,
+				custom_attributes: sectionData.custom_attributes || {},
+				sort_order: sectionData.sort_order || 0
+			});
+			
+			console.log('Final request body:', requestBody);
+			
+			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionId});
+		},
+
+		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-section', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'SECTION_UPDATE_SUCCESS',
+			errorActionType: 'SECTION_UPDATE_ERROR',
+			metaParam: 'sectionId'
+		}),
+
+		'SECTION_UPDATE_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Section update success:', action.payload);
+			console.log('Section update action meta:', action.meta);
+			
+			// Store the current section to re-select after refresh
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear ALL changes since we're doing a full refresh
+			updateState({
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Changes saved successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the entire assessment from server
+			console.log('Refreshing entire assessment from server after save');
+			console.log('- Will re-select section:', currentSection, currentSectionLabel);
+			
+			if (state.currentAssessment?.ids?.id) {
+				// Store section to re-select in state temporarily
+				updateState({
+					pendingReselectionSection: currentSection,
+					pendingReselectionSectionLabel: currentSectionLabel
+				});
+				
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessment.ids.id,
+					assessmentTitle: state.currentAssessment.title
+				});
+			}
+		},
+
+		'SECTION_UPDATE_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Section update error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to update section';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Error saving section: ${errorMessage}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CANCEL_ALL_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			
+			console.log('Canceling all local changes');
+			
+			if (confirm('Are you sure you want to cancel all unsaved changes? This action cannot be undone.')) {
+				// Restore original assessment data
+				if (state.originalAssessmentData) {
+					updateState({
+						currentAssessment: JSON.parse(JSON.stringify(state.originalAssessmentData)),
+						sectionChanges: {},
+						questionChanges: {},
+						answerChanges: {},
+						// Clear any editing states
+						editingSectionId: null,
+						editingSectionName: null
+					});
+					
+					// Reload the current section questions if one is selected
+					if (state.selectedSection) {
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: state.selectedSection,
+							sectionLabel: state.selectedSectionLabel
+						});
+					}
+				} else {
+					// Fallback: just clear the changes tracking
+					updateState({
+						sectionChanges: {},
+						questionChanges: {},
+						answerChanges: {},
+						editingSectionId: null,
+						editingSectionName: null
+					});
+				}
+				
+				// Show warning message
+				updateState({
+					systemMessages: [
+						...state.systemMessages,
+						{
+							type: 'warning',
+							message: 'All unsaved changes have been canceled.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
 		},
 
 	},
