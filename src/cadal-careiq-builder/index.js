@@ -734,7 +734,7 @@ const view = (state, {updateState, dispatch}) => {
 													{isEditable ? (
 														<div className="question-edit-header">
 															<div className="question-number">{qIndex + 1}.</div>
-															<div className="question-voice-and-label">
+															<div className="question-single-line">
 																<select 
 																	className="voice-select"
 																>
@@ -742,21 +742,26 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
 																	<option value="Patient" selected={question.voice === 'Patient'}>Patient</option>
 																</select>
-																<div className="question-main-edit">
-																	<input 
-																		type="text" 
-																		className="question-label-input"
-																		value={question.label}
-																		placeholder="Enter question text..."
-																	/>
-																	<div className="tooltip-edit">
-																		<input 
-																			type="text" 
-																			className="tooltip-input"
-																			value={question.tooltip || ''}
-																			placeholder="Add helpful tooltip text..."
-																		/>
-																	</div>
+																<input 
+																	type="text" 
+																	className="question-label-input"
+																	value={question.label}
+																	placeholder="Enter question text..."
+																/>
+																<div className="tooltip-edit-icon">
+																	<span 
+																		className={`tooltip-icon ${question.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
+																		title={question.tooltip || 'Click to add tooltip'}
+																		ondblclick={(e) => {
+																			e.stopPropagation();
+																			dispatch('EDIT_QUESTION_TOOLTIP', {
+																				questionId: question.ids.id,
+																				currentTooltip: question.tooltip || ''
+																			});
+																		}}
+																	>
+																		ⓘ
+																	</span>
 																</div>
 															</div>
 															<div className="question-controls">
@@ -881,7 +886,7 @@ const view = (state, {updateState, dispatch}) => {
 																		) : null}
 																	{isEditable ? (
 																		<div className="answer-edit">
-																			<div className="answer-edit-header">
+																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
 																				<input 
 																					type="text"
@@ -889,6 +894,21 @@ const view = (state, {updateState, dispatch}) => {
 																					value={answer.label}
 																					placeholder="Enter answer text..."
 																				/>
+																				<div className="answer-tooltip-icon">
+																					<span 
+																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
+																						title={answer.tooltip || 'Click to add tooltip'}
+																						ondblclick={(e) => {
+																							e.stopPropagation();
+																							dispatch('EDIT_ANSWER_TOOLTIP', {
+																								answerId: answer.ids.id,
+																								currentTooltip: answer.tooltip || ''
+																							});
+																						}}
+																					>
+																						ⓘ
+																					</span>
+																				</div>
 																				<div className="answer-controls">
 																					<select className="secondary-input-select" value={answer.secondary_input_type || ''}>
 																						<option value="">No secondary input</option>
@@ -898,14 +918,6 @@ const view = (state, {updateState, dispatch}) => {
 																					</select>
 																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
 																				</div>
-																			</div>
-																			<div className="answer-tooltip-edit">
-																				<input 
-																					type="text"
-																					className="answer-tooltip-input"
-																					value={answer.tooltip || ''}
-																					placeholder="Add answer tooltip..."
-																				/>
 																			</div>
 																			{/* Show triggered questions indicator in edit mode */}
 																			{answer.triggered_questions && answer.triggered_questions.length > 0 && (
@@ -1154,7 +1166,7 @@ const view = (state, {updateState, dispatch}) => {
 																		) : null}
 																	{isEditable ? (
 																		<div className="answer-edit">
-																			<div className="answer-edit-header">
+																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
 																				<input 
 																					type="text"
@@ -1162,6 +1174,21 @@ const view = (state, {updateState, dispatch}) => {
 																					value={answer.label}
 																					placeholder="Enter answer text..."
 																				/>
+																				<div className="answer-tooltip-icon">
+																					<span 
+																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
+																						title={answer.tooltip || 'Click to add tooltip'}
+																						ondblclick={(e) => {
+																							e.stopPropagation();
+																							dispatch('EDIT_ANSWER_TOOLTIP', {
+																								answerId: answer.ids.id,
+																								currentTooltip: answer.tooltip || ''
+																							});
+																						}}
+																					>
+																						ⓘ
+																					</span>
+																				</div>
 																				<div className="answer-controls">
 																					<label className="checkbox-control">
 																						<input 
@@ -1178,14 +1205,6 @@ const view = (state, {updateState, dispatch}) => {
 																					</select>
 																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
 																				</div>
-																			</div>
-																			<div className="answer-tooltip-edit">
-																				<input 
-																					type="text"
-																					className="answer-tooltip-input"
-																					value={answer.tooltip || ''}
-																					placeholder="Add answer tooltip..."
-																				/>
 																			</div>
 																			{/* Show triggered questions indicator in edit mode */}
 																			{answer.triggered_questions && answer.triggered_questions.length > 0 && (
@@ -1410,6 +1429,53 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 			
+			{/* Tooltip Edit Modal */}
+			{state.editingTooltip && (
+				<div className="modal-overlay" onclick={(e) => {
+					if (e.target.className === 'modal-overlay') {
+						dispatch('CANCEL_TOOLTIP_EDIT');
+					}
+				}}>
+					<div className="tooltip-modal">
+						<div className="modal-header">
+							<h3>Edit Tooltip</h3>
+							<button 
+								className="modal-close"
+								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
+							>
+								×
+							</button>
+						</div>
+						<div className="modal-body">
+							<textarea
+								className="tooltip-textarea"
+								value={state.editingTooltipText || ''}
+								placeholder="Enter helpful tooltip text..."
+								oninput={(e) => dispatch('UPDATE_TOOLTIP_TEXT', {
+									text: e.target.value
+								})}
+								rows="4"
+								autoFocus
+							></textarea>
+						</div>
+						<div className="modal-footer">
+							<button 
+								className="btn-cancel"
+								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
+							>
+								Cancel
+							</button>
+							<button 
+								className="btn-save"
+								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
+							>
+								Save
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+			
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
 	);
@@ -1474,7 +1540,12 @@ createCustomElement('cadal-careiq-builder', {
 		// Drag and drop state
 		draggingSection: null,
 		dragOverSection: null,
-		draggingSectionIndex: null
+		draggingSectionIndex: null,
+		// Tooltip editing state
+		editingTooltip: null,
+		editingTooltipText: null,
+		editingTooltipQuestionId: null,
+		editingTooltipAnswerId: null
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -2758,6 +2829,120 @@ createCustomElement('cadal-careiq-builder', {
 				draggingSection: null,
 				dragOverSection: null,
 				draggingSectionIndex: null
+			});
+		},
+
+		'EDIT_QUESTION_TOOLTIP': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {questionId, currentTooltip} = action.payload;
+			
+			console.log('Editing tooltip for question:', questionId, 'Current tooltip:', currentTooltip);
+			
+			updateState({
+				editingTooltip: true,
+				editingTooltipText: currentTooltip,
+				editingTooltipQuestionId: questionId
+			});
+		},
+
+		'UPDATE_TOOLTIP_TEXT': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {text} = action.payload;
+			
+			updateState({
+				editingTooltipText: text
+			});
+		},
+
+		'SAVE_TOOLTIP_EDIT': (coeffects) => {
+			const {updateState, state} = coeffects;
+			const questionId = state.editingTooltipQuestionId;
+			const answerId = state.editingTooltipAnswerId;
+			const newTooltip = state.editingTooltipText;
+			
+			if (questionId) {
+				console.log('Saving tooltip for question:', questionId, 'New tooltip:', newTooltip);
+				
+				// Update the question in the current questions data
+				const updatedQuestions = {
+					...state.currentQuestions,
+					questions: state.currentQuestions.questions.map(question =>
+						question.ids.id === questionId
+							? {...question, tooltip: newTooltip}
+							: question
+					)
+				};
+				
+				updateState({
+					currentQuestions: updatedQuestions,
+					editingTooltip: null,
+					editingTooltipText: null,
+					editingTooltipQuestionId: null,
+					editingTooltipAnswerId: null,
+					// Track question changes for save functionality
+					questionChanges: {
+						...state.questionChanges,
+						[questionId]: {
+							...(state.questionChanges[questionId] || {}),
+							tooltip: newTooltip
+						}
+					}
+				});
+			} else if (answerId) {
+				console.log('Saving tooltip for answer:', answerId, 'New tooltip:', newTooltip);
+				
+				// Update the answer in the current questions data
+				const updatedQuestions = {
+					...state.currentQuestions,
+					questions: state.currentQuestions.questions.map(question => ({
+						...question,
+						answers: question.answers?.map(answer =>
+							answer.ids.id === answerId
+								? {...answer, tooltip: newTooltip}
+								: answer
+						) || []
+					}))
+				};
+				
+				updateState({
+					currentQuestions: updatedQuestions,
+					editingTooltip: null,
+					editingTooltipText: null,
+					editingTooltipQuestionId: null,
+					editingTooltipAnswerId: null,
+					// Track answer changes for save functionality
+					answerChanges: {
+						...state.answerChanges,
+						[answerId]: {
+							...(state.answerChanges[answerId] || {}),
+							tooltip: newTooltip
+						}
+					}
+				});
+			}
+		},
+
+		'CANCEL_TOOLTIP_EDIT': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				editingTooltip: null,
+				editingTooltipText: null,
+				editingTooltipQuestionId: null,
+				editingTooltipAnswerId: null
+			});
+		},
+
+		'EDIT_ANSWER_TOOLTIP': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {answerId, currentTooltip} = action.payload;
+			
+			console.log('Editing tooltip for answer:', answerId, 'Current tooltip:', currentTooltip);
+			
+			updateState({
+				editingTooltip: true,
+				editingTooltipText: currentTooltip,
+				editingTooltipAnswerId: answerId
 			});
 		},
 
