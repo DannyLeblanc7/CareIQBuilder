@@ -2214,17 +2214,17 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
 			
-			console.log('Fetching questions for section:', sectionLabel);
+			console.log('FETCH_SECTION_QUESTIONS - action.payload:', action.payload);
+			console.log('FETCH_SECTION_QUESTIONS - sectionId:', sectionId);
+			console.log('FETCH_SECTION_QUESTIONS - sectionLabel:', sectionLabel);
+			console.log('Fetching questions for section (simplified):', sectionLabel);
 			
 			const requestBody = JSON.stringify({
-				app: state.careiqConfig.app,
-				region: state.careiqConfig.region,
-				version: state.careiqConfig.version,
-				accessToken: state.accessToken,
+				gtId: state.currentAssessmentId,
 				sectionId: sectionId
 			});
 			
-			console.log('Section questions request body:', requestBody);
+			console.log('Section questions request body (simplified):', requestBody);
 			
 			dispatch('MAKE_SECTION_QUESTIONS_REQUEST', {requestBody: requestBody});
 		},
@@ -2249,6 +2249,9 @@ createCustomElement('cadal-careiq-builder', {
 		'SECTION_QUESTIONS_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
 			console.log('SECTION_QUESTIONS_SUCCESS - Full Response:', action.payload);
+			console.log('SECTION_QUESTIONS_SUCCESS - Response type:', typeof action.payload);
+			console.log('SECTION_QUESTIONS_SUCCESS - Response keys:', Object.keys(action.payload || {}));
+			console.log('SECTION_QUESTIONS_SUCCESS - Questions array:', action.payload?.questions);
 			
 			// Sort questions by sort_order
 			const questions = action.payload?.questions || [];
@@ -3088,13 +3091,15 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if this is a new section (add) or existing section (update)
 			// New sections have either action='add' or temp IDs starting with 'temp_'
 			if (sectionData.action === 'add' || sectionId.startsWith('temp_')) {
-				console.log('This is a new section - calling add section API');
+				console.log('This is a new section - calling add section API (simplified)');
+				console.log('DEBUG - sectionData object:', sectionData);
+				console.log('DEBUG - sort_order:', sectionData.sort_order);
+				console.log('DEBUG - gt_id:', sectionData.gt_id);
+				console.log('DEBUG - label:', sectionData.label);
+				console.log('DEBUG - parent_section_id:', sectionData.parent_section_id);
+				console.log('DEBUG - library_id:', sectionData.library_id);
 				
 				const requestBody = JSON.stringify({
-					region: config.region,
-					version: config.version,
-					accessToken: accessToken,
-					app: config.app,
 					sort_order: sectionData.sort_order || 1,
 					gt_id: sectionData.gt_id,
 					label: sectionData.label || 'New Section',
@@ -3102,7 +3107,7 @@ createCustomElement('cadal-careiq-builder', {
 					library_id: sectionData.library_id || null
 				});
 				
-				console.log('Add section request body:', requestBody);
+				console.log('Add section request body (simplified):', requestBody);
 				dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody: requestBody});
 				
 			} else {

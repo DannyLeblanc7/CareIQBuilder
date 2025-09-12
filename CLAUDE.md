@@ -26,30 +26,45 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
   ```
 
 ### HTTP Effect Body Pattern (CRITICAL!)
-- **ALWAYS wrap request data in `data` property** for ServiceNow server-side APIs
-- **Common Error**: "Missing required fields" means data isn't properly wrapped
-- **Correct Pattern**:
+**Client vs Server Data Access Pattern**
+
+- **Client-side**: NEVER use data wrapper - send fields directly in JSON root
   ```javascript
-  body: (coeffects) => {
-      return JSON.stringify({
-          data: {
-              region: state.careiqConfig.region,
-              version: state.careiqConfig.version,
-              accessToken: state.accessToken,
-              // ... other fields
-          }
-      });
-  }
+  const requestBody = JSON.stringify({
+      sort_order: sectionData.sort_order,
+      gt_id: sectionData.gt_id,
+      label: sectionData.label,
+      // ... other fields directly in root - NO DATA WRAPPER!
+  });
   ```
-- **Wrong Pattern** (causes "Missing required fields" error):
+
+- **Server-side**: ALWAYS use `request.body.data` - ServiceNow HTTP framework wraps it
   ```javascript
-  body: (coeffects) => {
-      return JSON.stringify({
-          region: state.careiqConfig.region,
-          // ... fields directly in root
-      });
-  }
+  // CORRECT - ServiceNow wraps client data in .data property
+  var requestData = request.body.data;
+  
+  // WRONG - Don't access directly
+  var requestData = request.body; // DON'T DO THIS!
   ```
+
+**Pattern**: Client sends `{field: value}` → ServiceNow receives as `{data: {field: value}}` → Access with `request.body.data`
+
+### CareIQ Services Script Include Pattern
+**CRITICAL**: When calling CareIQ Services Script Include from Scripted REST APIs:
+
+- **Correct instantiation**: `var careiqServices = new x_1628056_careiq.CareIQServices();`
+- **Application scope**: All CareIQ Script Includes are in the `x_1628056_careiq` scope
+- **Pattern for refactored APIs**: Instead of duplicating API call logic, call Script Include methods
+
+### Example:
+```javascript
+// In Scripted REST API
+var careiqServices = new x_1628056_careiq.CareIQServices();
+var responseBody = careiqServices.getBuilderSectionQuestions(gtId, sectionId);
+response.getStreamWriter().writeString(responseBody);
+```
+
+**This pattern eliminates**: Config passing, token management, URL building, error handling - all handled by Script Include.
 
 ### Version Management
 - **Always increment the last digit** in package.json version when making changes
