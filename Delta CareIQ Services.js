@@ -82,3 +82,22 @@ builderUpdateSection: function(sectionData) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderGetAnswerRelationships: function(answerId) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId) + '/relationships');
+        var r = this._createRESTMessage('Get Answer Relationships', endpoint);
+        
+        var response = this._executeRequestWithRetry(r, 'GetAnswerRelationships');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetAnswerRelationships - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

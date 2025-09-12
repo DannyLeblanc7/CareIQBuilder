@@ -46,6 +46,17 @@ const loadCareIQConfig = (dispatch) => {
 	dispatch('LOAD_CAREIQ_CONFIG');
 };
 
+// Check if answer has any relationships
+const hasRelationships = (counts) => {
+	if (!counts) return false;
+	
+	return (counts.triggered_guidelines > 0) || 
+		   (counts.problems > 0) || 
+		   (counts.triggered_questions > 0) || 
+		   (counts.evidence > 0) || 
+		   (counts.barriers > 0);
+};
+
 // Calculate which questions should be visible based on selected answers and their relationships
 const calculateVisibleQuestions = (selectedAnswers, currentQuestions, answerRelationships = {}) => {
 	if (!currentQuestions || currentQuestions.length === 0) {
@@ -398,6 +409,13 @@ const view = (state, {updateState, dispatch}) => {
 								>
 									👁️ Preview Mode
 								</button>,
+								<button 
+									key="edit-relationships-btn"
+									className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
+									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
+								>
+									🔗 Edit Relationships
+								</button>,
 								// Show Save/Cancel buttons when there are unsaved changes
 								...(Object.keys(state.sectionChanges || {}).length > 0 || 
 								   Object.keys(state.questionChanges || {}).length > 0 || 
@@ -573,6 +591,32 @@ const view = (state, {updateState, dispatch}) => {
 																			}
 																		}}
 																	>
+																		{state.builderMode && state.currentAssessment?.status === 'draft' && (
+																			<span 
+																				className="edit-icon"
+																				title="Edit section text"
+																				style={{
+																					cursor: 'pointer',
+																					marginRight: '6px',
+																					padding: '1px 3px',
+																					backgroundColor: '#f0f0f0',
+																					borderRadius: '3px',
+																					fontSize: '11px',
+																					display: 'inline-block',
+																					border: '1px solid #ccc'
+																				}}
+																				onclick={(e) => {
+																					e.stopPropagation();
+																					dispatch('OPEN_EDIT_MODAL', {
+																						type: 'section',
+																						itemId: subsection.id,
+																						text: subsection.label
+																					});
+																				}}
+																			>
+																				🔍
+																			</span>
+																		)}
 																		{subsection.label}
 																		{state.sectionChanges[subsection.id] && (
 																			<span className="unsaved-indicator" title="Unsaved changes">●</span>
@@ -747,6 +791,29 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
 																	<option value="Patient" selected={question.voice === 'Patient'}>Patient</option>
 																</select>
+																<span 
+																	className="edit-icon"
+																	title="Edit question text"
+																	style={{
+																		cursor: 'pointer',
+																		marginRight: '8px',
+																		padding: '2px 4px',
+																		backgroundColor: '#f0f0f0',
+																		borderRadius: '3px',
+																		fontSize: '12px',
+																		display: 'inline-block',
+																		border: '1px solid #ccc'
+																	}}
+																	onclick={() => {
+																		dispatch('OPEN_EDIT_MODAL', {
+																			type: 'question',
+																			itemId: question.ids.id,
+																			text: question.label
+																		});
+																	}}
+																>
+																	🔍
+																</span>
 																<input 
 																	type="text" 
 																	className="question-label-input"
@@ -895,6 +962,29 @@ const view = (state, {updateState, dispatch}) => {
 																		<div className="answer-edit">
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
+																				<span 
+																					className="edit-icon"
+																					title="Edit answer text"
+																					style={{
+																						cursor: 'pointer',
+																						marginRight: '6px',
+																						padding: '1px 3px',
+																						backgroundColor: '#f0f0f0',
+																						borderRadius: '3px',
+																						fontSize: '11px',
+																						display: 'inline-block',
+																						border: '1px solid #ccc'
+																					}}
+																					onclick={() => {
+																						dispatch('OPEN_EDIT_MODAL', {
+																							type: 'answer',
+																							itemId: answer.ids.id,
+																							text: answer.label
+																						});
+																					}}
+																				>
+																					🔍
+																				</span>
 																				<input 
 																					type="text"
 																					className="answer-label-input"
@@ -947,90 +1037,131 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																			)}
 																			
-																			{/* Relationship viewer/loader */}
-																			{isEditable && (
+																			{/* Relationship button/counts */}
+																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
 																						<button 
 																							className="load-relationships-btn"
-																							onclick={() => {
-																								dispatch('LOAD_ANSWER_RELATIONSHIPS', {
-																									answerId: answer.ids.id
-																								});
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
 																							}}
 																						>
-																							🔍 View Relationships
+																							{(() => {
+																								if (!answer.counts) return 'Add Relationships';
+																								
+																								const labels = [
+																									{ key: 'triggered_guidelines', label: 'G' },
+																									{ key: 'problems', label: 'P' }, 
+																									{ key: 'triggered_questions', label: 'Q' },
+																									{ key: 'evidence', label: 'E' },
+																									{ key: 'barriers', label: 'B' }
+																								];
+																								
+																								const displayCounts = labels
+																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
+																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
+																									
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Add Relationships';
+																							})()}
 																						</button>
 																					) : state.relationshipsLoading[answer.ids.id] ? (
 																						<div className="relationships-loading">
 																							⏳ Loading relationships...
 																						</div>
-																					) : state.answerRelationships[answer.ids.id] ? (
-																						<div className="relationships-display">
-																							<div className="relationships-header">
-																								🔍 <strong>Relationships for "{answer.label}"</strong>
-																							</div>
-																							<div className="relationships-content">
-																								{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
-																												<span key={qIndex} className="relationship-item">
-																													→ {question.label}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
-																												<span key={pIndex} className="relationship-item">
-																													→ {problem.label || problem.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
-																												<span key={bIndex} className="relationship-item">
-																													→ {barrier.label || barrier.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
-																												<span key={gIndex} className="relationship-item">
-																													→ {guideline.label || guideline.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{/* Show message if no relationships */}
-																								{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
-																								  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
-																								  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
-																								  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
-																									<div className="no-relationships">
-																										No relationships found for this answer.
-																									</div>
-																								)}
-																							</div>
-																						</div>
 																					) : null}
+																				</div>
+																			)}
+																			
+																			{/* Relationship display (shown when loaded) */}
+																			{isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
+																				<div className="relationships-display">
+																					<div className="relationships-header">
+																						🔍 <strong>Relationships for "{answer.label}"</strong>
+																						<button 
+																							className="close-relationships-btn"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('CLOSE_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							✕
+																						</button>
+																					</div>
+																					<div className="relationships-content">
+																						{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
+																										<span key={qIndex} className="relationship-item">
+																											→ {question.label}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
+																										<span key={pIndex} className="relationship-item">
+																											→ {problem.label || problem.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
+																										<span key={bIndex} className="relationship-item">
+																											→ {barrier.label || barrier.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
+																										<span key={gIndex} className="relationship-item">
+																											→ {guideline.label || guideline.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{/* Show message if no relationships */}
+																						{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
+																						  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
+																						  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
+																						  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
+																							<div className="no-relationships">
+																								No relationships found for this answer.
+																							</div>
+																						)}
+																					</div>
+																				</div>
+																			)}
+																			{/* Loading state */}
+																			{isEditable && state.showRelationships && state.relationshipsLoading[answer.ids.id] && (
+																				<div className="relationships-loading">
+																					⏳ Loading relationships...
 																				</div>
 																			)}
 																		</div>
@@ -1177,6 +1308,29 @@ const view = (state, {updateState, dispatch}) => {
 																		<div className="answer-edit">
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
+																				<span 
+																					className="edit-icon"
+																					title="Edit answer text"
+																					style={{
+																						cursor: 'pointer',
+																						marginRight: '6px',
+																						padding: '1px 3px',
+																						backgroundColor: '#f0f0f0',
+																						borderRadius: '3px',
+																						fontSize: '11px',
+																						display: 'inline-block',
+																						border: '1px solid #ccc'
+																					}}
+																					onclick={() => {
+																						dispatch('OPEN_EDIT_MODAL', {
+																							type: 'answer',
+																							itemId: answer.ids.id,
+																							text: answer.label
+																						});
+																					}}
+																				>
+																					🔍
+																				</span>
 																				<input 
 																					type="text"
 																					className="answer-label-input"
@@ -1236,90 +1390,131 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																			)}
 																			
-																			{/* Relationship viewer/loader */}
-																			{isEditable && (
+																			{/* Relationship button/counts */}
+																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
 																						<button 
 																							className="load-relationships-btn"
-																							onclick={() => {
-																								dispatch('LOAD_ANSWER_RELATIONSHIPS', {
-																									answerId: answer.ids.id
-																								});
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
 																							}}
 																						>
-																							🔍 View Relationships
+																							{(() => {
+																								if (!answer.counts) return 'Add Relationships';
+																								
+																								const labels = [
+																									{ key: 'triggered_guidelines', label: 'G' },
+																									{ key: 'problems', label: 'P' }, 
+																									{ key: 'triggered_questions', label: 'Q' },
+																									{ key: 'evidence', label: 'E' },
+																									{ key: 'barriers', label: 'B' }
+																								];
+																								
+																								const displayCounts = labels
+																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
+																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
+																									
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Add Relationships';
+																							})()}
 																						</button>
 																					) : state.relationshipsLoading[answer.ids.id] ? (
 																						<div className="relationships-loading">
 																							⏳ Loading relationships...
 																						</div>
-																					) : state.answerRelationships[answer.ids.id] ? (
-																						<div className="relationships-display">
-																							<div className="relationships-header">
-																								🔍 <strong>Relationships for "{answer.label}"</strong>
-																							</div>
-																							<div className="relationships-content">
-																								{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
-																												<span key={qIndex} className="relationship-item">
-																													→ {question.label}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
-																												<span key={pIndex} className="relationship-item">
-																													→ {problem.label || problem.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
-																												<span key={bIndex} className="relationship-item">
-																													→ {barrier.label || barrier.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
-																									<div className="relationship-section">
-																										<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
-																										<div className="relationship-items">
-																											{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
-																												<span key={gIndex} className="relationship-item">
-																													→ {guideline.label || guideline.name}
-																												</span>
-																											))}
-																										</div>
-																									</div>
-																								)}
-																								{/* Show message if no relationships */}
-																								{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
-																								  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
-																								  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
-																								  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
-																									<div className="no-relationships">
-																										No relationships found for this answer.
-																									</div>
-																								)}
-																							</div>
-																						</div>
 																					) : null}
+																				</div>
+																			)}
+																			
+																			{/* Relationship display (shown when loaded) */}
+																			{isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
+																				<div className="relationships-display">
+																					<div className="relationships-header">
+																						🔍 <strong>Relationships for "{answer.label}"</strong>
+																						<button 
+																							className="close-relationships-btn"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('CLOSE_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							✕
+																						</button>
+																					</div>
+																					<div className="relationships-content">
+																						{state.answerRelationships[answer.ids.id].questions?.questions?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
+																										<span key={qIndex} className="relationship-item">
+																											→ {question.label}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].problems?.problems?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Problems ({state.answerRelationships[answer.ids.id].problems.problems_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].problems.problems.map((problem, pIndex) => (
+																										<span key={pIndex} className="relationship-item">
+																											→ {problem.label || problem.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].barriers?.barriers?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Barriers ({state.answerRelationships[answer.ids.id].barriers.barriers_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].barriers.barriers.map((barrier, bIndex) => (
+																										<span key={bIndex} className="relationship-item">
+																											→ {barrier.label || barrier.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length > 0 && (
+																							<div className="relationship-section">
+																								<span className="relationship-label">Guidelines ({state.answerRelationships[answer.ids.id].guidelines.guidelines_quantity})</span>
+																								<div className="relationship-items">
+																									{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
+																										<span key={gIndex} className="relationship-item">
+																											→ {guideline.label || guideline.name}
+																										</span>
+																									))}
+																								</div>
+																							</div>
+																						)}
+																						{/* Show message if no relationships */}
+																						{(!state.answerRelationships[answer.ids.id].questions?.questions?.length && 
+																						  !state.answerRelationships[answer.ids.id].problems?.problems?.length &&
+																						  !state.answerRelationships[answer.ids.id].barriers?.barriers?.length &&
+																						  !state.answerRelationships[answer.ids.id].guidelines?.guidelines?.length) && (
+																							<div className="no-relationships">
+																								No relationships found for this answer.
+																							</div>
+																						)}
+																					</div>
+																				</div>
+																			)}
+																			{/* Loading state */}
+																			{isEditable && state.showRelationships && state.relationshipsLoading[answer.ids.id] && (
+																				<div className="relationships-loading">
+																					⏳ Loading relationships...
 																				</div>
 																			)}
 																		</div>
@@ -1485,6 +1680,97 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 			
+			{/* Edit Modal */}
+			{state.modalOpen && (
+				<div className="modal-overlay" style={{
+					position: 'fixed',
+					top: '0',
+					left: '0',
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0,0,0,0.5)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: '1000'
+				}}>
+					<div className="modal-content" style={{
+						backgroundColor: 'white',
+						padding: '20px',
+						borderRadius: '8px',
+						width: '500px',
+						maxWidth: '90vw',
+						boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+					}}>
+						<h3 className="modal-title">
+							Edit {state.modalType === 'question' ? 'Question' : state.modalType === 'answer' ? 'Answer' : 'Section'}
+						</h3>
+						<textarea
+							className="modal-textarea"
+							value={state.modalText}
+							oninput={(e) => {
+								dispatch('UPDATE_MODAL_TEXT', {
+									text: e.target.value
+								});
+							}}
+							placeholder={`Enter ${state.modalType === 'question' ? 'question' : state.modalType === 'answer' ? 'answer' : 'section'} text...`}
+							rows="8"
+							style={{
+								width: '100%',
+								minHeight: '200px',
+								resize: 'vertical',
+								fontFamily: 'inherit',
+								fontSize: '14px',
+								padding: '10px',
+								border: '1px solid #ccc',
+								borderRadius: '4px'
+							}}
+						></textarea>
+						<div className="modal-buttons" style={{
+							marginTop: '15px',
+							display: 'flex',
+							gap: '10px',
+							justifyContent: 'flex-end'
+						}}>
+							<button 
+								className="modal-save-btn"
+								style={{
+									backgroundColor: '#28a745',
+									color: 'white',
+									border: 'none',
+									padding: '8px 16px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px'
+								}}
+								onclick={() => {
+									dispatch('SAVE_MODAL_TEXT');
+								}}
+							>
+								✓ Save
+							</button>
+							<button 
+								className="modal-cancel-btn"
+								style={{
+									backgroundColor: '#6c757d',
+									color: 'white',
+									border: 'none',
+									padding: '8px 16px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px'
+								}}
+								onclick={() => {
+									dispatch('CLOSE_MODAL');
+								}}
+							>
+								✗ Cancel
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
 	);
@@ -1534,6 +1820,13 @@ createCustomElement('cadal-careiq-builder', {
 		relationshipsLoading: {},
 		// UI state
 		systemMessagesCollapsed: false,
+		showRelationships: false, // Toggle for relationship buttons visibility
+		// Modal state for editing long text
+		modalOpen: false,
+		modalType: null, // 'question' or 'answer'
+		modalItemId: null,
+		modalText: '',
+		modalOriginalText: '',
 		// Section editing state
 		editingSectionId: null,
 		editingSectionName: null,
@@ -2542,16 +2835,12 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 			
-			// Build request body for CareIQ API call
-			const requestBody = {
-				region: state.careiqConfig?.region || 'stg',
-				version: state.careiqConfig?.version || 'v1', 
-				app: state.careiqConfig?.app || 'app',
-				accessToken: state.accessToken,
+			// Build request body for simplified API call
+			const requestBody = JSON.stringify({
 				answerId: answerId
-			};
+			});
 			
-			console.log('Answer relationships request body:', requestBody);
+			console.log('Answer relationships request body (simplified):', requestBody);
 			
 			dispatch('MAKE_ANSWER_RELATIONSHIPS_REQUEST', {requestBody: requestBody});
 		},
@@ -2620,12 +2909,158 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'CLOSE_ANSWER_RELATIONSHIPS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId} = action.payload;
+			
+			console.log('Closing answer relationships for:', answerId);
+			
+			const updatedRelationships = {...state.answerRelationships};
+			delete updatedRelationships[answerId];
+			
+			updateState({
+				answerRelationships: updatedRelationships
+			});
+		},
+
 		'TOGGLE_SYSTEM_MESSAGES': (coeffects) => {
 			const {updateState, state} = coeffects;
 			
 			updateState({
 				systemMessagesCollapsed: !state.systemMessagesCollapsed
 			});
+		},
+
+		'TOGGLE_EDIT_RELATIONSHIPS': (coeffects) => {
+			const {updateState, state} = coeffects;
+			
+			console.log('Toggling relationship visibility:', !state.showRelationships);
+			
+			updateState({
+				showRelationships: !state.showRelationships
+			});
+		},
+
+		'OPEN_EDIT_MODAL': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {type, itemId, text} = action.payload;
+			
+			console.log('Opening edit modal:', type, itemId, text);
+			
+			updateState({
+				modalOpen: true,
+				modalType: type,
+				modalItemId: itemId,
+				modalText: text,
+				modalOriginalText: text
+			});
+		},
+
+		'UPDATE_MODAL_TEXT': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {text} = action.payload;
+			
+			updateState({
+				modalText: text
+			});
+		},
+
+		'CLOSE_MODAL': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				modalOpen: false,
+				modalType: null,
+				modalItemId: null,
+				modalText: '',
+				modalOriginalText: ''
+			});
+		},
+
+		'SAVE_MODAL_TEXT': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.log('Saving modal text:', state.modalType, state.modalItemId, state.modalText);
+			
+			if (state.modalType === 'question') {
+				// Update question label
+				const updatedQuestions = state.currentQuestions.questions.map(question => 
+					question.ids.id === state.modalItemId 
+						? {...question, label: state.modalText}
+						: question
+				);
+				
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					modalOpen: false,
+					modalType: null,
+					modalItemId: null,
+					modalText: '',
+					modalOriginalText: ''
+				});
+			} else if (state.modalType === 'answer') {
+				// Update answer label
+				const updatedQuestions = state.currentQuestions.questions.map(question => ({
+					...question,
+					answers: question.answers?.map(answer => 
+						answer.ids.id === state.modalItemId 
+							? {...answer, label: state.modalText}
+							: answer
+					) || []
+				}));
+				
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					modalOpen: false,
+					modalType: null,
+					modalItemId: null,
+					modalText: '',
+					modalOriginalText: ''
+				});
+			} else if (state.modalType === 'section') {
+				// Update section label and mark as changed for saving
+				const updatedSections = state.currentAssessment.sections.map(section => ({
+					...section,
+					subsections: section.subsections?.map(subsection => 
+						subsection.id === state.modalItemId 
+							? {...subsection, label: state.modalText}
+							: subsection
+					) || []
+				}));
+				
+				// Track this section as changed so it gets saved
+				const newSectionChanges = {
+					...state.sectionChanges,
+					[state.modalItemId]: {
+						id: state.modalItemId,
+						label: state.modalText,
+						tooltip: '', // Keep existing or default
+						alternative_wording: '',
+						required: false,
+						custom_attributes: {},
+						sort_order: 0
+					}
+				};
+				
+				updateState({
+					currentAssessment: {
+						...state.currentAssessment,
+						sections: updatedSections
+					},
+					sectionChanges: newSectionChanges,
+					modalOpen: false,
+					modalType: null,
+					modalItemId: null,
+					modalText: '',
+					modalOriginalText: ''
+				});
+			}
 		},
 
 		'ADD_SECTION': (coeffects) => {
