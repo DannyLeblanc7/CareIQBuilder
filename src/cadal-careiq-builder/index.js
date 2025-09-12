@@ -2116,6 +2116,18 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, dispatch, state} = coeffects;
 			console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
 			
+			// Debug section sort_order values
+			if (action.payload?.sections) {
+				action.payload.sections.forEach(section => {
+					console.log('Section:', section.label, 'sort_order:', section.sort_order);
+					if (section.subsections) {
+						section.subsections.forEach(subsection => {
+							console.log('  Subsection:', subsection.label, 'sort_order:', subsection.sort_order);
+						});
+					}
+				});
+			}
+			
 			// Check if we need to re-select a section after save
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
@@ -2140,7 +2152,8 @@ createCustomElement('cadal-careiq-builder', {
 				sectionLabelToSelect = pendingReselectionLabel;
 			} else {
 				// Auto-select first section (by sort_order) for immediate editing
-				const firstSection = action.payload?.sections?.[0];
+				const sortedSections = (action.payload?.sections || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+				const firstSection = sortedSections[0];
 				const sortedSubsections = firstSection?.subsections?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 				const firstSubsection = sortedSubsections?.[0];
 				
@@ -3114,10 +3127,6 @@ createCustomElement('cadal-careiq-builder', {
 				console.log('This is an existing section - calling update section API');
 				
 				const requestBody = JSON.stringify({
-					region: config.region,
-					version: config.version,
-					accessToken: accessToken,
-					app: config.app,
 					sectionId: sectionId,
 					label: sectionData.label || '',
 					tooltip: sectionData.tooltip || '',
@@ -3127,9 +3136,7 @@ createCustomElement('cadal-careiq-builder', {
 					sort_order: sectionData.sort_order || 0
 				});
 				
-				console.log('Update section request body:', requestBody);
-				console.log('Update section dispatch payload:', {requestBody: requestBody, sectionId: sectionId});
-				console.log('Parsed request body:', JSON.parse(requestBody));
+				console.log('Update section request body (simplified):', requestBody);
 				dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionId});
 			}
 		},

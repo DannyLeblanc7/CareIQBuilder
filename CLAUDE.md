@@ -136,6 +136,7 @@ Use `selected` attributes on individual options with boolean conditions instead 
 7. Use dynamic URL building for CareIQ endpoints
 8. **ALWAYS wrap HTTP effect body data in `data` property** - this prevents "Missing required fields" errors
 9. **Store assessment ID separately** - use `state.currentAssessmentId` for API calls, not `state.currentAssessment.id`
+10. **Do not add "simplified" suffix to endpoint URLs** - keep endpoint names clean (e.g., `/update-section` not `/update-section-simplified`)
 
 ## CRITICAL PATTERN: Local Changes Then Save
 **NEVER call backend APIs directly from UI actions like ADD_SECTION, EDIT_SECTION, etc.**
