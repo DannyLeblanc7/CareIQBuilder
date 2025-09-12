@@ -120,6 +120,162 @@ Use `selected` attributes on individual options with boolean conditions instead 
 6. Follow existing UI component patterns for state management
 7. Use dynamic URL building for CareIQ endpoints
 8. **ALWAYS wrap HTTP effect body data in `data` property** - this prevents "Missing required fields" errors
+9. **Store assessment ID separately** - use `state.currentAssessmentId` for API calls, not `state.currentAssessment.id`
+
+## CRITICAL PATTERN: Local Changes Then Save
+**NEVER call backend APIs directly from UI actions like ADD_SECTION, EDIT_SECTION, etc.**
+
+### Correct Pattern:
+1. **UI Actions**: Make local changes to state (add, edit, delete)
+2. **Track Changes**: Store changes in `sectionChanges`, `questionChanges`, `answerChanges`
+3. **Save Action**: Only call backend APIs when user clicks "Save" button
+4. **Batch Operations**: Save all changes in one save operation with multiple API calls
+
+### Example:
+- `ADD_SECTION` → Add to local state + track in `sectionChanges`
+- `EDIT_SECTION_NAME` → Update local state + track in `sectionChanges`  
+- `DELETE_SECTION` → Remove from local state + track in `sectionChanges`
+- `SAVE_ALL_CHANGES` → Call backend APIs for all tracked changes
+
+This allows users to make multiple changes and review them before committing to the backend.
+
+## CRITICAL PATTERN: Assessment ID Access
+**PROBLEM**: `state.currentAssessment` from API responses does NOT contain the assessment ID.
+
+### Root Cause:
+- Assessment cards click with `assessment.id` 
+- This ID is passed to `OPEN_ASSESSMENT_BUILDER` and `FETCH_ASSESSMENT_DETAILS`
+- But API response for assessment details doesn't include the ID in the payload
+- Trying to access `state.currentAssessment.ids?.id` or `state.currentAssessment.id` returns `undefined`
+
+### Correct Pattern:
+1. **Store ID separately**: In `OPEN_ASSESSMENT_BUILDER` save `currentAssessmentId: assessmentId`
+2. **Use stored ID**: Always use `state.currentAssessmentId` for API calls requiring assessment ID
+3. **NEVER use hardcoded fallback values** - this masks the real issue
+
+### Example:
+```javascript
+// OPEN_ASSESSMENT_BUILDER - Store the ID
+updateState({
+    currentAssessmentId: assessmentId // Store separately!
+});
+
+// Later in ADD_SECTION_SUCCESS - Use stored ID
+const assessmentId = state.currentAssessmentId; // NOT state.currentAssessment.id
+dispatch('FETCH_ASSESSMENT_DETAILS', {assessmentId});
+
+// In ADD_SECTION - Use stored ID for gt_id
+gt_id: state.currentAssessmentId // NOT hardcoded value
+```
+
+**This pattern prevents "Missing required fields: assessmentId" errors.**
+
+## UUID vs Temporary ID Handling
+**CRITICAL**: Backend APIs expect real UUIDs, not temporary IDs.
+
+### Pattern for New vs Existing Items:
+```javascript
+// Check if this is new (temp ID) or existing (real UUID)
+if (sectionData.action === 'add' || sectionId.startsWith('temp_')) {
+    // Use ADD API - don't send temp ID to backend
+    dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody});
+} else {
+    // Use UPDATE API - send real UUID
+    dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody, sectionId});
+}
+```
+
+### Common Error:
+```json
+{
+    "type": "uuid_parsing",
+    "msg": "Input should be a valid UUID, invalid character: found `t` at 1",
+    "input": "temp_1757686753933_al1c9554g"
+}
+```
+
+### Solution:
+- **New items**: Use add APIs, don't send temp IDs in request body or URL path
+- **Existing items**: Use update APIs with real UUIDs
+- **Always check**: `id.startsWith('temp_')` to identify local temporary items
+
+## HTTP Effect Debugging Pattern
+When ServiceNow APIs return "Missing required fields" errors, follow this debugging pattern:
+
+### Common Error Response:
+```json
+{
+    "data": {
+        "error": "Missing required fields: region, version, accessToken, app, sectionId, label"
+    },
+    "status": 400
+}
+```
+
+### Debugging Steps:
+1. **Add detailed logging** to the dispatch handler:
+   ```javascript
+   console.log('Request body:', requestBody);
+   console.log('Dispatch payload:', {requestBody: requestBody, sectionId: sectionId});
+   console.log('Parsed request body:', JSON.parse(requestBody));
+   ```
+
+2. **Verify data wrapping** - Ensure request body follows the pattern:
+   ```javascript
+   const requestBody = JSON.stringify({
+       data: {
+           region: config.region,
+           // ... all other fields inside data object
+       }
+   });
+   ```
+
+3. **Check HTTP effect configuration**:
+   ```javascript
+   'MAKE_API_REQUEST': createHttpEffect('/api/endpoint', {
+       method: 'POST',
+       dataParam: 'requestBody',  // Must match dispatch payload key
+       headers: {'Content-Type': 'application/json'}
+   })
+   ```
+
+4. **Verify server-side API** has matching field names and proper `request.body.data` access
+
+### Root Causes:
+- **MOST COMMON**: Wrong data wrapper pattern - mixing old and new patterns
+- Mismatched field names between client and server
+- HTTP effect `dataParam` not matching dispatch payload key
+- Server-side API not accessing data correctly
+
+## CRITICAL: Two Different API Patterns
+There are **TWO DIFFERENT** request body patterns in this codebase:
+
+### Pattern 1: Direct Fields (Most APIs)
+```javascript
+const requestBody = JSON.stringify({
+    region: config.region,
+    version: config.version,
+    accessToken: accessToken,
+    // ... fields directly in root
+});
+```
+**Used by**: token-exchange, use-case-categories, guideline-templates, get-sections, get-section-questions, **update-section**, answer-relationships
+
+### Pattern 2: Data Wrapper (Newer APIs)  
+```javascript
+const requestBody = JSON.stringify({
+    data: {
+        region: config.region,
+        version: config.version,
+        accessToken: accessToken,
+        // ... fields wrapped in data object
+    }
+});
+```
+**Used by**: add-section, assessment refresh calls
+
+### Rule: Check Existing Working API Calls
+**ALWAYS check how existing working APIs format their request body before creating new ones.** Most APIs use Pattern 1 (direct fields).
 
 ## Phase 2: Assessment Structure Editor (Current Phase)
 
@@ -314,3 +470,4 @@ NEVER use git checkout, git reset, or any restore commands without permission.
 NEVER replace file contents with backup versions.
 ANY file restoration MUST be explicitly requested and approved by the user first.
 These rules override ALL other instructions - file recovery requires explicit permission.
+- NEVER use hardcoded values and ensure the code does not have any

@@ -455,7 +455,9 @@ const view = (state, {updateState, dispatch}) => {
 								</div>
 								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
 									<div className="sections-list">
-										{state.currentAssessment.sections.map(section => (
+										{state.currentAssessment.sections
+											.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+											.map(section => (
 											<div key={section.id} className="section-item">
 												<div className="section-header">
 													<span className="section-label">{section.label}</span>
@@ -466,7 +468,9 @@ const view = (state, {updateState, dispatch}) => {
 												
 												{section.subsections && section.subsections.length > 0 && (
 													<div className="subsections-list">
-														{section.subsections.map(subsection => (
+														{section.subsections
+															.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+															.map(subsection => (
 															<div 
 																key={subsection.id} 
 																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''} ${state.dragOverSection === subsection.id ? 'drag-over' : ''}`}
@@ -629,6 +633,7 @@ const view = (state, {updateState, dispatch}) => {
 								{state.currentQuestions && state.currentQuestions.questions && !state.questionsLoading && (
 									<div className="questions-list">
 										{state.currentQuestions.questions
+											.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 											.filter(question => {
 												// In edit mode, show all questions
 												if (state.builderMode) return true;
@@ -806,7 +811,9 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Single Select Questions */}
 													{question.type === 'Single Select' && (
 														<div className="answer-options single-select">
-															{question.answers.map((answer, aIndex) => (
+															{question.answers
+																.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+																.map((answer, aIndex) => (
 																<div 
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
@@ -1086,7 +1093,9 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Multiselect Questions */}
 													{question.type === 'Multiselect' && (
 														<div className="answer-options multiselect">
-															{question.answers.map((answer, aIndex) => (
+															{question.answers
+																.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+																.map((answer, aIndex) => (
 																<div 
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
@@ -2054,7 +2063,8 @@ createCustomElement('cadal-careiq-builder', {
 				builderView: true,
 				assessmentDetailsLoading: true,
 				currentAssessment: null,
-				selectedSection: null
+				selectedSection: null,
+				currentAssessmentId: assessmentId // Store the assessment ID for later use
 			});
 			
 			// Fetch full assessment details
@@ -2068,6 +2078,8 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, dispatch} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
 			
+			console.log('FETCH_ASSESSMENT_DETAILS - assessmentId from payload:', assessmentId);
+			console.log('FETCH_ASSESSMENT_DETAILS - assessmentTitle from payload:', assessmentTitle);
 			console.log('Fetching assessment details for:', assessmentTitle);
 			
 			const requestBody = JSON.stringify({
@@ -2127,12 +2139,13 @@ createCustomElement('cadal-careiq-builder', {
 				sectionToSelect = pendingReselection;
 				sectionLabelToSelect = pendingReselectionLabel;
 			} else {
-				// Auto-select first section for immediate editing
+				// Auto-select first section (by sort_order) for immediate editing
 				const firstSection = action.payload?.sections?.[0];
-				const firstSubsection = firstSection?.subsections?.[0];
+				const sortedSubsections = firstSection?.subsections?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+				const firstSubsection = sortedSubsections?.[0];
 				
 				if (firstSubsection) {
-					console.log('Auto-selecting first section:', firstSubsection.label);
+					console.log('Auto-selecting first section by sort_order:', firstSubsection.label, 'sort_order:', firstSubsection.sort_order);
 					sectionToSelect = firstSubsection.id;
 					sectionLabelToSelect = firstSubsection.label;
 				}
@@ -2602,32 +2615,83 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_SECTION': (coeffects) => {
 			const {updateState, state} = coeffects;
 			
-			console.log('Adding new section');
+			console.log('ADD_SECTION action triggered - adding locally');
+			console.log('Assessment structure:', state.currentAssessment);
+			console.log('Assessment IDs:', state.currentAssessment.ids);
+			console.log('Assessment id:', state.currentAssessment.id);
 			
-			// Create a new section object
+			// Get the parent section (first section)
+			const parentSection = state.currentAssessment.sections?.[0];
+			if (!parentSection) {
+				console.error('No parent section found');
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'No parent section found to add subsection to',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+			
+			// Calculate next sort_order
+			const existingSubsections = parentSection.subsections || [];
+			const nextSortOrder = Math.max(...existingSubsections.map(s => s.sort_order || 0), 0) + 1;
+			
+			// Create a new section object with temporary ID
+			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 			const newSection = {
-				id: 'new-' + Date.now(),
+				id: newSectionId,
 				label: 'New Section',
-				sort_order: (state.currentAssessment.sections?.length || 0) + 1,
-				questions_quantity: 0
+				sort_order: nextSortOrder,
+				questions_quantity: 0,
+				tooltip: '',
+				alternative_wording: '',
+				required: false,
+				custom_attributes: {},
+				isNew: true // Mark as new for save operation
 			};
 			
-			// Add to the parent section's subsections (assuming first section is parent)
+			// Add to the parent section's subsections locally
 			const updatedSections = [...state.currentAssessment.sections];
-			if (updatedSections.length > 0) {
-				const parentSection = updatedSections[0];
-				if (!parentSection.subsections) {
-					parentSection.subsections = [];
-				}
-				parentSection.subsections.push(newSection);
+			const parentSectionIndex = updatedSections.findIndex(s => s.id === parentSection.id);
+			if (parentSectionIndex !== -1) {
+				updatedSections[parentSectionIndex] = {
+					...updatedSections[parentSectionIndex],
+					subsections: [...(updatedSections[parentSectionIndex].subsections || []), newSection]
+				};
 			}
+			
+			// Track the new section in sectionChanges for save operation
+			const newSectionChanges = {
+				...state.sectionChanges,
+				[newSectionId]: {
+					...newSection,
+					parent_section_id: parentSection.id,
+					gt_id: state.currentAssessmentId,
+					library_id: null,
+					action: 'add' // Track that this needs to be added to backend
+				}
+			};
 			
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
 					sections: updatedSections
 				},
-				editingSectionId: newSection.id
+				sectionChanges: newSectionChanges,
+				editingSectionId: newSectionId, // Auto-edit the new section
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Section added locally - click Save to persist changes',
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -2676,6 +2740,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {
 					...state.sectionChanges,
 					[sectionId]: {
+						...state.sectionChanges[sectionId],
 						label: sectionLabel
 					}
 				}
@@ -2973,6 +3038,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges.forEach(sectionId => {
 					const sectionData = state.sectionChanges[sectionId];
 					console.log('Saving section:', sectionId, sectionData);
+					console.log('Complete sectionChanges object:', JSON.stringify(state.sectionChanges, null, 2));
 					
 					// Skip deleted sections for now (would need DELETE API)
 					if (sectionData.deleted) {
@@ -3016,24 +3082,51 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Section data:', sectionData);
 			console.log('Config:', config);
 			console.log('Access token exists:', !!accessToken);
+			console.log('gt_id value:', sectionData.gt_id);
+			console.log('parent_section_id value:', sectionData.parent_section_id);
 			
-			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
-				sectionId: sectionId,
-				label: sectionData.label || '',
-				tooltip: sectionData.tooltip || '',
-				alternative_wording: sectionData.alternative_wording || '',
-				required: sectionData.required || false,
-				custom_attributes: sectionData.custom_attributes || {},
-				sort_order: sectionData.sort_order || 0
-			});
-			
-			console.log('Final request body:', requestBody);
-			
-			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionId});
+			// Check if this is a new section (add) or existing section (update)
+			// New sections have either action='add' or temp IDs starting with 'temp_'
+			if (sectionData.action === 'add' || sectionId.startsWith('temp_')) {
+				console.log('This is a new section - calling add section API');
+				
+				const requestBody = JSON.stringify({
+					region: config.region,
+					version: config.version,
+					accessToken: accessToken,
+					app: config.app,
+					sort_order: sectionData.sort_order || 1,
+					gt_id: sectionData.gt_id,
+					label: sectionData.label || 'New Section',
+					parent_section_id: sectionData.parent_section_id,
+					library_id: sectionData.library_id || null
+				});
+				
+				console.log('Add section request body:', requestBody);
+				dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody: requestBody});
+				
+			} else {
+				console.log('This is an existing section - calling update section API');
+				
+				const requestBody = JSON.stringify({
+					region: config.region,
+					version: config.version,
+					accessToken: accessToken,
+					app: config.app,
+					sectionId: sectionId,
+					label: sectionData.label || '',
+					tooltip: sectionData.tooltip || '',
+					alternative_wording: sectionData.alternative_wording || '',
+					required: sectionData.required || false,
+					custom_attributes: sectionData.custom_attributes || {},
+					sort_order: sectionData.sort_order || 0
+				});
+				
+				console.log('Update section request body:', requestBody);
+				console.log('Update section dispatch payload:', {requestBody: requestBody, sectionId: sectionId});
+				console.log('Parsed request body:', JSON.parse(requestBody));
+				dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionId});
+			}
 		},
 
 		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-section', {
@@ -3045,6 +3138,16 @@ createCustomElement('cadal-careiq-builder', {
 			successActionType: 'SECTION_UPDATE_SUCCESS',
 			errorActionType: 'SECTION_UPDATE_ERROR',
 			metaParam: 'sectionId'
+		}),
+
+		'MAKE_ADD_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-section', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_SECTION_SUCCESS',
+			errorActionType: 'ADD_SECTION_ERROR'
 		}),
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
@@ -3101,6 +3204,57 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: `Error saving section: ${errorMessage}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_SECTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Add section success:', action.payload);
+			
+			// The response contains the new section ID: { "id": "uuid" }
+			const newSectionId = action.payload.id;
+			
+			// Store the current section to re-select after refresh
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Section added successfully',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the assessment data to get the updated sections
+			const assessmentId = state.currentAssessmentId;
+			console.log('ADD_SECTION_SUCCESS - currentAssessment:', state.currentAssessment);
+			console.log('ADD_SECTION_SUCCESS - assessmentId from stored ID:', assessmentId);
+			
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: assessmentId,
+				assessmentTitle: state.currentAssessment.title
+			});
+		},
+
+		'ADD_SECTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Add section error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add section';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Error adding section: ${errorMessage}`,
 						timestamp: new Date().toISOString()
 					}
 				]
