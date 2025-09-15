@@ -1213,40 +1213,42 @@ const view = (state, {updateState, dispatch}) => {
 																			)}
 																		</div>
 																	) : (
-																		<label className="answer-label">
-																			<input 
-																				type="radio" 
-																				name={`question-${question.ids.id}`}
-																				value={answer.ids.id}
-																				checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
-																				onchange={(event) => {
-																					if (event.target.checked) {
-																						// Handle mutually exclusive logic first
-																						if (answer.mutually_exclusive) {
-																							dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
-																								questionId: question.ids.id,
-																								answerId: answer.ids.id
-																							});
-																						} else {
-																							dispatch('SELECT_ANSWER', {
-																								questionId: question.ids.id,
-																								answerId: answer.ids.id,
-																								questionType: question.type
-																							});
+																		<div className="answer-container">
+																			<label className="answer-label">
+																				<input 
+																					type="radio" 
+																					name={`question-${question.ids.id}`}
+																					value={answer.ids.id}
+																					checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
+																					onchange={(event) => {
+																						if (event.target.checked) {
+																							// Handle mutually exclusive logic first
+																							if (answer.mutually_exclusive) {
+																								dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
+																									questionId: question.ids.id,
+																									answerId: answer.ids.id
+																								});
+																							} else {
+																								dispatch('SELECT_ANSWER', {
+																									questionId: question.ids.id,
+																									answerId: answer.ids.id,
+																									questionType: question.type
+																								});
+																							}
 																						}
-																					}
-																				}}
-																			/>
-																			<span className="answer-text">
-																				{answer.label}
-																				{answer.secondary_input_type && (
-																					<span className="secondary-indicator">📝</span>
-																				)}
-																				{answer.tooltip && (
-																					<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
-																				)}
-																			</span>
-																			{/* Show secondary input if this answer is selected */}
+																					}}
+																				/>
+																				<span className="answer-text">
+																					{answer.label}
+																					{answer.secondary_input_type && (
+																						<span className="secondary-indicator">📝</span>
+																					)}
+																					{answer.tooltip && (
+																						<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
+																					)}
+																				</span>
+																			</label>
+																			{/* Show secondary input below answer if this answer is selected */}
 																			{!state.builderMode && state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) && answer.secondary_input_type && (
 																				<div className="secondary-input">
 																					{answer.secondary_input_type === 'text' && (
@@ -1260,7 +1262,7 @@ const view = (state, {updateState, dispatch}) => {
 																					)}
 																				</div>
 																			)}
-																		</label>
+																		</div>
 																	)}
 																</div>
 															))}
@@ -1595,38 +1597,40 @@ const view = (state, {updateState, dispatch}) => {
 																			)}
 																		</div>
 																	) : (
-																		<label className="answer-label">
-																			<input 
-																				type="checkbox"
-																				name={`question-${question.ids.id}`}
-																				value={answer.ids.id}
-																				checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
-																				onchange={(event) => {
-																					// Handle mutually exclusive logic first
-																					if (answer.mutually_exclusive && event.target.checked) {
-																						dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
-																							questionId: question.ids.id,
-																							answerId: answer.ids.id
-																						});
-																					} else {
-																						dispatch('SELECT_ANSWER', {
-																							questionId: question.ids.id,
-																							answerId: answer.ids.id,
-																							questionType: question.type
-																						});
-																					}
-																				}}
-																			/>
-																			<span className="answer-text">
-																				{answer.label}
-																				{answer.secondary_input_type && (
-																					<span className="secondary-indicator">📝</span>
-																				)}
-																				{answer.tooltip && (
-																					<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
-																				)}
-																			</span>
-																			{/* Show secondary input if this answer is selected */}
+																		<div className="answer-container">
+																			<label className="answer-label">
+																				<input 
+																					type="checkbox"
+																					name={`question-${question.ids.id}`}
+																					value={answer.ids.id}
+																					checked={state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) || false}
+																					onchange={(event) => {
+																						// Handle mutually exclusive logic first
+																						if (answer.mutually_exclusive && event.target.checked) {
+																							dispatch('HANDLE_MUTUALLY_EXCLUSIVE', {
+																								questionId: question.ids.id,
+																								answerId: answer.ids.id
+																							});
+																						} else {
+																							dispatch('SELECT_ANSWER', {
+																								questionId: question.ids.id,
+																								answerId: answer.ids.id,
+																								questionType: question.type
+																							});
+																						}
+																					}}
+																				/>
+																				<span className="answer-text">
+																					{answer.label}
+																					{answer.secondary_input_type && (
+																						<span className="secondary-indicator">📝</span>
+																					)}
+																					{answer.tooltip && (
+																						<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
+																					)}
+																				</span>
+																			</label>
+																			{/* Show secondary input below answer if this answer is selected */}
 																			{!state.builderMode && state.selectedAnswers[question.ids.id]?.includes(answer.ids.id) && answer.secondary_input_type && (
 																				<div className="secondary-input">
 																					{answer.secondary_input_type === 'text' && (
@@ -1640,7 +1644,7 @@ const view = (state, {updateState, dispatch}) => {
 																					)}
 																				</div>
 																			)}
-																		</label>
+																		</div>
 																	)}
 																</div>
 															))}

@@ -1279,6 +1279,44 @@
   opacity: 0.7;
 }
 
+// Answer Container and Secondary Input Styling for Preview Mode
+.answer-container {
+  margin-bottom: 0.5rem;
+}
+
+.secondary-input {
+  margin-top: 0.75rem;
+  margin-left: 1.5rem; // Indent to align with answer text
+  padding: 0.75rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.secondary-text-input,
+.secondary-date-input,
+.secondary-numeric-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  
+  &::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+  }
+}
+
 // Input Field Styling
 .text-input-container,
 .date-input-container,
