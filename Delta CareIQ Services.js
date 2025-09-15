@@ -195,3 +195,23 @@ builderAddAnswer: function(answerData) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderDeleteAnswer: function(answerId) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId));
+        var r = this._createRESTMessage('Delete Answer', endpoint);
+        r.setHttpMethod('DELETE');
+        
+        var response = this._executeRequestWithRetry(r, 'DeleteAnswer');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteAnswer - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

@@ -1060,7 +1060,18 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
+																					<button 
+																						className="delete-answer-btn" 
+																						title="Delete Answer"
+																						onclick={() => {
+																							dispatch('DELETE_ANSWER', {
+																								answerId: answer.ids.id,
+																								questionId: question.ids.id
+																							});
+																						}}
+																					>
+																						🗑️
+																					</button>
 																				</div>
 																			</div>
 																			{/* Show triggered questions indicator in edit mode */}
@@ -1444,7 +1455,18 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
+																					<button 
+																						className="delete-answer-btn" 
+																						title="Delete Answer"
+																						onclick={() => {
+																							dispatch('DELETE_ANSWER', {
+																								answerId: answer.ids.id,
+																								questionId: question.ids.id
+																							});
+																						}}
+																					>
+																						🗑️
+																					</button>
 																				</div>
 																			</div>
 																			{/* Show triggered questions indicator in edit mode */}
@@ -3062,6 +3084,49 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'DELETE_ANSWER': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, questionId} = action.payload;
+			
+			console.log('Deleting answer:', answerId, 'from question:', questionId);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			// Remove the answer from the current questions
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					return {
+						...question,
+						answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
+					};
+				}
+				return question;
+			});
+			
+			// Track the deletion for save operation (only if not a temp answer)
+			let newAnswerChanges = {...state.answerChanges};
+			
+			if (answerId.startsWith('temp_')) {
+				// Remove temp answer from changes (was never saved)
+				delete newAnswerChanges[answerId];
+			} else {
+				// Mark real answer for deletion
+				newAnswerChanges[answerId] = {
+					action: 'delete'
+				};
+			}
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				answerChanges: newAnswerChanges
+			});
+		},
+
 		'LOAD_ANSWER_RELATIONSHIPS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId} = action.payload;
@@ -3979,8 +4044,20 @@ createCustomElement('cadal-careiq-builder', {
 							answerData: backendAnswerData,
 							questionId: answerData.questionId
 						});
+					} else if (answerData.action === 'delete') {
+						console.log('Deleting answer:', answerId);
+						
+						// Skip if the answer has a temp ID (was never saved to backend)
+						if (answerId.startsWith('temp_')) {
+							console.log('Skipping delete for temp answer - was never saved to backend');
+							return;
+						}
+						
+						dispatch('DELETE_ANSWER_API', {
+							answerId: answerId
+						});
 					}
-					// TODO: Handle answer updates and deletions
+					// TODO: Handle answer updates
 				});
 			}
 			
@@ -4125,6 +4202,23 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_ADD_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
+		'DELETE_ANSWER_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {answerId} = action.payload;
+			
+			console.log('DELETE_ANSWER_API handler called');
+			console.log('Answer ID to delete:', answerId);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				answerId: answerId
+			});
+			
+			console.log('Delete Answer request body:', requestBody);
+			
+			dispatch('MAKE_DELETE_ANSWER_REQUEST', {requestBody: requestBody});
+		},
+
 		'MAKE_ADD_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
@@ -4195,6 +4289,60 @@ createCustomElement('cadal-careiq-builder', {
 			successActionType: 'ADD_ANSWER_SUCCESS',
 			errorActionType: 'ADD_ANSWER_ERROR'
 		}),
+
+		'MAKE_DELETE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-answer', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_ANSWER_SUCCESS',
+			errorActionType: 'DELETE_ANSWER_ERROR'
+		}),
+
+		'DELETE_ANSWER_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Answer deleted successfully:', action.payload);
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Answer deleted successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the questions for the current section
+			if (state.selectedSection) {
+				console.log('Refreshing questions for section:', state.selectedSection);
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					config: state.careiqConfig,
+					accessToken: state.accessToken
+				});
+			}
+		},
+
+		'DELETE_ANSWER_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Answer delete error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to delete answer';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error deleting answer: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
 
 		'ADD_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
