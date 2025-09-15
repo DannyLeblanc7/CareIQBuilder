@@ -215,3 +215,23 @@ builderDeleteAnswer: function(answerId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderDeleteQuestion: function(questionId) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/question/' + encodeURIComponent(questionId));
+        var r = this._createRESTMessage('Delete Question', endpoint);
+        r.setHttpMethod('DELETE');
+        
+        var response = this._executeRequestWithRetry(r, 'DeleteQuestion');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteQuestion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

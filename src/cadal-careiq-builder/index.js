@@ -878,7 +878,17 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Date" selected={question.type === 'Date'}>Date</option>
 																	<option value="Numeric" selected={question.type === 'Numeric'}>Numeric</option>
 																</select>
-																<button className="delete-question-btn" title="Delete Question">🗑️</button>
+																<button 
+																	className="delete-question-btn" 
+																	title="Delete Question"
+																	onclick={() => {
+																		dispatch('DELETE_QUESTION', {
+																			questionId: question.ids.id
+																		});
+																	}}
+																>
+																	🗑️
+																</button>
 															</div>
 														</div>
 													) : (
@@ -3127,6 +3137,53 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'DELETE_QUESTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId} = action.payload;
+			
+			console.log('Deleting question:', questionId);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			// Remove the question from the current questions
+			const updatedQuestions = state.currentQuestions.questions.filter(question => 
+				question.ids.id !== questionId
+			);
+			
+			// Track the deletion for save operation (only if not a temp question)
+			let newQuestionChanges = {...state.questionChanges};
+			
+			if (questionId.startsWith('temp_')) {
+				// Remove temp question from changes (was never saved)
+				delete newQuestionChanges[questionId];
+			} else {
+				// Mark real question for deletion
+				newQuestionChanges[questionId] = {
+					action: 'delete'
+				};
+			}
+			
+			// Also remove any answer changes for answers that belonged to this question
+			let newAnswerChanges = {...state.answerChanges};
+			Object.keys(newAnswerChanges).forEach(answerId => {
+				const answerData = newAnswerChanges[answerId];
+				if (answerData.questionId === questionId || answerData.question_id === questionId) {
+					delete newAnswerChanges[answerId];
+				}
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: newQuestionChanges,
+				answerChanges: newAnswerChanges
+			});
+		},
+
 		'LOAD_ANSWER_RELATIONSHIPS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId} = action.payload;
@@ -3994,8 +4051,20 @@ createCustomElement('cadal-careiq-builder', {
 							questionData: backendQuestionData,
 							sectionId: questionData.sectionId
 						});
+					} else if (questionData.action === 'delete') {
+						console.log('Deleting question:', questionId);
+						
+						// Skip if the question has a temp ID (was never saved to backend)
+						if (questionId.startsWith('temp_')) {
+							console.log('Skipping delete for temp question - was never saved to backend');
+							return;
+						}
+						
+						dispatch('DELETE_QUESTION_API', {
+							questionId: questionId
+						});
 					}
-					// TODO: Handle question updates and deletions
+					// TODO: Handle question updates
 				});
 			}
 			
@@ -4219,6 +4288,23 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_DELETE_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
+		'DELETE_QUESTION_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {questionId} = action.payload;
+			
+			console.log('DELETE_QUESTION_API handler called');
+			console.log('Question ID to delete:', questionId);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				questionId: questionId
+			});
+			
+			console.log('Delete Question request body:', requestBody);
+			
+			dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: requestBody});
+		},
+
 		'MAKE_ADD_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
@@ -4338,6 +4424,60 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: 'Error deleting answer: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'MAKE_DELETE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_QUESTION_SUCCESS',
+			errorActionType: 'DELETE_QUESTION_ERROR'
+		}),
+
+		'DELETE_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Question deleted successfully:', action.payload);
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Question deleted successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the questions for the current section
+			if (state.selectedSection) {
+				console.log('Refreshing questions for section:', state.selectedSection);
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					config: state.careiqConfig,
+					accessToken: state.accessToken
+				});
+			}
+		},
+
+		'DELETE_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Question delete error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to delete question';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error deleting question: ' + errorMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
