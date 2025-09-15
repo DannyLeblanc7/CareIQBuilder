@@ -121,3 +121,77 @@ builderDeleteSection: function(sectionId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderAddQuestion: function(questionData) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/question');
+        var r = this._createRESTMessage('Add Question', endpoint);
+        r.setHttpMethod('POST');
+        
+        // Build request body for the CareIQ API
+        var requestBody = {
+            label: questionData.label,
+            type: questionData.type,
+            tooltip: questionData.tooltip || '',
+            alternative_wording: questionData.alternative_wording || '',
+            answers: questionData.answers || [],
+            guideline_template_id: questionData.guideline_template_id,
+            section_id: questionData.section_id,
+            sort_order: questionData.sort_order || 1,
+            custom_attributes: questionData.custom_attributes || {},
+            voice: questionData.voice || 'CaseManager',
+            required: questionData.required || false,
+            available: questionData.available || false
+        };
+        
+        r.setRequestBody(JSON.stringify(requestBody));
+        
+        var response = this._executeRequestWithRetry(r, 'AddQuestion');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddQuestion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+builderAddAnswer: function(answerData) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/answer');
+        var r = this._createRESTMessage('Add Answer', endpoint);
+        r.setHttpMethod('POST');
+        
+        // Build request body for the CareIQ API
+        var requestBody = {
+            label: answerData.label,
+            tooltip: answerData.tooltip || '',
+            alternative_wording: answerData.alternative_wording || 'string',
+            secondary_input_type: answerData.secondary_input_type || null,
+            mutually_exclusive: answerData.mutually_exclusive || false,
+            custom_attributes: answerData.custom_attributes || {},
+            required: answerData.required || false,
+            sort_order: answerData.sort_order || 1,
+            question_id: answerData.question_id,
+            guideline_template_id: answerData.guideline_template_id
+        };
+        
+        r.setRequestBody(JSON.stringify(requestBody));
+        
+        var response = this._executeRequestWithRetry(r, 'AddAnswer');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddAnswer - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

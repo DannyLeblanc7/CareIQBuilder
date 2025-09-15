@@ -171,6 +171,55 @@ After successful save operations, the assessment data must be refreshed to refle
 
 **Pattern Must Be Applied To**: Every success handler for CRUD operations (UPDATE_SUCCESS, DELETE_SUCCESS, ADD_SUCCESS) to maintain UI consistency with server state.
 
+## CRITICAL PATTERN: Save/Cancel Button Display
+**ALWAYS update change tracking when adding new functionality that modifies assessment data.**
+
+### Rule: Any Action That Changes Data Must Update Change Tracking
+When implementing any action that modifies assessment data, you MUST:
+
+1. **Update the appropriate change tracking object** (`sectionChanges`, `questionChanges`, `answerChanges`)
+2. **Ensure save/cancel buttons appear** by checking if tracking objects have changes
+3. **Test that save button works** after implementing new functionality
+
+### Examples of Actions That Must Update Tracking:
+- `ADD_QUESTION` → Update `questionChanges`
+- `ADD_ANSWER` → Update `answerChanges` 
+- `UPDATE_QUESTION_TYPE` → Update `questionChanges`
+- `EDIT_SECTION_NAME` → Update `sectionChanges`
+- `DELETE_QUESTION` → Update `questionChanges`
+- `REORDER_QUESTIONS` → Update `questionChanges`
+
+### Save Button Display Logic:
+```javascript
+// Save button appears when ANY change tracking object has changes
+{(Object.keys(state.sectionChanges || {}).length > 0 || 
+  Object.keys(state.questionChanges || {}).length > 0 || 
+  Object.keys(state.answerChanges || {}).length > 0) && (
+  <button onclick={() => dispatch('SAVE_ALL_CHANGES')}>Save Changes</button>
+)}
+```
+
+### Change Tracking Pattern:
+```javascript
+'ACTION_NAME': (coeffects) => {
+    // 1. Perform the data change
+    updateState({ /* update main data */ });
+    
+    // 2. ALWAYS update change tracking
+    updateState({
+        questionChanges: {
+            ...state.questionChanges,
+            [itemId]: {
+                ...state.questionChanges[itemId],
+                // track what changed
+            }
+        }
+    });
+}
+```
+
+**CRITICAL**: If you forget to update change tracking, users won't see the save button and changes will be lost!
+
 ## CRITICAL PATTERN: Assessment ID Access
 **PROBLEM**: `state.currentAssessment` from API responses does NOT contain the assessment ID.
 

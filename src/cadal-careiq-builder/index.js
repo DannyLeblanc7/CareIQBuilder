@@ -492,16 +492,7 @@ const view = (state, {updateState, dispatch}) => {
 															<div 
 																key={subsection.id} 
 																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''} ${state.dragOverSection === subsection.id ? 'drag-over' : ''}`}
-																draggable={state.builderMode && state.currentAssessment?.status === 'draft'}
-																ondragstart={(e) => {
-																	if (state.builderMode && state.currentAssessment?.status === 'draft') {
-																		dispatch('DRAG_SECTION_START', {
-																			sectionId: subsection.id,
-																			sectionIndex: section.subsections.indexOf(subsection)
-																		});
-																		e.dataTransfer.effectAllowed = 'move';
-																	}
-																}}
+																draggable={false}
 																ondragover={(e) => {
 																	if (state.draggingSection) {
 																		e.preventDefault();
@@ -617,6 +608,43 @@ const view = (state, {updateState, dispatch}) => {
 																				🔍
 																			</span>
 																		)}
+																		{state.builderMode && state.currentAssessment?.status === 'draft' && (
+																			<span 
+																				className="section-drag-handle"
+																				title="Drag to reorder section"
+																				draggable={true}
+																				style={{
+																					cursor: 'grab',
+																					marginRight: '6px',
+																					padding: '1px 3px',
+																					backgroundColor: '#f8f8f8',
+																					borderRadius: '3px',
+																					fontSize: '11px',
+																					display: 'inline-block',
+																					border: '1px solid #ddd',
+																					color: '#666'
+																				}}
+																				ondragstart={(e) => {
+																					console.log('Section drag start from handle:', {sectionId: subsection.id});
+																					const sectionIndex = section.subsections.indexOf(subsection);
+																					dispatch('DRAG_SECTION_START', {
+																						sectionId: subsection.id,
+																						sectionIndex: sectionIndex
+																					});
+																					e.dataTransfer.effectAllowed = 'move';
+																					e.dataTransfer.setData('text/plain', JSON.stringify({
+																						type: 'section',
+																						sectionId: subsection.id,
+																						sourceIndex: sectionIndex
+																					}));
+																				}}
+																				ondragend={(e) => {
+																					dispatch('DRAG_SECTION_END');
+																				}}
+																			>
+																				⋮⋮
+																			</span>
+																		)}
 																		{subsection.label}
 																		{state.sectionChanges[subsection.id] && (
 																			<span className="unsaved-indicator" title="Unsaved changes">●</span>
@@ -699,20 +727,10 @@ const view = (state, {updateState, dispatch}) => {
 											<div 
 												key={question.ids.id} 
 												className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`} 
-												draggable={isEditable}
+												draggable={false}
 												onclick={() => {
 													console.log('Question clicked! Editable:', isEditable, 'Draggable:', isEditable);
 												}}
-												ondragstart={isEditable ? (e) => {
-													console.log('Question drag start:', {questionId: question.ids.id, sourceIndex: qIndex});
-													e.dataTransfer.setData('text/plain', JSON.stringify({
-														type: 'question',
-														questionId: question.ids.id,
-														sourceIndex: qIndex
-													}));
-													e.dataTransfer.effectAllowed = 'move';
-													e.currentTarget.classList.add('dragging');
-												} : null}
 												ondragend={isEditable ? (e) => {
 													e.currentTarget.classList.remove('dragging');
 												} : null}
@@ -752,29 +770,28 @@ const view = (state, {updateState, dispatch}) => {
 														<div 
 															className="drag-handle" 
 															title="Drag to reorder"
-															onclick={(e) => {
-																e.stopPropagation();
-																console.log('Question drag handle clicked!', e);
+															draggable={true}
+															ondragstart={(e) => {
+																console.log('Question drag start from handle:', {questionId: question.ids.id, sourceIndex: qIndex});
+																e.dataTransfer.setData('text/plain', JSON.stringify({
+																	type: 'question',
+																	questionId: question.ids.id,
+																	sourceIndex: qIndex
+																}));
+																e.dataTransfer.effectAllowed = 'move';
 																
-																// Test: try to trigger a drag event manually
-																const questionElement = e.currentTarget.closest('.question-item');
-																console.log('Question element:', questionElement);
-																console.log('Draggable attribute:', questionElement.draggable);
-																
-																// Try to start a drag programmatically
-																const dragEvent = new DragEvent('dragstart', {
-																	bubbles: true,
-																	cancelable: true
-																});
-																
-																if (questionElement.draggable) {
-																	console.log('Attempting to dispatch dragstart event...');
-																	questionElement.dispatchEvent(dragEvent);
+																// Add visual feedback to the parent question
+																const parentElement = e.target.closest('.question-item');
+																if (parentElement) {
+																	parentElement.classList.add('dragging');
 																}
 															}}
-															onmousedown={(e) => {
-																e.stopPropagation();
-																console.log('Question drag handle mousedown!', e);
+															ondragend={(e) => {
+																// Remove visual feedback
+																const parentElement = e.target.closest('.question-item');
+																if (parentElement) {
+																	parentElement.classList.remove('dragging');
+																}
 															}}
 														>
 															⋮⋮
@@ -844,12 +861,22 @@ const view = (state, {updateState, dispatch}) => {
 																	/>
 																	Required
 																</label>
-																<select className="question-type-select" value={question.type}>
-																	<option value="Single Select">Single Select</option>
-																	<option value="Multiselect">Multiselect</option>
-																	<option value="Text">Text</option>
-																	<option value="Date">Date</option>
-																	<option value="Numeric">Numeric</option>
+																<select className="question-type-select" onchange={(e) => {
+																	console.log('Question type changed to:', e.target.value);
+																	dispatch('UPDATE_QUESTION_TYPE', {
+																		questionId: question.ids.id,
+																		newType: e.target.value
+																	});
+																}} onmousedown={(e) => {
+																	e.stopPropagation();
+																}} onfocus={(e) => {
+																	e.stopPropagation();
+																}}>
+																	<option value="Single Select" selected={question.type === 'Single Select'}>Single Select</option>
+																	<option value="Multiselect" selected={question.type === 'Multiselect'}>Multiselect</option>
+																	<option value="Text" selected={question.type === 'Text'}>Text</option>
+																	<option value="Date" selected={question.type === 'Date'}>Date</option>
+																	<option value="Numeric" selected={question.type === 'Numeric'}>Numeric</option>
 																</select>
 																<button className="delete-question-btn" title="Delete Question">🗑️</button>
 															</div>
@@ -884,7 +911,7 @@ const view = (state, {updateState, dispatch}) => {
 																<div 
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
-																	draggable={isEditable}
+																	draggable={false}
 																	data-debugeditable={isEditable}
 																	data-debugbuildermode={state.builderMode}
 																	data-debugstatus={state.currentAssessment?.status}
@@ -901,17 +928,6 @@ const view = (state, {updateState, dispatch}) => {
 																			console.log('Try holding mouse down and DRAGGING this entire answer box');
 																		}
 																	}}
-																	ondragstart={isEditable ? (e) => {
-																		console.log('Answer drag start:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
-																		e.dataTransfer.setData('text/plain', JSON.stringify({
-																			type: 'answer',
-																			questionId: question.ids.id,
-																			answerId: answer.ids.id,
-																			sourceIndex: aIndex
-																		}));
-																		e.currentTarget.classList.add('dragging');
-																		e.stopPropagation(); // Prevent question drag
-																	} : null}
 																	ondragend={isEditable ? (e) => {
 																		e.currentTarget.classList.remove('dragging');
 																	} : null}
@@ -946,13 +962,30 @@ const view = (state, {updateState, dispatch}) => {
 																			<div 
 																				className="answer-drag-handle" 
 																				title="Drag to reorder"
-																				onclick={(e) => {
-																					e.stopPropagation();
-																					console.log('Answer drag handle clicked!', e);
+																				draggable={true}
+																				ondragstart={(e) => {
+																					console.log('Answer drag start from handle:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
+																					e.dataTransfer.setData('text/plain', JSON.stringify({
+																						type: 'answer',
+																						questionId: question.ids.id,
+																						answerId: answer.ids.id,
+																						sourceIndex: aIndex
+																					}));
+																					e.dataTransfer.effectAllowed = 'move';
+																					e.stopPropagation(); // Prevent question drag
+																					
+																					// Add visual feedback to the parent answer
+																					const parentElement = e.target.closest('.answer-option');
+																					if (parentElement) {
+																						parentElement.classList.add('dragging');
+																					}
 																				}}
-																				onmousedown={(e) => {
-																					e.stopPropagation();
-																					console.log('Answer drag handle mousedown!', e);
+																				ondragend={(e) => {
+																					// Remove visual feedback
+																					const parentElement = e.target.closest('.answer-option');
+																					if (parentElement) {
+																						parentElement.classList.remove('dragging');
+																					}
 																				}}
 																			>
 																				⋮⋮
@@ -990,6 +1023,12 @@ const view = (state, {updateState, dispatch}) => {
 																					className="answer-label-input"
 																					value={answer.label}
 																					placeholder="Enter answer text..."
+																					oninput={(e) => {
+																						dispatch('UPDATE_ANSWER_LABEL', {
+																							answerId: answer.ids.id,
+																							newLabel: e.target.value
+																						});
+																					}}
 																				/>
 																				<div className="answer-tooltip-icon">
 																					<span 
@@ -1007,11 +1046,19 @@ const view = (state, {updateState, dispatch}) => {
 																					</span>
 																				</div>
 																				<div className="answer-controls">
-																					<select className="secondary-input-select" value={answer.secondary_input_type || ''}>
-																						<option value="">No secondary input</option>
-																						<option value="text">Text input</option>
-																						<option value="date">Date input</option>
-																						<option value="numeric">Numeric input</option>
+																					<select 
+																						className="secondary-input-select" 
+																						onchange={(e) => {
+																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
+																								answerId: answer.ids.id,
+																								newSecondaryInputType: e.target.value || null
+																							});
+																						}}
+																					>
+																						<option value="" selected={!answer.secondary_input_type}>No secondary input</option>
+																						<option value="text" selected={answer.secondary_input_type === 'text'}>Text input</option>
+																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
+																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
 																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
 																				</div>
@@ -1217,7 +1264,16 @@ const view = (state, {updateState, dispatch}) => {
 																	)}
 																</div>
 															))}
-															{isEditable ? <button className="add-answer-btn">+ Add Answer</button> : null}
+															{isEditable ? (
+																<button 
+																	className="add-answer-btn"
+																	onclick={() => dispatch('ADD_ANSWER', {
+																		questionId: question.ids.id
+																	})}
+																>
+																	+ Add Answer
+																</button>
+															) : null}
 														</div>
 													)}
 													
@@ -1230,7 +1286,7 @@ const view = (state, {updateState, dispatch}) => {
 																<div 
 																	key={answer.ids.id} 
 																	className={`answer-option ${isEditable ? 'editable draggable-answer' : ''}`} 
-																	draggable={isEditable}
+																	draggable={false}
 																	data-debugeditable={isEditable}
 																	data-debugbuildermode={state.builderMode}
 																	data-debugstatus={state.currentAssessment?.status}
@@ -1247,17 +1303,6 @@ const view = (state, {updateState, dispatch}) => {
 																			console.log('Try holding mouse down and DRAGGING this entire answer box');
 																		}
 																	}}
-																	ondragstart={isEditable ? (e) => {
-																		console.log('Answer drag start:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
-																		e.dataTransfer.setData('text/plain', JSON.stringify({
-																			type: 'answer',
-																			questionId: question.ids.id,
-																			answerId: answer.ids.id,
-																			sourceIndex: aIndex
-																		}));
-																		e.currentTarget.classList.add('dragging');
-																		e.stopPropagation(); // Prevent question drag
-																	} : null}
 																	ondragend={isEditable ? (e) => {
 																		e.currentTarget.classList.remove('dragging');
 																	} : null}
@@ -1292,13 +1337,30 @@ const view = (state, {updateState, dispatch}) => {
 																			<div 
 																				className="answer-drag-handle" 
 																				title="Drag to reorder"
-																				onclick={(e) => {
-																					e.stopPropagation();
-																					console.log('Answer drag handle clicked!', e);
+																				draggable={true}
+																				ondragstart={(e) => {
+																					console.log('Answer drag start from handle:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
+																					e.dataTransfer.setData('text/plain', JSON.stringify({
+																						type: 'answer',
+																						questionId: question.ids.id,
+																						answerId: answer.ids.id,
+																						sourceIndex: aIndex
+																					}));
+																					e.dataTransfer.effectAllowed = 'move';
+																					e.stopPropagation(); // Prevent question drag
+																					
+																					// Add visual feedback to the parent answer
+																					const parentElement = e.target.closest('.answer-option');
+																					if (parentElement) {
+																						parentElement.classList.add('dragging');
+																					}
 																				}}
-																				onmousedown={(e) => {
-																					e.stopPropagation();
-																					console.log('Answer drag handle mousedown!', e);
+																				ondragend={(e) => {
+																					// Remove visual feedback
+																					const parentElement = e.target.closest('.answer-option');
+																					if (parentElement) {
+																						parentElement.classList.remove('dragging');
+																					}
 																				}}
 																			>
 																				⋮⋮
@@ -1336,6 +1398,12 @@ const view = (state, {updateState, dispatch}) => {
 																					className="answer-label-input"
 																					value={answer.label}
 																					placeholder="Enter answer text..."
+																					oninput={(e) => {
+																						dispatch('UPDATE_ANSWER_LABEL', {
+																							answerId: answer.ids.id,
+																							newLabel: e.target.value
+																						});
+																					}}
 																				/>
 																				<div className="answer-tooltip-icon">
 																					<span 
@@ -1360,11 +1428,19 @@ const view = (state, {updateState, dispatch}) => {
 																						/>
 																						Exclusive
 																					</label>
-																					<select className="secondary-input-select" value={answer.secondary_input_type || ''}>
-																						<option value="">No secondary input</option>
-																						<option value="text">Text input</option>
-																						<option value="date">Date input</option>
-																						<option value="numeric">Numeric input</option>
+																					<select 
+																						className="secondary-input-select" 
+																						onchange={(e) => {
+																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
+																								answerId: answer.ids.id,
+																								newSecondaryInputType: e.target.value || null
+																							});
+																						}}
+																					>
+																						<option value="" selected={!answer.secondary_input_type}>No secondary input</option>
+																						<option value="text" selected={answer.secondary_input_type === 'text'}>Text input</option>
+																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
+																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
 																					<button className="delete-answer-btn" title="Delete Answer">🗑️</button>
 																				</div>
@@ -1568,7 +1644,16 @@ const view = (state, {updateState, dispatch}) => {
 																	)}
 																</div>
 															))}
-															{isEditable ? <button className="add-answer-btn">+ Add Answer</button> : null}
+															{isEditable ? (
+																<button 
+																	className="add-answer-btn"
+																	onclick={() => dispatch('ADD_ANSWER', {
+																		questionId: question.ids.id
+																	})}
+																>
+																	+ Add Answer
+																</button>
+															) : null}
 														</div>
 													)}
 													
@@ -1579,6 +1664,12 @@ const view = (state, {updateState, dispatch}) => {
 																type="text" 
 																className="text-input"
 																placeholder="Enter your answer..."
+																onmousedown={(e) => {
+																	e.stopPropagation();
+																}}
+																onfocus={(e) => {
+																	e.stopPropagation();
+																}}
 															/>
 														</div>
 													)}
@@ -1589,6 +1680,12 @@ const view = (state, {updateState, dispatch}) => {
 															<input 
 																type="date" 
 																className="date-input"
+																onmousedown={(e) => {
+																	e.stopPropagation();
+																}}
+																onfocus={(e) => {
+																	e.stopPropagation();
+																}}
 															/>
 														</div>
 													)}
@@ -1600,6 +1697,12 @@ const view = (state, {updateState, dispatch}) => {
 																type="number" 
 																className="numeric-input"
 																placeholder="Enter number..."
+																onmousedown={(e) => {
+																	e.stopPropagation();
+																}}
+																onfocus={(e) => {
+																	e.stopPropagation();
+																}}
 															/>
 														</div>
 													)}
@@ -2574,6 +2677,7 @@ createCustomElement('cadal-careiq-builder', {
 			questionsWithSortedAnswers.forEach((question, qIndex) => {
 				console.log(`Question ${qIndex + 1} (${question.ids?.id}):`, question.label, 'Hidden:', question.hidden);
 				question.answers?.forEach((answer, aIndex) => {
+					console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Secondary input type:', answer.secondary_input_type);
 					if (answer.triggered_questions && answer.triggered_questions.length > 0) {
 						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Triggers:', answer.triggered_questions);
 					}
@@ -2590,7 +2694,11 @@ createCustomElement('cadal-careiq-builder', {
 					questions: questionsWithSortedAnswers
 				},
 				questionsLoading: false,
-				visibleQuestions: initialVisibleQuestions
+				visibleQuestions: initialVisibleQuestions,
+				// Clear all changes after successful data refresh
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {}
 			});
 		},
 
@@ -2814,6 +2922,138 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
+				},
+				questionChanges: {
+					...state.questionChanges,
+					[newQuestionId]: {
+						action: 'add',
+						type: newQuestion.type,
+						label: newQuestion.label,
+						required: newQuestion.required,
+						tooltip: newQuestion.tooltip,
+						sort_order: newQuestion.sort_order,
+						answers: newQuestion.answers,
+						sectionId: sectionId,
+						guideline_template_id: state.currentAssessmentId,
+						section_id: sectionId
+					}
+				}
+			});
+		},
+
+		'UPDATE_QUESTION_TYPE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, newType} = action.payload;
+			
+			console.log('Updating question type:', questionId, 'to:', newType);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					const updatedQuestion = {...question, type: newType};
+					
+					// Handle type-specific changes
+					if (newType === 'Text' || newType === 'Date' || newType === 'Numeric') {
+						// Non-select types don't need answers
+						updatedQuestion.answers = [];
+					} else if ((newType === 'Single Select' || newType === 'Multiselect') && question.answers.length === 0) {
+						// Select types need at least one answer
+						updatedQuestion.answers = [
+							{
+								ids: { id: 'temp_answer_' + Date.now() + '_1' },
+								label: 'Option 1',
+								sort_order: 1,
+								secondary_input_type: null,
+								mutually_exclusive: false,
+								tooltip: '',
+								triggered_questions: []
+							}
+						];
+					}
+					
+					return updatedQuestion;
+				}
+				return question;
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...state.questionChanges[questionId],
+						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
+						type: newType
+					}
+				}
+			});
+		},
+
+		'ADD_ANSWER': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId} = action.payload;
+			
+			console.log('Adding new answer to question:', questionId);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			// Generate the new answer ID outside the map function so we can track it
+			const newAnswerId = 'temp_answer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+			let newAnswer = null;
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					const nextSortOrder = question.answers ? question.answers.length + 1 : 1;
+					
+					newAnswer = {
+						ids: { id: newAnswerId },
+						label: `Option ${nextSortOrder}`,
+						sort_order: nextSortOrder,
+						secondary_input_type: null,
+						mutually_exclusive: false,
+						tooltip: '',
+						triggered_questions: []
+					};
+					
+					return {
+						...question,
+						answers: [...(question.answers || []), newAnswer]
+					};
+				}
+				return question;
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				answerChanges: {
+					...state.answerChanges,
+					[newAnswerId]: {
+						action: 'add',
+						questionId: questionId,
+						label: newAnswer.label,
+						sort_order: newAnswer.sort_order,
+						secondary_input_type: newAnswer.secondary_input_type,
+						mutually_exclusive: newAnswer.mutually_exclusive,
+						tooltip: newAnswer.tooltip,
+						triggered_questions: newAnswer.triggered_questions,
+						// Additional fields needed for backend API
+						alternative_wording: 'string',
+						custom_attributes: {},
+						required: false,
+						guideline_template_id: state.currentAssessmentId,
+						question_id: questionId // Real question ID (may be temp for new questions)
+					}
 				}
 			});
 		},
@@ -3532,6 +3772,54 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'UPDATE_ANSWER_LABEL': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, newLabel} = action.payload;
+			
+			console.log('Updating answer label:', answerId, 'New label:', newLabel);
+			
+			// Update the answer in the current questions data
+			const updatedQuestions = {
+				...state.currentQuestions,
+				questions: state.currentQuestions.questions.map(question => ({
+					...question,
+					answers: question.answers?.map(answer =>
+						answer.ids.id === answerId
+							? {...answer, label: newLabel}
+							: answer
+					) || []
+				}))
+			};
+			
+			updateState({
+				currentQuestions: updatedQuestions
+			});
+		},
+
+		'UPDATE_ANSWER_SECONDARY_INPUT': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, newSecondaryInputType} = action.payload;
+			
+			console.log('Updating answer secondary input:', answerId, 'New type:', newSecondaryInputType);
+			
+			// Update the answer in the current questions data
+			const updatedQuestions = {
+				...state.currentQuestions,
+				questions: state.currentQuestions.questions.map(question => ({
+					...question,
+					answers: question.answers?.map(answer =>
+						answer.ids.id === answerId
+							? {...answer, secondary_input_type: newSecondaryInputType}
+							: answer
+					) || []
+				}))
+			};
+			
+			updateState({
+				currentQuestions: updatedQuestions
+			});
+		},
+
 		'EDIT_ANSWER_TOOLTIP': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {answerId, currentTooltip} = action.payload;
@@ -3553,10 +3841,14 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Question changes:', state.questionChanges);
 			console.log('Answer changes:', state.answerChanges);
 			
-			// Start with section changes
+			// Check what needs to be saved
 			const sectionChanges = Object.keys(state.sectionChanges || {});
+			const questionChanges = Object.keys(state.questionChanges || {});
+			const answerChanges = Object.keys(state.answerChanges || {});
 			
-			if (sectionChanges.length > 0) {
+			const hasChanges = sectionChanges.length > 0 || questionChanges.length > 0 || answerChanges.length > 0;
+			
+			if (hasChanges) {
 				updateState({
 					systemMessages: [
 						...(state.systemMessages || []),
@@ -3567,12 +3859,13 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					]
 				});
-				
-				// Save each section change
+			}
+			
+			// Save section changes first
+			if (sectionChanges.length > 0) {
 				sectionChanges.forEach(sectionId => {
 					const sectionData = state.sectionChanges[sectionId];
 					console.log('Saving section:', sectionId, sectionData);
-					console.log('Complete sectionChanges object:', JSON.stringify(state.sectionChanges, null, 2));
 					
 					// Handle deleted sections with DELETE API
 					if (sectionData.deleted) {
@@ -3593,7 +3886,101 @@ createCustomElement('cadal-careiq-builder', {
 						accessToken: state.accessToken
 					});
 				});
-			} else {
+			}
+			
+			// Save question changes
+			if (questionChanges.length > 0) {
+				questionChanges.forEach(questionId => {
+					const questionData = state.questionChanges[questionId];
+					console.log('Saving question:', questionId, questionData);
+					
+					// Handle new questions with ADD API
+					if (questionData.action === 'add') {
+						console.log('Adding new question:', questionId);
+						// Prepare data for backend API
+						const backendQuestionData = {
+							label: questionData.label,
+							type: questionData.type,
+							tooltip: questionData.tooltip || '',
+							alternative_wording: '',
+							answers: questionData.answers.map(answer => ({
+								label: answer.label,
+								tooltip: answer.tooltip || '',
+								alternative_wording: '',
+								secondary_input_type: answer.secondary_input_type,
+								mutually_exclusive: answer.mutually_exclusive || false,
+								custom_attributes: {},
+								required: answer.required || false
+							})),
+							guideline_template_id: questionData.guideline_template_id,
+							section_id: questionData.section_id,
+							sort_order: questionData.sort_order,
+							custom_attributes: {},
+							voice: 'CaseManager',
+							required: questionData.required || false,
+							available: false
+						};
+						
+						dispatch('ADD_QUESTION_API', {
+							questionData: backendQuestionData,
+							sectionId: questionData.sectionId
+						});
+					}
+					// TODO: Handle question updates and deletions
+				});
+			}
+			
+			// Save answer changes
+			if (answerChanges.length > 0) {
+				answerChanges.forEach(answerId => {
+					const answerData = state.answerChanges[answerId];
+					console.log('Saving answer:', answerId, answerData);
+					
+					// Handle new answers with ADD API
+					if (answerData.action === 'add') {
+						console.log('Adding new answer:', answerId);
+						
+						// Skip if the question is also new (temp ID) - will be handled with question creation
+						if (answerData.question_id.startsWith('temp_')) {
+							console.log('Skipping answer for new question - will be created with question');
+							return;
+						}
+						
+						// Find the current answer in questions to get actual UI values
+						let currentAnswer = null;
+						if (state.currentQuestions && state.currentQuestions.questions) {
+							for (let question of state.currentQuestions.questions) {
+								if (question.answers) {
+									currentAnswer = question.answers.find(ans => ans.ids.id === answerId);
+									if (currentAnswer) break;
+								}
+							}
+						}
+						
+						// Prepare data for backend API using actual current values
+						const backendAnswerData = {
+							label: currentAnswer ? currentAnswer.label : answerData.label,
+							tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
+							alternative_wording: answerData.alternative_wording || 'string',
+							secondary_input_type: currentAnswer ? currentAnswer.secondary_input_type : answerData.secondary_input_type,
+							mutually_exclusive: currentAnswer ? (currentAnswer.mutually_exclusive || false) : (answerData.mutually_exclusive || false),
+							custom_attributes: answerData.custom_attributes || {},
+							required: answerData.required || false,
+							sort_order: answerData.sort_order,
+							question_id: answerData.question_id, // Must be real UUID
+							guideline_template_id: answerData.guideline_template_id
+						};
+						
+						dispatch('ADD_ANSWER_API', {
+							answerData: backendAnswerData,
+							questionId: answerData.questionId
+						});
+					}
+					// TODO: Handle answer updates and deletions
+				});
+			}
+			
+			if (!hasChanges) {
 				// No changes to save
 				updateState({
 					systemMessages: [
@@ -3605,12 +3992,6 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					]
 				});
-			}
-			
-			// TODO: Implement question and answer changes saving
-			// For now, just clear those tracking objects
-			if (Object.keys(state.questionChanges || {}).length > 0 || Object.keys(state.answerChanges || {}).length > 0) {
-				console.log('Question/Answer changes not yet implemented - clearing tracking');
 			}
 		},
 
@@ -3685,6 +4066,182 @@ createCustomElement('cadal-careiq-builder', {
 			successActionType: 'ADD_SECTION_SUCCESS',
 			errorActionType: 'ADD_SECTION_ERROR'
 		}),
+
+		'ADD_QUESTION_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {questionData} = action.payload;
+			
+			console.log('ADD_QUESTION_API handler called');
+			console.log('Question data:', questionData);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				label: questionData.label,
+				type: questionData.type,
+				tooltip: questionData.tooltip,
+				alternative_wording: questionData.alternative_wording,
+				answers: questionData.answers,
+				guideline_template_id: questionData.guideline_template_id,
+				section_id: questionData.section_id,
+				sort_order: questionData.sort_order,
+				custom_attributes: questionData.custom_attributes,
+				voice: questionData.voice,
+				required: questionData.required,
+				available: questionData.available
+			});
+			
+			console.log('Add Question request body:', requestBody);
+			
+			dispatch('MAKE_ADD_QUESTION_REQUEST', {requestBody: requestBody});
+		},
+
+		'ADD_ANSWER_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {answerData} = action.payload;
+			
+			console.log('ADD_ANSWER_API handler called');
+			console.log('Answer data:', answerData);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				label: answerData.label,
+				tooltip: answerData.tooltip,
+				alternative_wording: answerData.alternative_wording,
+				secondary_input_type: answerData.secondary_input_type,
+				mutually_exclusive: answerData.mutually_exclusive,
+				custom_attributes: answerData.custom_attributes,
+				required: answerData.required,
+				sort_order: answerData.sort_order,
+				question_id: answerData.question_id,
+				guideline_template_id: answerData.guideline_template_id
+			});
+			
+			console.log('Add Answer request body:', requestBody);
+			
+			dispatch('MAKE_ADD_ANSWER_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_ADD_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_QUESTION_SUCCESS',
+			errorActionType: 'ADD_QUESTION_ERROR'
+		}),
+
+		'ADD_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Question added successfully:', action.payload);
+			
+			// Log the question UUID to console
+			if (action.payload && action.payload.id) {
+				console.log('=== QUESTION CREATED SUCCESSFULLY ===');
+				console.log('New Question UUID:', action.payload.id);
+				console.log('=====================================');
+			}
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Question created successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the questions for the current section
+			if (state.selectedSection) {
+				console.log('Refreshing questions for section:', state.selectedSection);
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					config: state.careiqConfig,
+					accessToken: state.accessToken
+				});
+			}
+		},
+
+		'ADD_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Question add error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add question';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error creating question: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'MAKE_ADD_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answer', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_ANSWER_SUCCESS',
+			errorActionType: 'ADD_ANSWER_ERROR'
+		}),
+
+		'ADD_ANSWER_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Answer added successfully:', action.payload);
+			
+			// Log the answer UUID to console
+			if (action.payload && action.payload.id) {
+				console.log('=== ANSWER CREATED SUCCESSFULLY ===');
+				console.log('New Answer UUID:', action.payload.id);
+				console.log('=====================================');
+			}
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Answer created successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the questions for the current section
+			if (state.selectedSection) {
+				console.log('Refreshing questions for section:', state.selectedSection);
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					config: state.careiqConfig,
+					accessToken: state.accessToken
+				});
+			}
+		},
+
+		'ADD_ANSWER_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Answer add error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add answer';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error creating answer: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
