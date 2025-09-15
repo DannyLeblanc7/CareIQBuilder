@@ -390,10 +390,33 @@ const view = (state, {updateState, dispatch}) => {
 			{state.careiqConfig && state.accessToken && state.builderView && (
 				<div className="builder-section">
 					<div className="builder-header">
-						<h2>
-							{state.currentAssessment ? state.currentAssessment.title : 'Assessment Builder'}
-						</h2>
+						<div className="builder-title">
+							<h2>
+								{state.currentAssessment ? state.currentAssessment.title : 'Assessment Builder'}
+							</h2>
+						</div>
 						<div className="builder-controls">
+							<button 
+								key="refresh-btn"
+								className="refresh-btn"
+								onclick={() => {
+									// Check if there are unsaved changes
+									const hasChanges = Object.keys(state.sectionChanges || {}).length > 0 || 
+													   Object.keys(state.questionChanges || {}).length > 0 || 
+													   Object.keys(state.answerChanges || {}).length > 0;
+									
+									if (hasChanges) {
+										if (confirm('You have unsaved changes. Are you sure you want to refresh and lose your changes?')) {
+											dispatch('REFRESH_ASSESSMENT');
+										}
+									} else {
+										dispatch('REFRESH_ASSESSMENT');
+									}
+								}}
+								title="Refresh assessment data"
+							>
+								🔄 Refresh
+							</button>
 							{state.currentAssessment?.status === 'draft' ? [
 								<button 
 									key="edit-btn"
@@ -423,7 +446,11 @@ const view = (state, {updateState, dispatch}) => {
 									<button 
 										key="save-btn"
 										className="save-changes-btn"
-										onclick={() => dispatch('SAVE_ALL_CHANGES')}
+										onclick={() => {
+											console.log('=== SAVE BUTTON CLICKED ===');
+											console.log('Dispatching SAVE_ALL_CHANGES');
+											dispatch('SAVE_ALL_CHANGES');
+										}}
 									>
 										💾 Save Changes
 									</button>,
@@ -803,6 +830,19 @@ const view = (state, {updateState, dispatch}) => {
 															<div className="question-single-line">
 																<select 
 																	className="voice-select"
+																	onchange={(e) => {
+																		console.log('Question voice changed to:', e.target.value);
+																		dispatch('UPDATE_QUESTION_VOICE', {
+																			questionId: question.ids.id,
+																			newVoice: e.target.value
+																		});
+																	}}
+																	onmousedown={(e) => {
+																		e.stopPropagation();
+																	}}
+																	onfocus={(e) => {
+																		e.stopPropagation();
+																	}}
 																>
 																	<option value="CaseManager" selected={question.voice === 'CaseManager'}>Case Manager</option>
 																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
@@ -836,6 +876,30 @@ const view = (state, {updateState, dispatch}) => {
 																	className="question-label-input"
 																	value={question.label}
 																	placeholder="Enter question text..."
+																	onkeyup={(e) => {
+																		const newLabel = e.target.value.trim();
+																		if (newLabel !== question.label && newLabel !== '') {
+																			dispatch('UPDATE_QUESTION_LABEL', {
+																				questionId: question.ids.id,
+																				newLabel: newLabel
+																			});
+																		}
+																	}}
+																	onblur={(e) => {
+																		const newLabel = e.target.value.trim();
+																		if (newLabel !== question.label && newLabel !== '') {
+																			dispatch('UPDATE_QUESTION_LABEL', {
+																				questionId: question.ids.id,
+																				newLabel: newLabel
+																			});
+																		}
+																	}}
+																	onmousedown={(e) => {
+																		e.stopPropagation();
+																	}}
+																	onfocus={(e) => {
+																		e.stopPropagation();
+																	}}
 																/>
 																<div className="tooltip-edit-icon">
 																	<span 
@@ -858,6 +922,19 @@ const view = (state, {updateState, dispatch}) => {
 																	<input 
 																		type="checkbox" 
 																		checked={question.required}
+																		onchange={(e) => {
+																			console.log('Question required changed to:', e.target.checked);
+																			dispatch('UPDATE_QUESTION_REQUIRED', {
+																				questionId: question.ids.id,
+																				required: e.target.checked
+																			});
+																		}}
+																		onmousedown={(e) => {
+																			e.stopPropagation();
+																		}}
+																		onfocus={(e) => {
+																			e.stopPropagation();
+																		}}
 																	/>
 																	Required
 																</label>
@@ -1448,6 +1525,19 @@ const view = (state, {updateState, dispatch}) => {
 																						<input 
 																							type="checkbox" 
 																							checked={answer.mutually_exclusive}
+																							onchange={(e) => {
+																								console.log('Answer mutually_exclusive changed to:', e.target.checked);
+																								dispatch('UPDATE_ANSWER_MUTUALLY_EXCLUSIVE', {
+																									answerId: answer.ids.id,
+																									mutually_exclusive: e.target.checked
+																								});
+																							}}
+																							onmousedown={(e) => {
+																								e.stopPropagation();
+																							}}
+																							onfocus={(e) => {
+																								e.stopPropagation();
+																							}}
 																						/>
 																						Exclusive
 																					</label>
@@ -2506,6 +2596,138 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'REFRESH_ASSESSMENT_DETAILS': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {gtId, pendingReselectionSection, pendingReselectionSectionLabel} = action.payload;
+			
+			console.log('=== REFRESHING ASSESSMENT DETAILS ===');
+			console.log('Assessment ID:', gtId);
+			console.log('Pending section reselection:', pendingReselectionSection);
+			
+			// Complete state reset for clean start
+			updateState({
+				assessmentDetailsLoading: true,
+				currentAssessment: null,
+				selectedSection: null,
+				selectedSectionLabel: null,
+				currentQuestions: null,
+				questionsLoading: false,
+				// Clear ALL change tracking
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				// Clear editing states
+				editingSectionId: null,
+				editingSectionName: null,
+				editingTooltip: null,
+				editingTooltipText: null,
+				editingTooltipQuestionId: null,
+				editingTooltipAnswerId: null,
+				// Clear answer selection state
+				selectedAnswers: {},
+				visibleQuestions: [],
+				// Clear relationships state
+				answerRelationships: {},
+				relationshipsLoading: {},
+				// Store pending reselection
+				pendingReselectionSection: pendingReselectionSection
+			});
+			
+			// Fetch fresh assessment details
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: gtId,
+				assessmentTitle: state.currentAssessment?.title || 'Assessment'
+			});
+		},
+
+		'REFRESH_ASSESSMENT': (coeffects) => {
+			const {state, dispatch, updateState} = coeffects;
+			
+			console.log('=== MANUAL REFRESH TRIGGERED ===');
+			console.log('Current assessment:', state.currentAssessment);
+			console.log('Assessment ID path:', state.currentAssessment?.ids?.id);
+			console.log('Assessment Title:', state.currentAssessment?.title);
+			
+			// Store the current section to re-select after refresh
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Store assessment details before clearing state
+			// Use the stored currentAssessmentId which is set when opening the builder
+			const assessmentId = state.currentAssessmentId;
+			const assessmentTitle = state.currentAssessment?.title;
+			
+			console.log('Stored assessment ID for refresh:', assessmentId);
+			console.log('Stored assessment title for refresh:', assessmentTitle);
+			console.log('Available ID sources:');
+			console.log('  - currentAssessmentId:', state.currentAssessmentId);
+			console.log('  - currentAssessment.ids.id:', state.currentAssessment?.ids?.id);
+			console.log('  - currentAssessment.id:', state.currentAssessment?.id);
+			
+			if (!assessmentId) {
+				console.error('No assessment ID found for refresh!');
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Unable to refresh: No assessment ID found',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+			
+			// Complete state reset
+			updateState({
+				assessmentDetailsLoading: true,
+				selectedSection: null,
+				selectedSectionLabel: null,
+				currentQuestions: null,
+				questionsLoading: false,
+				// Clear ALL change tracking
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				// Clear editing states
+				editingSectionId: null,
+				editingSectionName: null,
+				editingTooltip: null,
+				editingTooltipText: null,
+				editingTooltipQuestionId: null,
+				editingTooltipAnswerId: null,
+				// Clear answer selection state
+				selectedAnswers: {},
+				visibleQuestions: [],
+				// Clear relationships state
+				answerRelationships: {},
+				relationshipsLoading: {},
+				// Store pending reselection
+				pendingReselectionSection: currentSection,
+				pendingReselectionSectionLabel: currentSectionLabel,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: 'Refreshing assessment data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Fetch fresh assessment details with stored values
+			console.log('Dispatching FETCH_ASSESSMENT_DETAILS with:', {
+				assessmentId: assessmentId,
+				assessmentTitle: assessmentTitle
+			});
+			
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: assessmentId,
+				assessmentTitle: assessmentTitle
+			});
+		},
+
 		'FETCH_ASSESSMENT_DETAILS': (coeffects) => {
 			const {action, state, dispatch} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
@@ -3026,6 +3248,105 @@ createCustomElement('cadal-careiq-builder', {
 						...state.questionChanges[questionId],
 						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
 						type: newType
+					}
+				}
+			});
+		},
+
+		'UPDATE_QUESTION_LABEL': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, newLabel} = action.payload;
+			
+			console.log('Updating question label:', questionId, 'to:', newLabel);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					return {...question, label: newLabel};
+				}
+				return question;
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...state.questionChanges[questionId],
+						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
+						label: newLabel
+					}
+				}
+			});
+		},
+
+		'UPDATE_QUESTION_VOICE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, newVoice} = action.payload;
+			
+			console.log('Updating question voice:', questionId, 'to:', newVoice);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					return {...question, voice: newVoice};
+				}
+				return question;
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...state.questionChanges[questionId],
+						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
+						voice: newVoice
+					}
+				}
+			});
+		},
+
+		'UPDATE_QUESTION_REQUIRED': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {questionId, required} = action.payload;
+			
+			console.log('Updating question required:', questionId, 'to:', required);
+			
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				if (question.ids.id === questionId) {
+					return {...question, required: required};
+				}
+				return question;
+			});
+			
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...state.questionChanges[questionId],
+						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
+						required: required
 					}
 				}
 			});
@@ -3918,7 +4239,16 @@ createCustomElement('cadal-careiq-builder', {
 			};
 			
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				// Track the change for save functionality
+				answerChanges: {
+					...state.answerChanges,
+					[answerId]: {
+						...(state.answerChanges[answerId] || {}),
+						action: state.answerChanges[answerId]?.action || 'update',
+						label: newLabel
+					}
+				}
 			});
 		},
 
@@ -3942,7 +4272,49 @@ createCustomElement('cadal-careiq-builder', {
 			};
 			
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				// Track the change for save functionality
+				answerChanges: {
+					...state.answerChanges,
+					[answerId]: {
+						...(state.answerChanges[answerId] || {}),
+						action: state.answerChanges[answerId]?.action || 'update',
+						secondary_input_type: newSecondaryInputType
+					}
+				}
+			});
+		},
+
+		'UPDATE_ANSWER_MUTUALLY_EXCLUSIVE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, mutually_exclusive} = action.payload;
+			
+			console.log('Updating answer mutually_exclusive:', answerId, 'to:', mutually_exclusive);
+			
+			// Update the answer in the current questions data
+			const updatedQuestions = {
+				...state.currentQuestions,
+				questions: state.currentQuestions.questions.map(question => ({
+					...question,
+					answers: question.answers?.map(answer =>
+						answer.ids.id === answerId
+							? {...answer, mutually_exclusive: mutually_exclusive}
+							: answer
+					) || []
+				}))
+			};
+			
+			updateState({
+				currentQuestions: updatedQuestions,
+				// Track the change for save functionality
+				answerChanges: {
+					...state.answerChanges,
+					[answerId]: {
+						...(state.answerChanges[answerId] || {}),
+						action: state.answerChanges[answerId]?.action || 'update',
+						mutually_exclusive: mutually_exclusive
+					}
+				}
 			});
 		},
 
@@ -3962,6 +4334,7 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_ALL_CHANGES': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			
+			console.log('=== SAVE_ALL_CHANGES HANDLER TRIGGERED ===');
 			console.log('Saving all changes to backend');
 			console.log('Section changes:', state.sectionChanges);
 			console.log('Question changes:', state.questionChanges);
@@ -4063,8 +4436,33 @@ createCustomElement('cadal-careiq-builder', {
 						dispatch('DELETE_QUESTION_API', {
 							questionId: questionId
 						});
+					} else if (questionData.action === 'update') {
+						console.log('Updating question:', questionId);
+						
+						// Find the current question to get actual UI values
+						let currentQuestion = null;
+						if (state.currentQuestions && state.currentQuestions.questions) {
+							currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+						}
+						
+						// Prepare data for backend API using actual current values
+						const backendQuestionData = {
+							questionId: questionId,
+							label: currentQuestion ? currentQuestion.label : questionData.label,
+							tooltip: currentQuestion ? (currentQuestion.tooltip || '') : (questionData.tooltip || ''),
+							alternative_wording: questionData.alternative_wording || 'string',
+							required: currentQuestion ? (currentQuestion.required || false) : (questionData.required || false),
+							custom_attributes: questionData.custom_attributes || {},
+							sort_order: currentQuestion ? (currentQuestion.sort_order || 0) : (questionData.sort_order || 0),
+							voice: currentQuestion ? (currentQuestion.voice || 'Patient') : (questionData.voice || 'Patient'),
+							type: currentQuestion ? currentQuestion.type : questionData.type
+						};
+						
+						dispatch('UPDATE_QUESTION_API', {
+							questionData: backendQuestionData
+						});
 					}
-					// TODO: Handle question updates
+					// TODO: Complete question update implementation
 				});
 			}
 			
@@ -4125,8 +4523,37 @@ createCustomElement('cadal-careiq-builder', {
 						dispatch('DELETE_ANSWER_API', {
 							answerId: answerId
 						});
+					} else if (answerData.action === 'update') {
+						console.log('Updating answer:', answerId);
+						
+						// Find the current answer in questions to get actual UI values
+						let currentAnswer = null;
+						if (state.currentQuestions && state.currentQuestions.questions) {
+							for (let question of state.currentQuestions.questions) {
+								if (question.answers) {
+									currentAnswer = question.answers.find(ans => ans.ids.id === answerId);
+									if (currentAnswer) break;
+								}
+							}
+						}
+						
+						// Prepare data for backend API using actual current values
+						const backendAnswerData = {
+							answerId: answerId,
+							label: currentAnswer ? currentAnswer.label : answerData.label,
+							tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
+							alternative_wording: answerData.alternative_wording || 'string',
+							required: currentAnswer ? (currentAnswer.required || false) : (answerData.required || false),
+							custom_attributes: answerData.custom_attributes || {},
+							sort_order: currentAnswer ? (currentAnswer.sort_order || 0) : (answerData.sort_order || 0),
+							secondary_input_type: currentAnswer ? currentAnswer.secondary_input_type : answerData.secondary_input_type,
+							mutually_exclusive: currentAnswer ? (currentAnswer.mutually_exclusive || false) : (answerData.mutually_exclusive || false)
+						};
+						
+						dispatch('UPDATE_ANSWER_API', {
+							answerData: backendAnswerData
+						});
 					}
-					// TODO: Handle answer updates
 				});
 			}
 			
@@ -4288,6 +4715,99 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_DELETE_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
+		'UPDATE_ANSWER_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {answerData} = action.payload;
+			
+			console.log('UPDATE_ANSWER_API handler called');
+			console.log('Answer data to update:', answerData);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				answerId: answerData.answerId,
+				label: answerData.label,
+				tooltip: answerData.tooltip,
+				alternative_wording: answerData.alternative_wording,
+				required: answerData.required,
+				custom_attributes: answerData.custom_attributes,
+				sort_order: answerData.sort_order,
+				secondary_input_type: answerData.secondary_input_type,
+				mutually_exclusive: answerData.mutually_exclusive
+			});
+			
+			console.log('Update Answer request body:', requestBody);
+			
+			dispatch('MAKE_UPDATE_ANSWER_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_UPDATE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-answer', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'UPDATE_ANSWER_SUCCESS',
+			errorActionType: 'UPDATE_ANSWER_ERROR'
+		}),
+
+		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Answer updated successfully:', action.payload);
+			
+			// Store the current section to re-select after refresh
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear ALL changes since we're doing a full refresh
+			updateState({
+				questionChanges: {},
+				answerChanges: {},
+				sectionChanges: {},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Answer updated successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Set pending reselection data
+			updateState({
+				pendingReselectionSection: currentSection
+			});
+			
+			// Trigger data refresh with proper reselection
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: state.currentAssessment.ids.id,
+				assessmentTitle: state.currentAssessment.title
+			});
+		},
+
+		'UPDATE_ANSWER_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Update answer failed - Full error object:', action.payload);
+			console.error('Error status:', action.payload?.status);
+			console.error('Error response:', action.payload?.response);
+			console.error('Error message:', action.payload?.error?.message);
+			
+			const errorMessage = action.payload?.error?.message || action.payload?.message || action.payload?.response || 'Failed to update answer';
+			
+			console.error('Final error message:', errorMessage);
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to update answer: ${errorMessage}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'DELETE_QUESTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {questionId} = action.payload;
@@ -4303,6 +4823,94 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Delete Question request body:', requestBody);
 			
 			dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: requestBody});
+		},
+
+		'UPDATE_QUESTION_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {questionData} = action.payload;
+			
+			console.log('UPDATE_QUESTION_API handler called');
+			console.log('Question data to update:', questionData);
+			
+			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			const requestBody = JSON.stringify({
+				questionId: questionData.questionId,
+				label: questionData.label,
+				tooltip: questionData.tooltip,
+				alternative_wording: questionData.alternative_wording,
+				required: questionData.required,
+				custom_attributes: questionData.custom_attributes,
+				sort_order: questionData.sort_order,
+				voice: questionData.voice,
+				type: questionData.type
+			});
+			
+			console.log('Update Question request body:', requestBody);
+			
+			dispatch('MAKE_UPDATE_QUESTION_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_UPDATE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'UPDATE_QUESTION_SUCCESS',
+			errorActionType: 'UPDATE_QUESTION_ERROR'
+		}),
+
+		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Question updated successfully:', action.payload);
+			
+			// Store the current section to re-select after refresh
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear ALL changes since we're doing a full refresh
+			updateState({
+				questionChanges: {},
+				answerChanges: {},
+				sectionChanges: {},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Question updated successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Set pending reselection data
+			updateState({
+				pendingReselectionSection: currentSection
+			});
+			
+			// Trigger data refresh with proper reselection
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: state.currentAssessment.ids.id,
+				assessmentTitle: state.currentAssessment.title
+			});
+		},
+
+		'UPDATE_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const errorMessage = action.payload?.error?.message || action.payload?.message || 'Failed to update question';
+			
+			console.error('Update question failed:', errorMessage);
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to update question: ${errorMessage}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 		},
 
 		'MAKE_ADD_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question', {

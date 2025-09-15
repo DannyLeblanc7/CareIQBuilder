@@ -235,3 +235,71 @@ builderDeleteQuestion: function(questionId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderUpdateQuestion: function(questionId, questionData) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/question/' + encodeURIComponent(questionId));
+        var r = this._createRESTMessage('Update Question', endpoint);
+        r.setHttpMethod('PATCH');
+        
+        // Build request body for the CareIQ API
+        var requestBody = {
+            label: questionData.label,
+            tooltip: questionData.tooltip || '',
+            alternative_wording: questionData.alternative_wording || 'string',
+            required: questionData.required || false,
+            custom_attributes: questionData.custom_attributes || {},
+            sort_order: questionData.sort_order || 0,
+            voice: questionData.voice || 'Patient',
+            type: questionData.type
+        };
+        
+        r.setRequestBody(JSON.stringify(requestBody));
+        
+        var response = this._executeRequestWithRetry(r, 'UpdateQuestion');
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateQuestion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+builderUpdateAnswer: function(answerId, answerData) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId));
+        var r = this._createRESTMessage('Update Answer', endpoint);
+        r.setHttpMethod('PATCH');
+        
+        // Build request body for the CareIQ API
+        var requestBody = {
+            label: answerData.label,
+            tooltip: answerData.tooltip || '',
+            alternative_wording: answerData.alternative_wording || 'string',
+            required: answerData.required || false,
+            custom_attributes: answerData.custom_attributes || {},
+            sort_order: answerData.sort_order || 0,
+            secondary_input_type: answerData.secondary_input_type || null,
+            mutually_exclusive: answerData.mutually_exclusive || false
+        };
+        
+        r.setRequestBody(JSON.stringify(requestBody));
+        
+        var response = this._executeRequestWithRetry(r, 'UpdateAnswer');
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateAnswer - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
