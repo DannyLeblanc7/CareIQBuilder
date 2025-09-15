@@ -825,11 +825,27 @@ const view = (state, {updateState, dispatch}) => {
 														</div>
 													) : null}
 													{isEditable ? (
-														<div className="question-edit-header">
+														<div className="question-edit-header" style={state.isMobileView ? {
+															display: 'flex',
+															flexWrap: 'wrap',
+															gap: '1rem',
+															width: '100%',
+															overflow: 'visible'
+														} : {}}>
 															<div className="question-number">{qIndex + 1}.</div>
-															<div className="question-single-line">
+															<div className="question-single-line" style={state.isMobileView ? {
+																display: 'flex',
+																flexWrap: 'wrap',
+																gap: '0.75rem',
+																width: '100%',
+																overflow: 'visible',
+																alignItems: 'center'
+															} : {}}>
 																<select 
 																	className="voice-select"
+																	style={state.isMobileView ? {
+																		flexShrink: '0'
+																	} : {}}
 																	onchange={(e) => {
 																		console.log('Question voice changed to:', e.target.value);
 																		dispatch('UPDATE_QUESTION_VOICE', {
@@ -917,7 +933,13 @@ const view = (state, {updateState, dispatch}) => {
 																	</span>
 																</div>
 															</div>
-															<div className="question-controls">
+															<div className="question-controls" style={state.isMobileView ? {
+																display: 'flex',
+																flexWrap: 'wrap',
+																gap: '0.75rem',
+																width: '100%',
+																overflow: 'visible'
+															} : {}}>
 																<label className="checkbox-control">
 																	<input 
 																		type="checkbox" 
@@ -938,7 +960,9 @@ const view = (state, {updateState, dispatch}) => {
 																	/>
 																	Required
 																</label>
-																<select className="question-type-select" onchange={(e) => {
+																<select className="question-type-select" style={state.isMobileView ? {
+																	flexShrink: '0'
+																} : {}} onchange={(e) => {
 																	console.log('Question type changed to:', e.target.value);
 																	dispatch('UPDATE_QUESTION_TYPE', {
 																		questionId: question.ids.id,
@@ -958,6 +982,11 @@ const view = (state, {updateState, dispatch}) => {
 																<button 
 																	className="delete-question-btn" 
 																	title="Delete Question"
+																	style={state.isMobileView ? {
+																		flexShrink: '0',
+																		minWidth: '40px',
+																		marginBottom: '0.5rem'
+																	} : {}}
 																	onclick={() => {
 																		dispatch('DELETE_QUESTION', {
 																			questionId: question.ids.id
@@ -1132,9 +1161,18 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				<div className="answer-controls">
+																				<div className="answer-controls" style={state.isMobileView ? {
+																					display: 'flex',
+																					flexWrap: 'wrap',
+																					gap: '0.75rem',
+																					width: '100%',
+																					overflow: 'visible'
+																				} : {}}>
 																					<select 
-																						className="secondary-input-select" 
+																						className="secondary-input-select"
+																						style={state.isMobileView ? {
+																							flexShrink: '0'
+																						} : {}} 
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -1150,6 +1188,9 @@ const view = (state, {updateState, dispatch}) => {
 																					<button 
 																						className="delete-answer-btn" 
 																						title="Delete Answer"
+																						style={state.isMobileView ? {
+																							flexShrink: '0'
+																						} : {}}
 																						onclick={() => {
 																							dispatch('DELETE_ANSWER', {
 																								answerId: answer.ids.id,
@@ -1520,7 +1561,13 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				<div className="answer-controls">
+																				<div className="answer-controls" style={state.isMobileView ? {
+																					display: 'flex',
+																					flexWrap: 'wrap',
+																					gap: '0.75rem',
+																					width: '100%',
+																					overflow: 'visible'
+																				} : {}}>
 																					<label className="checkbox-control">
 																						<input 
 																							type="checkbox" 
@@ -1542,7 +1589,10 @@ const view = (state, {updateState, dispatch}) => {
 																						Exclusive
 																					</label>
 																					<select 
-																						className="secondary-input-select" 
+																						className="secondary-input-select"
+																						style={state.isMobileView ? {
+																							flexShrink: '0'
+																						} : {}} 
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -1558,6 +1608,9 @@ const view = (state, {updateState, dispatch}) => {
 																					<button 
 																						className="delete-answer-btn" 
 																						title="Delete Answer"
+																						style={state.isMobileView ? {
+																							flexShrink: '0'
+																						} : {}}
 																						onclick={() => {
 																							dispatch('DELETE_ANSWER', {
 																								answerId: answer.ids.id,
@@ -2050,6 +2103,7 @@ createCustomElement('cadal-careiq-builder', {
 		// UI state
 		systemMessagesCollapsed: false,
 		showRelationships: false, // Toggle for relationship buttons visibility
+		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		// Modal state for editing long text
 		modalOpen: false,
 		modalType: null, // 'question' or 'answer'
@@ -2083,6 +2137,37 @@ createCustomElement('cadal-careiq-builder', {
 			const {dispatch} = coeffects;
 			console.log('Component bootstrapped - auto-loading CareIQ config');
 			dispatch('LOAD_CAREIQ_CONFIG');
+			dispatch('CHECK_MOBILE_VIEW');
+			
+			// Add multiple listeners for responsive behavior
+			const checkMobile = () => {
+				dispatch('CHECK_MOBILE_VIEW');
+			};
+			
+			window.addEventListener('resize', checkMobile);
+			window.addEventListener('orientationchange', checkMobile);
+			
+			// Use ResizeObserver on document body if available
+			if (window.ResizeObserver) {
+				const resizeObserver = new ResizeObserver(checkMobile);
+				resizeObserver.observe(document.body);
+			}
+			
+			// Also check periodically as fallback - more frequent for dev tools
+			setInterval(checkMobile, 500);
+			
+			// Add visibility change listener (for when dev tools open/close)
+			document.addEventListener('visibilitychange', checkMobile);
+		},
+		
+		'CHECK_MOBILE_VIEW': (coeffects) => {
+			const {updateState} = coeffects;
+			// Increase threshold to catch dev tools scenarios (1342px in your case)
+			const isMobile = window.innerWidth <= 1400;
+			console.log('Mobile view check - window.innerWidth:', window.innerWidth, 'isMobile:', isMobile);
+			updateState({
+				isMobileView: isMobile
+			});
 		},
 		
 		'LOAD_CAREIQ_CONFIG': createHttpEffect('/api/now/table/sys_properties', {

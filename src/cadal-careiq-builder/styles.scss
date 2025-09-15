@@ -255,7 +255,7 @@
     grid-template-columns: repeat(2, 1fr);
   }
   
-  @media (max-width: 768px) {
+  @media (max-width: 1400px) {
     grid-template-columns: 1fr;
   }
 }
@@ -2498,5 +2498,641 @@
   &:focus {
     outline: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(102, 126, 234, 0.3);
+  }
+  
+  // Responsive adjustments
+  @media (max-width: 1400px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    gap: 0.3rem;
+  }
+}
+
+/* ================================
+   RESPONSIVE DESIGN IMPROVEMENTS
+   ================================ */
+
+/* Main container responsive adjustments */
+.careiq-builder {
+  @media (max-width: 1200px) {
+    margin: 0 3%;
+    max-width: 94%;
+  }
+  
+  @media (max-width: 1400px) {
+    margin: 0 2%;
+    max-width: 96%;
+    padding: 0.75rem;
+  }
+  
+  @media (max-width: 480px) {
+    margin: 0 1%;
+    max-width: 98%;
+    padding: 0.5rem;
+  }
+}
+
+/* Builder header responsive */
+.builder-header {
+  @media (max-width: 1400px) {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+.builder-title {
+  h2 {
+    @media (max-width: 1400px) {
+      font-size: 1.25rem;
+    }
+    
+    @media (max-width: 480px) {
+      font-size: 1.1rem;
+      line-height: 1.3;
+    }
+  }
+}
+
+/* Builder controls responsive */
+.builder-controls {
+  @media (max-width: 1400px) {
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+    justify-content: center;
+  }
+}
+
+.mode-toggle-btn, .save-changes-btn, .cancel-changes-btn {
+  @media (max-width: 1400px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    min-width: auto;
+  }
+}
+
+/* Assessment builder layout responsive */
+.assessment-builder {
+  @media (max-width: 1024px) {
+    flex-direction: column;
+  }
+}
+
+.sections-sidebar {
+  @media (max-width: 1024px) {
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+  }
+  
+  @media (max-width: 1400px) {
+    max-height: 150px;
+  }
+}
+
+.questions-main {
+  @media (max-width: 1024px) {
+    width: 100%;
+  }
+}
+
+/* Question cards responsive */
+.question-card {
+  @media (max-width: 1400px) {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    overflow: visible; // Ensure content isn't cut off
+  }
+  
+  @media (max-width: 480px) {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+  }
+}
+
+/* Fix question edit header for mobile */
+.question-edit-header {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+  
+  .question-number {
+    @media (max-width: 1400px) {
+      padding-top: 0;
+      margin-bottom: 0.5rem;
+    }
+  }
+}
+
+.question-preview-header {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+}
+
+/* Fix the question single line layout */
+.question-single-line {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+  
+  .voice-select {
+    @media (max-width: 1400px) {
+      order: 1;
+      width: 100% !important;
+      max-width: none !important;
+    }
+  }
+  
+  .edit-icon {
+    @media (max-width: 1400px) {
+      order: 2;
+      align-self: flex-start;
+    }
+  }
+}
+
+/* Fix question input area */
+.question-input-area {
+  @media (max-width: 1400px) {
+    width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.voice-select, .question-type-select {
+  @media (max-width: 1400px) {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.question-label-input {
+  @media (max-width: 1400px) {
+    width: 100%;
+    font-size: 1rem;
+  }
+}
+
+/* Question controls responsive - CRITICAL FOR BUILDER MODE - OVERRIDDEN BY LATER RULES */
+.question-controls {
+  @media (max-width: 1400px) {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-shrink: 0 !important;
+    margin-top: 0.5rem;
+    overflow: visible !important;
+  }
+  
+  @media (max-width: 480px) {
+    width: 100% !important;
+  }
+  
+  // Ensure checkboxes and type selectors stay visible
+  .checkbox-control {
+    @media (max-width: 1400px) {
+      width: 100% !important;
+      margin-bottom: 0.5rem;
+    }
+  }
+  
+  .question-type-select {
+    @media (max-width: 1400px) {
+      width: 100% !important;
+      max-width: none !important;
+      margin-bottom: 0.5rem;
+    }
+  }
+  
+  // Make sure delete button stays visible
+  .delete-question-btn {
+    @media (max-width: 1400px) {
+      margin-top: 0.5rem;
+      width: auto !important;
+      flex-shrink: 0 !important;
+    }
+  }
+}
+
+.checkbox-control {
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
+}
+
+/* Answer options responsive - CRITICAL FOR BUILDER MODE */
+.answer-option {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 0.75rem !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+}
+
+.answer-edit-content {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+  }
+}
+
+.answer-preview-content {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+}
+
+.answer-label-input {
+  @media (max-width: 1400px) {
+    width: 100% !important;
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Answer controls - ensure all controls stay visible */
+.answer-controls {
+  @media (max-width: 1400px) {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+    align-items: stretch !important;
+    flex-shrink: 0 !important;
+  }
+  
+  @media (max-width: 480px) {
+    align-items: flex-start !important;
+  }
+  
+  // Keep checkbox and dropdown visible
+  .checkbox-control {
+    @media (max-width: 1400px) {
+      width: 100% !important;
+      margin-bottom: 0.5rem;
+    }
+  }
+  
+  .secondary-input-select {
+    @media (max-width: 1400px) {
+      width: 100% !important;
+      max-width: none !important;
+      margin-bottom: 0.5rem;
+    }
+  }
+  
+  // Ensure delete button stays visible
+  .delete-answer-btn {
+    @media (max-width: 1400px) {
+      width: auto !important;
+      flex-shrink: 0 !important;
+      align-self: flex-start;
+    }
+  }
+}
+
+.secondary-input-select {
+  @media (max-width: 1400px) {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* Secondary input responsive */
+.secondary-input {
+  @media (max-width: 1400px) {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    width: 100%;
+  }
+  
+  input, select {
+    @media (max-width: 1400px) {
+      width: 100%;
+      font-size: 1rem;
+    }
+  }
+}
+
+/* System messages responsive */
+.system-window-content {
+  @media (max-width: 1400px) {
+    max-height: 180px;
+  }
+  
+  @media (max-width: 480px) {
+    max-height: 150px;
+  }
+}
+
+/* Assessment cards responsive */
+.assessment-cards {
+  @media (max-width: 1400px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.assessment-card {
+  @media (max-width: 1400px) {
+    padding: 1rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+  }
+}
+
+/* Utility classes for responsive */
+.mobile-hidden {
+  @media (max-width: 1400px) {
+    display: none !important;
+  }
+}
+
+.desktop-hidden {
+  @media (min-width: 769px) {
+    display: none !important;
+  }
+}
+
+.mobile-full-width {
+  @media (max-width: 1400px) {
+    width: 100% !important;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (max-width: 1400px) {
+  button, input, select, textarea {
+    min-height: 44px; // Touch-friendly minimum
+  }
+  
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Scrolling improvements on mobile */
+@media (max-width: 1400px) {
+  .builder-section {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .sections-sidebar {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .system-window-content {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* CRITICAL: Builder mode responsive fixes - SIMPLE SINGLE LINE LAYOUT */
+@media (max-width: 1400px) {
+  // SIMPLE LAYOUT - Just make everything wrap in a single horizontal line
+  .careiq-builder {
+    * {
+      max-width: 100% !important;
+      overflow: visible !important;
+    }
+    
+    // Force all flex containers to wrap
+    div[class*="question-edit-header"],
+    div[class*="question-controls"],
+    div[class*="question-single-line"],
+    div[class*="answer-controls"] {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 0.75rem !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    
+    // Force all selects and buttons to not shrink but keep normal sizes
+    select, button {
+      flex: 0 0 auto !important;
+      z-index: 999 !important;
+    }
+    
+    // Override any inline styles that might conflict
+    [style*="display: flex"] {
+      flex-wrap: wrap !important;
+    }
+    
+    [style*="display:flex"] {
+      flex-wrap: wrap !important;
+    }
+  }
+  // Fix main builder layout to prevent width constraints
+  .builder-content {
+    overflow-x: auto !important;
+    flex-direction: column !important;
+    
+    .questions-main {
+      overflow: visible !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      max-width: 100vw !important;
+    }
+  }
+  // Force ALL question-related containers to allow wrapping and overflow
+  .question-card {
+    overflow: visible !important;
+    min-height: auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  .question-edit-header {
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+    min-height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    
+    // Force the question single line to wrap
+    .question-single-line {
+      overflow: visible !important;
+      flex-wrap: wrap !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      
+      .voice-select {
+        flex-shrink: 0 !important;
+        min-width: 120px !important;
+        margin-bottom: 0.5rem !important;
+      }
+      
+      .edit-icon {
+        flex-shrink: 0 !important;
+      }
+    }
+    
+    .question-number {
+      flex-shrink: 0 !important;
+      width: auto !important;
+    }
+  }
+  
+  // Force question controls to wrap and be fully visible
+  .question-controls {
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+    min-height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    
+    .checkbox-control {
+      flex: 0 0 auto !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .question-type-select {
+      flex: 0 0 auto !important;
+      min-width: 140px !important;
+      max-width: none !important;
+      overflow: visible !important;
+      z-index: 10 !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .delete-question-btn {
+      flex: 0 0 auto !important;
+      min-width: 40px !important;
+      overflow: visible !important;
+      z-index: 10 !important;
+      margin-bottom: 0.5rem !important;
+    }
+  }
+  
+  // Force answer controls to be fully visible
+  .answer-controls {
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+    min-height: auto !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    
+    .checkbox-control {
+      flex: 0 0 auto !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .secondary-input-select {
+      flex: 0 0 auto !important;
+      min-width: 140px !important;
+      max-width: none !important;
+      overflow: visible !important;
+      z-index: 10 !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .delete-answer-btn {
+      flex: 0 0 auto !important;
+      min-width: 40px !important;
+      overflow: visible !important;
+      z-index: 10 !important;
+      margin-bottom: 0.5rem !important;
+    }
+  }
+  
+  // Force answer option containers to allow overflow
+  .answer-option,
+  .answer-edit-content,
+  .answer-preview-content {
+    overflow: visible !important;
+    min-height: auto !important;
+    width: 100% !important;
+  }
+}
+
+/* CHROME DEV TOOLS DETECTION - Common widths when dev tools are open */
+@media (max-width: 1200px) {
+  .careiq-builder {
+    div[class*="question-controls"] {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 0.5rem !important;
+      width: 100% !important;
+      overflow: visible !important;
+      
+      select, button {
+        flex: 0 0 auto !important;
+        min-width: 120px !important;
+        margin-bottom: 0.5rem !important;
+      }
+    }
+    
+    div[class*="answer-controls"] {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 0.5rem !important;
+      width: 100% !important;
+      overflow: visible !important;
+      
+      select, button {
+        flex: 0 0 auto !important;
+        min-width: 120px !important;
+        margin-bottom: 0.5rem !important;
+      }
+    }
+  }
+}
+
+/* Extra small screens - stack everything */
+@media (max-width: 480px) {
+  .question-controls,
+  .answer-controls {
+    .checkbox-control,
+    .question-type-select,
+    .secondary-input-select,
+    .delete-question-btn,
+    .delete-answer-btn {
+      width: 100% !important;
+      margin-bottom: 0.5rem !important;
+      justify-content: flex-start !important;
+    }
   }
 }
