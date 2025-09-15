@@ -101,3 +101,23 @@ builderGetAnswerRelationships: function(answerId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderDeleteSection: function(sectionId) {
+    try {
+        var config = this._getConfig();
+        
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+        
+        var endpoint = this._buildEndpoint('/builder/section/' + encodeURIComponent(sectionId));
+        var r = this._createRESTMessage('Delete Section', endpoint);
+        r.setHttpMethod('DELETE');
+        
+        var response = this._executeRequestWithRetry(r, 'DeleteSection');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteSection - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

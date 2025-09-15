@@ -146,6 +146,7 @@ Use `selected` attributes on individual options with boolean conditions instead 
 2. **Track Changes**: Store changes in `sectionChanges`, `questionChanges`, `answerChanges`
 3. **Save Action**: Only call backend APIs when user clicks "Save" button
 4. **Batch Operations**: Save all changes in one save operation with multiple API calls
+5. **Auto-refresh**: After all queued actions complete successfully, reload the assessment data
 
 ### Example:
 - `ADD_SECTION` → Add to local state + track in `sectionChanges`
@@ -154,6 +155,21 @@ Use `selected` attributes on individual options with boolean conditions instead 
 - `SAVE_ALL_CHANGES` → Call backend APIs for all tracked changes
 
 This allows users to make multiple changes and review them before committing to the backend.
+
+### Save and Refresh Pattern:
+After successful save operations, the assessment data must be refreshed to reflect server state:
+```javascript
+// In ALL SUCCESS action handlers (SECTION_UPDATE_SUCCESS, DELETE_SECTION_SUCCESS, etc.):
+1. Store current section for reselection: const currentSection = state.selectedSection;
+2. Clear all change tracking arrays: sectionChanges: {}, questionChanges: {}, answerChanges: {}
+3. Update success message indicating refresh: "Changes saved successfully! Refreshing data..."
+4. Store pending reselection data: pendingReselectionSection: currentSection
+5. Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
+```
+
+**Critical**: The refresh ensures the UI displays server state after all operations complete, including any server-side processing, ID updates, or validation changes.
+
+**Pattern Must Be Applied To**: Every success handler for CRUD operations (UPDATE_SUCCESS, DELETE_SUCCESS, ADD_SUCCESS) to maintain UI consistency with server state.
 
 ## CRITICAL PATTERN: Assessment ID Access
 **PROBLEM**: `state.currentAssessment` from API responses does NOT contain the assessment ID.

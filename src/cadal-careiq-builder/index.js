@@ -3237,6 +3237,89 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
+		'DELETE_SECTION_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {sectionId} = action.payload;
+			
+			console.log('Calling delete section API for:', sectionId);
+			
+			const requestBody = JSON.stringify({
+				sectionId: sectionId
+			});
+			
+			console.log('Delete section request body (simplified):', requestBody);
+			dispatch('MAKE_DELETE_SECTION_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_DELETE_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-section', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_SECTION_SUCCESS',
+			errorActionType: 'DELETE_SECTION_ERROR'
+		}),
+
+		'DELETE_SECTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Section deleted successfully:', action.payload);
+			
+			// Store the current section to re-select after refresh (if not the deleted one)
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear ALL changes since we're doing a full refresh
+			updateState({
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Section deleted successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			// Refresh the entire assessment from server
+			console.log('Refreshing entire assessment from server after delete');
+			console.log('- Will re-select section (if still exists):', currentSection, currentSectionLabel);
+			
+			if (state.currentAssessment?.ids?.id) {
+				// Store section to re-select in state temporarily (if it still exists)
+				updateState({
+					pendingReselectionSection: currentSection,
+					pendingReselectionSectionLabel: currentSectionLabel
+				});
+				
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessment.ids.id,
+					assessmentTitle: state.currentAssessment.title
+				});
+			}
+		},
+
+		'DELETE_SECTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Section delete error:', action.payload);
+			
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to delete section';
+			
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'DRAG_SECTION_START': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {sectionId, sectionIndex} = action.payload;
@@ -3491,9 +3574,15 @@ createCustomElement('cadal-careiq-builder', {
 					console.log('Saving section:', sectionId, sectionData);
 					console.log('Complete sectionChanges object:', JSON.stringify(state.sectionChanges, null, 2));
 					
-					// Skip deleted sections for now (would need DELETE API)
+					// Handle deleted sections with DELETE API
 					if (sectionData.deleted) {
-						console.log('Skipping deleted section:', sectionId);
+						console.log('Deleting section:', sectionId);
+						// Only delete if it's not a temporary ID (real UUIDs only)
+						if (!sectionId.startsWith('temp_')) {
+							dispatch('DELETE_SECTION_API', {
+								sectionId: sectionId
+							});
+						}
 						return;
 					}
 					
