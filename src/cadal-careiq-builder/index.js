@@ -1298,6 +1298,57 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																			)}
 																			
+																			{/* Show guideline relationships indicator in edit mode */}
+																			{(() => {
+																				// Find guideline relationships for this answer
+																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change => 
+																					change.answerId === answer.ids.id && 
+																					change.relationshipType === 'guideline' && 
+																					change.action === 'add'
+																				);
+																				
+																				return guidelineRelationships.length > 0 && (
+																					<div className="triggered-questions-indicator guideline-indicator">
+																						<span className="trigger-icon">📋</span>
+																						<span className="trigger-text">
+																							Links to {guidelineRelationships.length} guideline{guidelineRelationships.length !== 1 ? 's' : ''}
+																						</span>
+																						<div className="trigger-details">
+																							{guidelineRelationships.map((relationship, relationshipIndex) => (
+																								<div key={relationshipIndex} className="triggered-question-item guideline-relationship-item">
+																									<span className="triggered-question-label guideline-relationship-label">
+																										→ {relationship.targetLabel}
+																									</span>
+																									{isEditable && (
+																										<button 
+																											className="remove-trigger-btn remove-guideline-btn"
+																											onclick={(e) => {
+																												console.log('=== REMOVING GUIDELINE RELATIONSHIP ===');
+																												console.log('Removing guideline:', relationship.targetId);
+																												console.log('From answer:', answer.ids.id);
+																												e.stopPropagation();
+																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
+																													answerId: answer.ids.id,
+																													guidelineId: relationship.targetId,
+																													guidelineName: relationship.targetLabel
+																												});
+																											}}
+																											title="Remove guideline relationship"
+																											style={{
+																												display: isEditable ? 'flex' : 'none',
+																												backgroundColor: isEditable ? '#fee2e2' : 'gray'
+																											}}
+																										>
+																											🗑️
+																										</button>
+																									)}
+																								</div>
+																							))}
+																						</div>
+																					</div>
+																				);
+																			})()}
+																			
 																			{/* Relationship button/counts */}
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
@@ -1493,6 +1544,56 @@ const view = (state, {updateState, dispatch}) => {
 																															}}
 																														>
 																															{question.label}
+																														</div>
+																													))}
+																												</div>
+																											)}
+																										</div>
+																									</div>
+																								)}
+																								
+																								{state.selectedRelationshipType === 'guideline' && (
+																									<div className="guideline-typeahead-section">
+																										<label>Search Guidelines:</label>
+																										<div className="typeahead-container">
+																											<input 
+																												type="text" 
+																												className="relationship-typeahead-input"
+																												placeholder="Type to search guidelines (min 3 chars)..."
+																												value={state.relationshipTypeaheadText || ''}
+																												oninput={(e) => {
+																													dispatch('GUIDELINE_TYPEAHEAD_INPUT', {
+																														text: e.target.value,
+																														answerId: answer.ids.id
+																													});
+																												}}
+																											/>
+																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
+																												<div className="typeahead-dropdown">
+																													{state.relationshipTypeaheadResults.map((guideline, index) => (
+																														<div 
+																															key={guideline.id || index}
+																															className="typeahead-item"
+																															onclick={(e) => {
+																																console.log('=== GUIDELINE TYPEAHEAD ITEM CLICKED ===');
+																																console.log('Guideline clicked:', guideline);
+																																console.log('Answer ID:', answer.ids.id);
+																																console.log('Guideline ID:', guideline.id);
+																																console.log('Guideline name:', guideline.name);
+																																e.stopPropagation();
+																																e.preventDefault();
+																																dispatch('SELECT_RELATIONSHIP_GUIDELINE', {
+																																	answerId: answer.ids.id,
+																																	guidelineId: guideline.id,
+																																	guidelineName: guideline.name,
+																																	guidelineMasterId: guideline.master_id
+																																});
+																															}}
+																														>
+																															<div className="guideline-item">
+																																<div className="guideline-name">{guideline.name}</div>
+																																<div className="guideline-category">{guideline.use_case_category?.name}</div>
+																															</div>
 																														</div>
 																													))}
 																												</div>
@@ -1886,6 +1987,57 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																			)}
 																			
+																			{/* Show guideline relationships indicator in edit mode */}
+																			{(() => {
+																				// Find guideline relationships for this answer
+																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change => 
+																					change.answerId === answer.ids.id && 
+																					change.relationshipType === 'guideline' && 
+																					change.action === 'add'
+																				);
+																				
+																				return guidelineRelationships.length > 0 && (
+																					<div className="triggered-questions-indicator guideline-indicator">
+																						<span className="trigger-icon">📋</span>
+																						<span className="trigger-text">
+																							Links to {guidelineRelationships.length} guideline{guidelineRelationships.length !== 1 ? 's' : ''}
+																						</span>
+																						<div className="trigger-details">
+																							{guidelineRelationships.map((relationship, relationshipIndex) => (
+																								<div key={relationshipIndex} className="triggered-question-item guideline-relationship-item">
+																									<span className="triggered-question-label guideline-relationship-label">
+																										→ {relationship.targetLabel}
+																									</span>
+																									{isEditable && (
+																										<button 
+																											className="remove-trigger-btn remove-guideline-btn"
+																											onclick={(e) => {
+																												console.log('=== REMOVING GUIDELINE RELATIONSHIP ===');
+																												console.log('Removing guideline:', relationship.targetId);
+																												console.log('From answer:', answer.ids.id);
+																												e.stopPropagation();
+																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
+																													answerId: answer.ids.id,
+																													guidelineId: relationship.targetId,
+																													guidelineName: relationship.targetLabel
+																												});
+																											}}
+																											title="Remove guideline relationship"
+																											style={{
+																												display: isEditable ? 'flex' : 'none',
+																												backgroundColor: isEditable ? '#fee2e2' : 'gray'
+																											}}
+																										>
+																											🗑️
+																										</button>
+																									)}
+																								</div>
+																							))}
+																						</div>
+																					</div>
+																				);
+																			})()}
+																			
 																			{/* Relationship button/counts */}
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
@@ -2081,6 +2233,56 @@ const view = (state, {updateState, dispatch}) => {
 																															}}
 																														>
 																															{question.label}
+																														</div>
+																													))}
+																												</div>
+																											)}
+																										</div>
+																									</div>
+																								)}
+																								
+																								{state.selectedRelationshipType === 'guideline' && (
+																									<div className="guideline-typeahead-section">
+																										<label>Search Guidelines:</label>
+																										<div className="typeahead-container">
+																											<input 
+																												type="text" 
+																												className="relationship-typeahead-input"
+																												placeholder="Type to search guidelines (min 3 chars)..."
+																												value={state.relationshipTypeaheadText || ''}
+																												oninput={(e) => {
+																													dispatch('GUIDELINE_TYPEAHEAD_INPUT', {
+																														text: e.target.value,
+																														answerId: answer.ids.id
+																													});
+																												}}
+																											/>
+																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
+																												<div className="typeahead-dropdown">
+																													{state.relationshipTypeaheadResults.map((guideline, index) => (
+																														<div 
+																															key={guideline.id || index}
+																															className="typeahead-item"
+																															onclick={(e) => {
+																																console.log('=== GUIDELINE TYPEAHEAD ITEM CLICKED ===');
+																																console.log('Guideline clicked:', guideline);
+																																console.log('Answer ID:', answer.ids.id);
+																																console.log('Guideline ID:', guideline.id);
+																																console.log('Guideline name:', guideline.name);
+																																e.stopPropagation();
+																																e.preventDefault();
+																																dispatch('SELECT_RELATIONSHIP_GUIDELINE', {
+																																	answerId: answer.ids.id,
+																																	guidelineId: guideline.id,
+																																	guidelineName: guideline.name,
+																																	guidelineMasterId: guideline.master_id
+																																});
+																															}}
+																														>
+																															<div className="guideline-item">
+																																<div className="guideline-name">{guideline.name}</div>
+																																<div className="guideline-category">{guideline.use_case_category?.name}</div>
+																															</div>
 																														</div>
 																													))}
 																												</div>
@@ -4131,6 +4333,73 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_BRANCH_QUESTION_ERROR'
 		}),
 
+		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-guideline-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_GUIDELINE_RELATIONSHIP_SUCCESS',
+			errorActionType: 'ADD_GUIDELINE_RELATIONSHIP_ERROR'
+		}),
+
+		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
+			console.log('Guideline relationship added successfully');
+
+			// Store current section for reselection after refresh
+			const currentSection = state.selectedSection;
+
+			// Clear all change tracking arrays and reset UI state for fresh start
+			updateState({
+				relationshipChanges: {},
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				pendingReselectionSection: currentSection,
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'success',
+						message: `Successfully added guideline relationship! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh complete assessment structure following Save and Refresh Pattern
+			if (state.currentAssessmentId) {
+				console.log('Refreshing complete assessment data after guideline relationship add');
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
+				});
+			}
+		},
+
+		'ADD_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.error('=== ADD_GUIDELINE_RELATIONSHIP_ERROR ===');
+			console.error('Error adding guideline relationship:', action.payload);
+			
+			const errorMessage = action.payload?.error || 
+							   action.payload?.message || 
+							   'Unknown error occurred while adding guideline relationship';
+			
+			updateState({
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Failed to add guideline relationship: ${errorMessage}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			
@@ -4461,6 +4730,212 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipTypeaheadResults: [] // Hide dropdown
 			});
 		},
+		'GUIDELINE_TYPEAHEAD_INPUT': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {text, answerId} = action.payload;
+			
+			console.log('=== GUIDELINE_TYPEAHEAD_INPUT ===');
+			console.log('Search text:', text);
+			console.log('Answer ID:', answerId);
+			console.log('Text length:', text.length);
+			
+			updateState({
+				relationshipTypeaheadText: text,
+				selectedRelationshipQuestion: null // Clear any selected guideline
+			});
+			
+			// Only search after 3 characters
+			if (text.length >= 3) {
+				console.log('Triggering guideline search for:', text);
+				
+				dispatch('SEARCH_GUIDELINES', {
+					searchText: text,
+					answerId: answerId
+				});
+			} else {
+				updateState({
+					relationshipTypeaheadResults: []
+				});
+			}
+		},
+		'SEARCH_GUIDELINES': (coeffects) => {
+			const {action, dispatch, updateState} = coeffects;
+			const {searchText, answerId} = action.payload;
+			
+			console.log('=== SEARCH_GUIDELINES ===');
+			console.log('Searching for:', searchText);
+			console.log('Answer ID in SEARCH_GUIDELINES:', answerId);
+			
+			const requestBody = JSON.stringify({
+				searchText: searchText
+			});
+			
+			updateState({
+				relationshipTypeaheadLoading: true,
+				currentGuidelineSearchAnswerId: answerId // Store answerId in state
+			});
+			
+			dispatch('MAKE_GUIDELINE_SEARCH_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					searchText: searchText,
+					answerId: answerId
+				}
+			});
+		},
+		'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GUIDELINE_SEARCH_SUCCESS',
+			errorActionType: 'GUIDELINE_SEARCH_ERROR',
+			metaParam: 'meta'
+		}),
+		'GUIDELINE_SEARCH_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.log('=== GUIDELINE_SEARCH_SUCCESS ===');
+			console.log('Response:', action.payload);
+			console.log('Full action object:', action);
+			console.log('Action meta:', action.meta);
+			console.log('Action payload meta:', action.payload.meta);
+			
+			const results = action.payload.results || [];
+			// Try different ways to access the answerId, including from state
+			const answerId = action.meta?.answerId || action.payload.meta?.answerId || action.answerId || state.currentGuidelineSearchAnswerId;
+			
+			console.log('Found guidelines:', results.length);
+			console.log('Filtering for answer ID:', answerId);
+			
+			// Filter out guidelines that are already added to this answer
+			let filteredResults = results;
+			
+			console.log('=== DEBUGGING GUIDELINE FILTERING ===');
+			console.log('Answer ID:', answerId);
+			console.log('Full answerRelationships structure:', state.answerRelationships[answerId]);
+			console.log('Looking for guidelines in:', state.answerRelationships[answerId]?.guidelines);
+			
+			if (answerId && state.answerRelationships[answerId]) {
+				// Check if guidelines exist in the relationship data
+				const relationshipData = state.answerRelationships[answerId];
+				console.log('Relationship data keys:', Object.keys(relationshipData));
+				
+				// Look for guidelines in different possible locations
+				let existingGuidelineIds = [];
+				
+				if (relationshipData.guidelines?.guidelines) {
+					existingGuidelineIds = relationshipData.guidelines.guidelines.map(g => g.id);
+					console.log('Found guidelines in guidelines.guidelines:', existingGuidelineIds);
+				} else if (relationshipData.triggered_guidelines?.triggered_guidelines) {
+					existingGuidelineIds = relationshipData.triggered_guidelines.triggered_guidelines.map(g => g.id);
+					console.log('Found guidelines in triggered_guidelines.triggered_guidelines:', existingGuidelineIds);
+				} else if (relationshipData.triggered_guidelines) {
+					existingGuidelineIds = relationshipData.triggered_guidelines.map(g => g.id);
+					console.log('Found guidelines in triggered_guidelines array:', existingGuidelineIds);
+				} else {
+					console.log('No existing guidelines found in any expected location');
+				}
+				
+				if (existingGuidelineIds.length > 0) {
+					console.log('Existing guideline IDs:', existingGuidelineIds);
+					
+					filteredResults = results.filter(guideline => {
+						const notAlreadyAdded = !existingGuidelineIds.includes(guideline.id);
+						if (!notAlreadyAdded) {
+							console.log(`Filtering out guideline "${guideline.name}" - already added`);
+						}
+						return notAlreadyAdded;
+					});
+				}
+			}
+			
+			console.log('Filtered guidelines:', filteredResults.length);
+			
+			updateState({
+				relationshipTypeaheadResults: filteredResults,
+				relationshipTypeaheadLoading: false,
+				currentGuidelineSearchAnswerId: null // Clear the stored answerId
+			});
+			
+			// Position dropdown with fixed positioning to avoid clipping
+			const positionDropdown = () => {
+				// Find any active typeahead input
+				const activeInput = document.querySelector('.relationship-typeahead-input:focus') || 
+				                   document.querySelector('.typeahead-container:hover .relationship-typeahead-input') ||
+				                   document.querySelector('.typeahead-container .relationship-typeahead-input');
+				
+				if (activeInput) {
+					const rect = activeInput.getBoundingClientRect();
+					const dropdown = activeInput.parentElement.querySelector('.typeahead-dropdown');
+					
+					if (dropdown && rect) {
+						// Use fixed positioning with exact coordinates
+						dropdown.style.position = 'fixed';
+						dropdown.style.top = (rect.bottom) + 'px';
+						dropdown.style.left = rect.left + 'px';
+						dropdown.style.width = rect.width + 'px';
+						dropdown.style.zIndex = '999999';
+						
+						// Check if there's enough space below
+						const spaceBelow = window.innerHeight - rect.bottom;
+						const dropdownHeight = 200;
+						
+						if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+							// Position above input instead
+							dropdown.style.top = (rect.top - dropdownHeight) + 'px';
+							dropdown.style.borderRadius = '6px 6px 0 0';
+						} else {
+							dropdown.style.borderRadius = '0 0 6px 6px';
+						}
+					}
+				}
+			};
+			
+			// Position immediately and also after a short delay
+			setTimeout(positionDropdown, 10);
+			setTimeout(positionDropdown, 100);
+		},
+		'GUIDELINE_SEARCH_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.error('GUIDELINE_SEARCH_ERROR:', action.payload);
+			
+			updateState({
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false,
+				currentGuidelineSearchAnswerId: null, // Clear the stored answerId
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Failed to search guidelines: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+		'SELECT_RELATIONSHIP_GUIDELINE': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {answerId, guidelineId, guidelineName, guidelineMasterId} = action.payload;
+
+			console.log('=== SELECT_RELATIONSHIP_GUIDELINE ===');
+			console.log('Selected guideline ID:', guidelineId);
+			console.log('Selected guideline master_id:', guidelineMasterId);
+			console.log('Selected guideline name:', guidelineName);
+			console.log('Answer ID:', answerId);
+
+			updateState({
+				selectedRelationshipQuestion: {
+					id: guidelineId,
+					master_id: guidelineMasterId,
+					label: guidelineName
+				},
+				relationshipTypeaheadText: guidelineName,
+				relationshipTypeaheadResults: [] // Hide dropdown
+			});
+		},
 
 		'CONFIRM_ADD_RELATIONSHIP': (coeffects) => {
 			const {action, updateState, state} = coeffects;
@@ -4471,58 +4946,77 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Answer ID:', answerId);
 			console.log('Current state.selectedRelationshipQuestion:', state.selectedRelationshipQuestion);
 			
-			// Get the selected question details
-			const selectedQuestion = state.selectedRelationshipQuestion;
+			// Get the selected question/guideline details
+			const selectedItem = state.selectedRelationshipQuestion;
+			const relationshipType = state.selectedRelationshipType;
 			
-			if (!selectedQuestion) {
-				console.error('No relationship question selected to confirm');
-				alert('Error: No relationship question selected to confirm');
+			if (!selectedItem || !relationshipType) {
+				console.error('No relationship item or type selected to confirm');
+				alert('Error: No relationship selected to confirm');
 				return;
 			}
 			
-			console.log('Selected question details:', selectedQuestion);
-			
+			console.log('Selected item details:', selectedItem);
+			console.log('Relationship type:', relationshipType);
+			console.log('=== DEBUGGING SELECTED ITEM PROPERTIES ===');
+			console.log('selectedItem keys:', Object.keys(selectedItem));
+			console.log('selectedItem.id:', selectedItem.id);
+			console.log('selectedItem.master_id:', selectedItem.master_id);
+			console.log('selectedItem.uuid:', selectedItem.uuid);
+			console.log('selectedItem.ids:', selectedItem.ids);
+
+			// Use master_id for guidelines, id for questions
+			const targetId = relationshipType === 'guideline' ? selectedItem.master_id : selectedItem.id;
+
 			// Generate a unique key for this relationship change
-			const relationshipKey = `${answerId}_question_${selectedQuestion.id}`;
-			
+			const relationshipKey = `${answerId}_${relationshipType}_${targetId}`;
+
 			console.log('Generated relationship key:', relationshipKey);
+			console.log('Using targetId:', targetId, 'for relationshipType:', relationshipType);
 			console.log('Adding relationship change with data:', {
 				action: 'add',
 				answerId: answerId,
-				relationshipType: 'question',
-				targetId: selectedQuestion.id,
-				targetLabel: selectedQuestion.label
+				relationshipType: relationshipType,
+				targetId: targetId,
+				targetLabel: selectedItem.label
 			});
 			
-			// Immediately add triggered question to local answer data for instant feedback
-			console.log('=== UPDATING LOCAL TRIGGERED QUESTIONS ===');
-			console.log('Adding question:', selectedQuestion.id, 'to answer:', answerId);
-			console.log('Selected question details:', selectedQuestion);
+			// Immediately add relationship to local answer data for instant feedback
+			console.log('=== UPDATING LOCAL RELATIONSHIPS ===');
+			console.log('Adding', relationshipType + ':', targetId, 'to answer:', answerId);
+			console.log('Selected item details:', selectedItem);
 			
-			const updatedQuestions = state.currentQuestions.questions.map(question => {
-				return {
-					...question,
-					answers: question.answers.map(answer => {
-						if (answer.ids.id === answerId) {
-							// Add the triggered question to this answer's triggered_questions array
-							const currentTriggered = answer.triggered_questions || [];
-							console.log('Current triggered questions for answer:', currentTriggered);
-							
-							if (!currentTriggered.includes(selectedQuestion.id)) {
-								const newTriggered = [...currentTriggered, selectedQuestion.id];
-								console.log('Updated triggered questions:', newTriggered);
-								return {
-									...answer,
-									triggered_questions: newTriggered
-								};
-							} else {
-								console.log('Question already in triggered list, skipping');
+			let updatedQuestions = state.currentQuestions.questions;
+			
+			if (relationshipType === 'question') {
+				// Handle triggered questions
+				updatedQuestions = state.currentQuestions.questions.map(question => {
+					return {
+						...question,
+						answers: question.answers.map(answer => {
+							if (answer.ids.id === answerId) {
+								const currentTriggered = answer.triggered_questions || [];
+								console.log('Current triggered questions for answer:', currentTriggered);
+								
+								if (!currentTriggered.includes(targetId)) {
+									const newTriggered = [...currentTriggered, targetId];
+									console.log('Updated triggered questions:', newTriggered);
+									return {
+										...answer,
+										triggered_questions: newTriggered
+									};
+								} else {
+									console.log('Question already in triggered list, skipping');
+								}
 							}
-						}
-						return answer;
-					})
-				};
-			});
+							return answer;
+						})
+					};
+				});
+			} else if (relationshipType === 'guideline') {
+				// Handle guidelines - these don't modify the question structure but are stored separately
+				console.log('Guideline relationship added to local state');
+			}
 			
 			console.log('=== UPDATED QUESTIONS STRUCTURE ===');
 			updatedQuestions.forEach((q, qIndex) => {
@@ -4551,9 +5045,9 @@ createCustomElement('cadal-careiq-builder', {
 					[relationshipKey]: {
 						action: 'add',
 						answerId: answerId,
-						relationshipType: 'question', // triggered question
-						targetId: selectedQuestion.id,
-						targetLabel: selectedQuestion.label,
+						relationshipType: relationshipType,
+						targetId: targetId,
+						targetLabel: selectedItem.label,
 						timestamp: new Date().toISOString()
 					}
 				},
@@ -4562,7 +5056,7 @@ createCustomElement('cadal-careiq-builder', {
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: `Triggered question "${selectedQuestion.label}" queued for save. Click "Save Changes" to apply.`,
+						message: `${relationshipType === 'question' ? 'Triggered question' : 'Guideline relationship'} "${selectedItem.label}" queued for save. Click "Save Changes" to apply.`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -4653,6 +5147,43 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Relationship deletion should now be queued for save');
 		},
 
+		'REMOVE_GUIDELINE_RELATIONSHIP': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, guidelineId, guidelineName} = action.payload;
+			
+			console.log('=== REMOVE_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Removing guideline:', guidelineId, 'from answer:', answerId);
+			console.log('Guideline name:', guidelineName);
+			
+			// Generate the unique key for this relationship (same format as add)
+			const relationshipKey = `${answerId}_guideline_${guidelineId}`;
+			
+			console.log('Removing relationship key:', relationshipKey);
+			
+			// Remove from relationship changes tracking
+			const updatedRelationshipChanges = { ...state.relationshipChanges };
+			delete updatedRelationshipChanges[relationshipKey];
+			
+			console.log('Updated relationship changes:', updatedRelationshipChanges);
+			
+			// Clear the add relationship UI and show success message
+			updateState({
+				relationshipChanges: updatedRelationshipChanges,
+				// Add to system messages to show it's been removed
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'warning',
+						message: `Guideline relationship "${guidelineName}" removed from queue.`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			console.log('=== REMOVE_GUIDELINE_RELATIONSHIP - State updated successfully ===');
+			console.log('Guideline relationship removed from queue');
+		},
+
 		'ADD_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
@@ -4671,6 +5202,28 @@ createCustomElement('cadal-careiq-builder', {
 					answerId: answerId,
 					questionId: questionId,
 					questionLabel: questionLabel
+				}
+			});
+		},
+
+		'ADD_GUIDELINE_RELATIONSHIP': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {answerId, guidelineId, guidelineName} = action.payload;
+
+			console.log('=== ADD_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Adding guideline to change tracking:', guidelineId, 'to answer:', answerId);
+
+			// ONLY update change tracking - API call happens during SAVE_ALL_CHANGES
+			updateState({
+				relationshipChanges: {
+					...state.relationshipChanges,
+					[`${answerId}_${guidelineId}`]: {
+						action: 'add',
+						answerId: answerId,
+						targetId: guidelineId,
+						targetLabel: guidelineName,
+						relationshipType: 'guideline'
+					}
 				}
 			});
 		},
@@ -5756,8 +6309,34 @@ createCustomElement('cadal-careiq-builder', {
 							questionId: relationshipData.targetId,
 							questionLabel: relationshipData.targetLabel
 						});
+					} else if (relationshipData.action === 'add' && relationshipData.relationshipType === 'guideline') {
+						console.log('=== DEBUGGING GUIDELINE RELATIONSHIP SAVE ===');
+						console.log('relationshipData:', relationshipData);
+						console.log('relationshipData.answerId:', relationshipData.answerId);
+						console.log('relationshipData.targetId:', relationshipData.targetId);
+						console.log('typeof relationshipData.targetId:', typeof relationshipData.targetId);
+						console.log('relationshipData.targetId === null:', relationshipData.targetId === null);
+						console.log('relationshipData.targetId === undefined:', relationshipData.targetId === undefined);
+
+						const requestBody = JSON.stringify({
+							answerId: relationshipData.answerId,
+							guidelineId: relationshipData.targetId
+						});
+
+						console.log('DANNY- guidelineId being passed:', relationshipData.targetId);
+						console.log('Final request body:', requestBody);
+						console.log('Parsed request body:', JSON.parse(requestBody));
+
+						dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {
+							requestBody: requestBody,
+							meta: {
+								answerId: relationshipData.answerId,
+								guidelineId: relationshipData.targetId,
+								guidelineName: relationshipData.targetLabel
+							}
+						});
 					}
-					// TODO: Handle other relationship types (problems, barriers, guidelines) when implemented
+					// TODO: Handle other relationship types (problems, barriers) and guideline delete when implemented
 				});
 			}
 			

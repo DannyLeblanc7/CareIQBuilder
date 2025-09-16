@@ -9,7 +9,7 @@
 }
 
 .version-display {
-  position: fixed;
+  position: absolute;
   bottom: 10px;
   right: 10px;
   background-color: rgba(0, 0, 0, 0.7);
@@ -18,7 +18,7 @@
   border-radius: 4px;
   font-size: 0.75rem;
   font-family: monospace;
-  z-index: 1000;
+  z-index: 9999;
   user-select: none;
 }
 
@@ -871,12 +871,12 @@
   transition: all 0.3s ease;
   
   &.expanded {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 80vw;
     height: 100vh;
-    z-index: 1000;
+    z-index: 9999;
     background-color: #ffffff;
     border: none;
     border-radius: 0;
@@ -1894,6 +1894,37 @@
   }
 }
 
+// Guideline indicator specific styling
+.guideline-indicator {
+  background-color: #f0fdf4; // Light green background
+  border-color: #bbf7d0; // Green border
+  
+  .trigger-icon {
+    color: #059669; // Green icon
+  }
+  
+  .trigger-text {
+    color: #047857; // Dark green text
+  }
+  
+  .guideline-relationship-item {
+    background-color: #f7fee7; // Even lighter green
+    border-color: #d9f99d; // Light green border
+    
+    &:hover {
+      background-color: #ecfccb;
+      border-color: #bef264;
+    }
+  }
+  
+  .remove-guideline-btn {
+    &:hover {
+      background-color: #fee2e2;
+      color: #dc2626;
+    }
+  }
+}
+
 // Answer relationships styles
 .answer-relationships {
   flex: 0 0 40%; // Fixed 40% width
@@ -2061,6 +2092,23 @@
     &:active {
       transform: scale(0.95);
     }
+  }
+  
+  .guideline-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .guideline-name {
+    font-weight: 500;
+    color: #374151;
+  }
+  
+  .guideline-category {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-style: italic;
   }
   
   .no-relationships {
@@ -2248,13 +2296,13 @@
   &.dragging {
     opacity: 0.5;
     transform: rotate(2deg);
-    z-index: 1000;
+    z-index: 9999;
   }
 }
 
 // Tooltip Modal Styles
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -2263,7 +2311,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
 }
 
 .tooltip-modal {
@@ -2385,7 +2433,7 @@
   &.dragging {
     opacity: 0.5;
     transform: rotate(1deg);
-    z-index: 1000;
+    z-index: 9999;
   }
 }
 
@@ -2458,7 +2506,7 @@
 
 // Modal Styles
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -2467,7 +2515,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
 }
 
 .modal-content {
@@ -3222,21 +3270,35 @@
 .typeahead-container {
   position: relative;
   width: 100%;
+  overflow: visible;
+  z-index: 10000;
+}
+
+/* Ensure parent containers don't clip the dropdown */
+.typeahead-container {
+  overflow: visible !important;
+  z-index: 9999;
+}
+
+/* Alternative approach: make the dropdown appear upward if it's near the bottom */
+.typeahead-container.dropdown-up .typeahead-dropdown {
+  top: auto;
+  bottom: 100%;
+  border-top: 1px solid #d1d5db;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
 }
 
 .typeahead-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  /* Position will be set by JavaScript */
   background: white;
   border: 1px solid #d1d5db;
   border-top: none;
   border-radius: 0 0 6px 6px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  max-height: 200px;
+  max-height: min(200px, 50vh);
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 999999;
 }
 
 .typeahead-item {
@@ -3408,20 +3470,6 @@
   }
 }
 
-.typeahead-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  z-index: 50;
-  max-height: 200px;
-  overflow-y: auto;
-}
 
 .typeahead-item {
   padding: 0.75rem 1rem;
