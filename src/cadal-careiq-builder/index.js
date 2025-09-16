@@ -403,7 +403,8 @@ const view = (state, {updateState, dispatch}) => {
 									// Check if there are unsaved changes
 									const hasChanges = Object.keys(state.sectionChanges || {}).length > 0 || 
 													   Object.keys(state.questionChanges || {}).length > 0 || 
-													   Object.keys(state.answerChanges || {}).length > 0;
+													   Object.keys(state.answerChanges || {}).length > 0 ||
+													   Object.keys(state.relationshipChanges || {}).length > 0;
 									
 									if (hasChanges) {
 										if (confirm('You have unsaved changes. Are you sure you want to refresh and lose your changes?')) {
@@ -442,7 +443,8 @@ const view = (state, {updateState, dispatch}) => {
 								// Show Save/Cancel buttons when there are unsaved changes
 								...(Object.keys(state.sectionChanges || {}).length > 0 || 
 								   Object.keys(state.questionChanges || {}).length > 0 || 
-								   Object.keys(state.answerChanges || {}).length > 0 ? [
+								   Object.keys(state.answerChanges || {}).length > 0 ||
+								   Object.keys(state.relationshipChanges || {}).length > 0 ? [
 									<button 
 										key="save-btn"
 										className="save-changes-btn"
@@ -1386,6 +1388,129 @@ const view = (state, {updateState, dispatch}) => {
 																								No relationships found for this answer.
 																							</div>
 																						)}
+																						
+																						{/* Add Relationship Section */}
+																						{state.addingRelationship === answer.ids.id ? (
+																							<div className="add-relationship-form">
+																								<div className="relationship-type-selector">
+																									<label>Select Relationship Type:</label>
+																									<select 
+																										value={state.selectedRelationshipType || ''}
+																										onchange={(e) => {
+																											dispatch('SET_RELATIONSHIP_TYPE', {
+																												relationshipType: e.target.value
+																											});
+																										}}
+																									>
+																										<option value="">Choose type...</option>
+																										<option value="question">Triggered Question</option>
+																										<option value="problem">Problem</option>
+																										<option value="barrier">Barrier</option>
+																										<option value="guideline">Guideline</option>
+																									</select>
+																								</div>
+																								
+																								{state.selectedRelationshipType === 'question' && (
+																									<div className="question-typeahead-section">
+																										<label>Select Question from Current Section:</label>
+																										<div className="typeahead-container">
+																											<input 
+																												type="text" 
+																												className="relationship-typeahead-input"
+																												placeholder="Type to search questions..."
+																												value={state.relationshipTypeaheadText || ''}
+																												oninput={(e) => {
+																													dispatch('RELATIONSHIP_TYPEAHEAD_INPUT', {
+																														text: e.target.value,
+																														answerId: answer.ids.id
+																													});
+																												}}
+																											/>
+																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
+																												<div className="typeahead-dropdown">
+																													{state.relationshipTypeaheadResults.map((question, index) => (
+																														<div 
+																															key={question.ids?.id || index}
+																															className="typeahead-item"
+																															onclick={(e) => {
+																																console.log('=== TYPEAHEAD ITEM CLICKED ===');
+																																console.log('Question clicked:', question);
+																																console.log('Answer ID:', answer.ids.id);
+																																console.log('Question ID:', question.ids?.id);
+																																console.log('Question label:', question.label);
+																																e.stopPropagation();
+																																e.preventDefault();
+																																dispatch('SELECT_RELATIONSHIP_QUESTION', {
+																																	answerId: answer.ids.id,
+																																	questionId: question.ids.id,
+																																	questionLabel: question.label
+																																});
+																															}}
+																														>
+																															{question.label}
+																														</div>
+																													))}
+																												</div>
+																											)}
+																										</div>
+																									</div>
+																								)}
+																								
+																								<div className="add-relationship-buttons">
+																									{state.selectedRelationshipQuestion ? (
+																										<div className="relationship-confirm-buttons">
+																											<button 
+																												className="confirm-relationship-btn"
+																												onclick={(e) => {
+																													console.log('=== CHECKMARK BUTTON CLICKED ===');
+																													console.log('Answer ID:', answer.ids.id);
+																													console.log('Selected relationship question:', state.selectedRelationshipQuestion);
+																													e.stopPropagation();
+																													e.preventDefault();
+																													dispatch('CONFIRM_ADD_RELATIONSHIP', {
+																														answerId: answer.ids.id
+																													});
+																												}}
+																												title="Confirm relationship"
+																											>
+																												✓
+																											</button>
+																											<button 
+																												className="cancel-relationship-btn"
+																												onclick={() => {
+																													dispatch('CANCEL_ADD_RELATIONSHIP');
+																												}}
+																												title="Cancel"
+																											>
+																												✕
+																											</button>
+																										</div>
+																									) : (
+																										<button 
+																											className="cancel-relationship-btn"
+																											onclick={() => {
+																												dispatch('CANCEL_ADD_RELATIONSHIP');
+																											}}
+																										>
+																											Cancel
+																										</button>
+																									)}
+																								</div>
+																							</div>
+																						) : (
+																							<div className="add-relationship-section">
+																								<button 
+																									className="add-relationship-btn"
+																									onclick={() => {
+																										dispatch('START_ADD_RELATIONSHIP', {
+																											answerId: answer.ids.id
+																										});
+																									}}
+																								>
+																									+ Add Relationship
+																								</button>
+																							</div>
+																						)}
 																					</div>
 																				</div>
 																			)}
@@ -1806,6 +1931,129 @@ const view = (state, {updateState, dispatch}) => {
 																								No relationships found for this answer.
 																							</div>
 																						)}
+																						
+																						{/* Add Relationship Section */}
+																						{state.addingRelationship === answer.ids.id ? (
+																							<div className="add-relationship-form">
+																								<div className="relationship-type-selector">
+																									<label>Select Relationship Type:</label>
+																									<select 
+																										value={state.selectedRelationshipType || ''}
+																										onchange={(e) => {
+																											dispatch('SET_RELATIONSHIP_TYPE', {
+																												relationshipType: e.target.value
+																											});
+																										}}
+																									>
+																										<option value="">Choose type...</option>
+																										<option value="question">Triggered Question</option>
+																										<option value="problem">Problem</option>
+																										<option value="barrier">Barrier</option>
+																										<option value="guideline">Guideline</option>
+																									</select>
+																								</div>
+																								
+																								{state.selectedRelationshipType === 'question' && (
+																									<div className="question-typeahead-section">
+																										<label>Select Question from Current Section:</label>
+																										<div className="typeahead-container">
+																											<input 
+																												type="text" 
+																												className="relationship-typeahead-input"
+																												placeholder="Type to search questions..."
+																												value={state.relationshipTypeaheadText || ''}
+																												oninput={(e) => {
+																													dispatch('RELATIONSHIP_TYPEAHEAD_INPUT', {
+																														text: e.target.value,
+																														answerId: answer.ids.id
+																													});
+																												}}
+																											/>
+																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
+																												<div className="typeahead-dropdown">
+																													{state.relationshipTypeaheadResults.map((question, index) => (
+																														<div 
+																															key={question.ids?.id || index}
+																															className="typeahead-item"
+																															onclick={(e) => {
+																																console.log('=== TYPEAHEAD ITEM CLICKED ===');
+																																console.log('Question clicked:', question);
+																																console.log('Answer ID:', answer.ids.id);
+																																console.log('Question ID:', question.ids?.id);
+																																console.log('Question label:', question.label);
+																																e.stopPropagation();
+																																e.preventDefault();
+																																dispatch('SELECT_RELATIONSHIP_QUESTION', {
+																																	answerId: answer.ids.id,
+																																	questionId: question.ids.id,
+																																	questionLabel: question.label
+																																});
+																															}}
+																														>
+																															{question.label}
+																														</div>
+																													))}
+																												</div>
+																											)}
+																										</div>
+																									</div>
+																								)}
+																								
+																								<div className="add-relationship-buttons">
+																									{state.selectedRelationshipQuestion ? (
+																										<div className="relationship-confirm-buttons">
+																											<button 
+																												className="confirm-relationship-btn"
+																												onclick={(e) => {
+																													console.log('=== CHECKMARK BUTTON CLICKED ===');
+																													console.log('Answer ID:', answer.ids.id);
+																													console.log('Selected relationship question:', state.selectedRelationshipQuestion);
+																													e.stopPropagation();
+																													e.preventDefault();
+																													dispatch('CONFIRM_ADD_RELATIONSHIP', {
+																														answerId: answer.ids.id
+																													});
+																												}}
+																												title="Confirm relationship"
+																											>
+																												✓
+																											</button>
+																											<button 
+																												className="cancel-relationship-btn"
+																												onclick={() => {
+																													dispatch('CANCEL_ADD_RELATIONSHIP');
+																												}}
+																												title="Cancel"
+																											>
+																												✕
+																											</button>
+																										</div>
+																									) : (
+																										<button 
+																											className="cancel-relationship-btn"
+																											onclick={() => {
+																												dispatch('CANCEL_ADD_RELATIONSHIP');
+																											}}
+																										>
+																											Cancel
+																										</button>
+																									)}
+																								</div>
+																							</div>
+																						) : (
+																							<div className="add-relationship-section">
+																								<button 
+																									className="add-relationship-btn"
+																									onclick={() => {
+																										dispatch('START_ADD_RELATIONSHIP', {
+																											answerId: answer.ids.id
+																										});
+																									}}
+																								>
+																									+ Add Relationship
+																								</button>
+																							</div>
+																						)}
 																					</div>
 																				</div>
 																			)}
@@ -2150,6 +2398,13 @@ createCustomElement('cadal-careiq-builder', {
 		showRelationships: false, // Toggle for relationship buttons visibility
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
+		// Add relationship state
+		addingRelationship: null, // answerId when adding relationship to that answer
+		selectedRelationshipType: null, // 'question', 'problem', 'barrier', 'guideline'
+		relationshipTypeaheadText: '', // text input for typeahead search
+		relationshipTypeaheadResults: [], // search results for relationship typeahead
+		relationshipTypeaheadLoading: false,
+		selectedRelationshipQuestion: null, // {id, label} of selected question
 		// Modal state for editing long text
 		modalOpen: false,
 		modalType: null, // 'question' or 'answer'
@@ -2163,6 +2418,7 @@ createCustomElement('cadal-careiq-builder', {
 		// Change tracking for all components
 		questionChanges: {},
 		answerChanges: {},
+		relationshipChanges: {},
 		// Original data backup for cancel functionality
 		originalAssessmentData: null,
 		// Section reselection after save
@@ -2762,6 +3018,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				questionChanges: {},
 				answerChanges: {},
+				relationshipChanges: {},
 				// Clear editing states
 				editingSectionId: null,
 				editingSectionName: null,
@@ -2836,6 +3093,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				questionChanges: {},
 				answerChanges: {},
+				relationshipChanges: {},
 				// Clear editing states
 				editingSectionId: null,
 				editingSectionName: null,
@@ -3102,7 +3360,8 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear all changes after successful data refresh
 				sectionChanges: {},
 				questionChanges: {},
-				answerChanges: {}
+				answerChanges: {},
+				relationshipChanges: {}
 			});
 		},
 
@@ -3756,6 +4015,85 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-branch-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_BRANCH_QUESTION_SUCCESS',
+			errorActionType: 'ADD_BRANCH_QUESTION_ERROR'
+		}),
+
+		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			
+			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Original action data:', action.meta);
+			
+			// Get original data from meta (passed through HTTP effect)
+			const {answerId, questionId, questionLabel} = action.meta || {};
+			
+			console.log('Branch question added successfully:', questionId, 'to answer:', answerId);
+			
+			// Follow CLAUDE.md refresh pattern - store current section for reselection
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear all change tracking arrays and reset UI state for fresh start
+			updateState({
+				relationshipChanges: {},
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'success',
+						message: `Successfully added triggered question "${questionLabel}" to answer relationship! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Store pending reselection data - both ID and label needed
+				pendingReselectionSection: currentSection,
+				pendingReselectionSectionLabel: currentSectionLabel,
+				// Reset UI state - edit mode on, relationships off, collapsed
+				builderMode: true,
+				showRelationships: false,
+				answerRelationships: {}, // Clear all expanded relationship data
+				relationshipsLoading: {},
+				// Clear any active relationship editing
+				addingRelationship: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null
+			});
+			
+			// Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: state.currentAssessmentId
+			});
+		},
+
+		'ADD_BRANCH_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.error('ADD_BRANCH_QUESTION_ERROR:', action.payload);
+			
+			updateState({
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Failed to add triggered question: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'TOGGLE_SYSTEM_MESSAGES': (coeffects) => {
 			const {updateState, state} = coeffects;
 			
@@ -3771,6 +4109,285 @@ createCustomElement('cadal-careiq-builder', {
 			
 			updateState({
 				showRelationships: !state.showRelationships
+			});
+		},
+
+		'START_ADD_RELATIONSHIP': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {answerId} = action.payload;
+			
+			updateState({
+				addingRelationship: answerId,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null
+			});
+		},
+
+		'CANCEL_ADD_RELATIONSHIP': (coeffects) => {
+			const {updateState} = coeffects;
+			
+			updateState({
+				addingRelationship: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null
+			});
+		},
+
+		'SET_RELATIONSHIP_TYPE': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {relationshipType} = action.payload;
+			
+			updateState({
+				selectedRelationshipType: relationshipType,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null
+			});
+		},
+
+		'RELATIONSHIP_TYPEAHEAD_INPUT': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {text, answerId} = action.payload;
+			
+			console.log('=== RELATIONSHIP_TYPEAHEAD_INPUT ===');
+			console.log('Search text:', text);
+			console.log('Answer ID:', answerId);
+			console.log('Available questions:', state.currentQuestions?.questions?.length);
+			
+			updateState({
+				relationshipTypeaheadText: text
+			});
+			
+			// Filter questions from current section based on input text
+			if (text.length >= 3 && state.currentQuestions?.questions) {
+				console.log('=== DEBUG: Finding current answer ===');
+				console.log('Looking for answerId:', answerId);
+				console.log('All questions structure:', state.currentQuestions.questions.map(q => ({
+					id: q.ids?.id, 
+					label: q.label,
+					answersCount: q.answers?.length || 0
+				})));
+				
+				// Find the current answer to check its existing triggered questions
+				let currentAnswer = null;
+				for (const question of state.currentQuestions.questions) {
+					if (question.answers) {
+						for (const answer of question.answers) {
+							if (answer.ids.id === answerId) {
+								currentAnswer = answer;
+								console.log('=== FOUND CURRENT ANSWER ===');
+								console.log('Answer:', answer.label);
+								console.log('Triggered questions:', answer.triggered_questions);
+								break;
+							}
+						}
+					}
+					if (currentAnswer) break;
+				}
+				
+				if (!currentAnswer) {
+					console.error('Could not find current answer with ID:', answerId);
+					updateState({
+						relationshipTypeaheadResults: []
+					});
+					return;
+				}
+				
+				// Get existing triggered questions from multiple sources:
+				// 1. Local answer data (from section API)
+				const localTriggeredQuestions = currentAnswer.triggered_questions || [];
+				
+				// 2. Loaded relationship data (from relationships API)
+				const relationshipData = state.answerRelationships[answerId];
+				const apiTriggeredQuestions = relationshipData?.questions?.questions?.map(q => q.id) || [];
+				
+				// 3. Combine both sources to get complete list
+				const allTriggeredQuestions = [...new Set([...localTriggeredQuestions, ...apiTriggeredQuestions])];
+				
+				console.log('=== FILTERING QUESTIONS ===');
+				console.log('Local triggered questions (from answer):', localTriggeredQuestions);
+				console.log('API triggered questions (from relationships):', apiTriggeredQuestions);
+				console.log('Combined triggered questions:', allTriggeredQuestions);
+				
+				const filteredQuestions = state.currentQuestions.questions.filter(question => {
+					const matchesText = question.label.toLowerCase().includes(text.toLowerCase());
+					const notAlreadyTriggered = !allTriggeredQuestions.includes(question.ids.id);
+					
+					if (matchesText) {
+						console.log(`Question "${question.label}" (${question.ids.id}): matchesText=true, alreadyTriggered=${allTriggeredQuestions.includes(question.ids.id)}, willShow=${notAlreadyTriggered}`);
+					}
+					
+					return matchesText && notAlreadyTriggered;
+				});
+				
+				console.log('=== FINAL RESULTS ===');
+				console.log('Total filtered questions:', filteredQuestions.length);
+				console.log('Questions to show:', filteredQuestions.map(q => q.label));
+				
+				updateState({
+					relationshipTypeaheadResults: filteredQuestions.slice(0, 10) // Limit to 10 results
+				});
+			} else {
+				updateState({
+					relationshipTypeaheadResults: []
+				});
+			}
+		},
+
+		'SELECT_RELATIONSHIP_QUESTION': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {answerId, questionId, questionLabel} = action.payload;
+			
+			console.log('=== SELECT_RELATIONSHIP_QUESTION ACTION TRIGGERED ===');
+			console.log('Payload:', action.payload);
+			console.log('Answer ID:', answerId);
+			console.log('Question ID:', questionId);
+			console.log('Question Label:', questionLabel);
+			
+			// Store the selected question and populate the input field
+			updateState({
+				selectedRelationshipQuestion: {
+					id: questionId,
+					label: questionLabel
+				},
+				relationshipTypeaheadText: questionLabel,
+				relationshipTypeaheadResults: [] // Hide dropdown
+			});
+		},
+
+		'CONFIRM_ADD_RELATIONSHIP': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId} = action.payload;
+			
+			console.log('=== CONFIRM_ADD_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Action payload:', action.payload);
+			console.log('Answer ID:', answerId);
+			console.log('Current state.selectedRelationshipQuestion:', state.selectedRelationshipQuestion);
+			
+			// Get the selected question details
+			const selectedQuestion = state.selectedRelationshipQuestion;
+			
+			if (!selectedQuestion) {
+				console.error('No relationship question selected to confirm');
+				alert('Error: No relationship question selected to confirm');
+				return;
+			}
+			
+			console.log('Selected question details:', selectedQuestion);
+			
+			// Generate a unique key for this relationship change
+			const relationshipKey = `${answerId}_question_${selectedQuestion.id}`;
+			
+			console.log('Generated relationship key:', relationshipKey);
+			console.log('Adding relationship change with data:', {
+				action: 'add',
+				answerId: answerId,
+				relationshipType: 'question',
+				targetId: selectedQuestion.id,
+				targetLabel: selectedQuestion.label
+			});
+			
+			// Immediately add triggered question to local answer data for instant feedback
+			console.log('=== UPDATING LOCAL TRIGGERED QUESTIONS ===');
+			console.log('Adding question:', selectedQuestion.id, 'to answer:', answerId);
+			console.log('Selected question details:', selectedQuestion);
+			
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				return {
+					...question,
+					answers: question.answers.map(answer => {
+						if (answer.ids.id === answerId) {
+							// Add the triggered question to this answer's triggered_questions array
+							const currentTriggered = answer.triggered_questions || [];
+							console.log('Current triggered questions for answer:', currentTriggered);
+							
+							if (!currentTriggered.includes(selectedQuestion.id)) {
+								const newTriggered = [...currentTriggered, selectedQuestion.id];
+								console.log('Updated triggered questions:', newTriggered);
+								return {
+									...answer,
+									triggered_questions: newTriggered
+								};
+							} else {
+								console.log('Question already in triggered list, skipping');
+							}
+						}
+						return answer;
+					})
+				};
+			});
+			
+			console.log('=== UPDATED QUESTIONS STRUCTURE ===');
+			updatedQuestions.forEach((q, qIndex) => {
+				q.answers?.forEach((a, aIndex) => {
+					if (a.triggered_questions && a.triggered_questions.length > 0) {
+						console.log(`Question ${qIndex + 1}, Answer ${aIndex + 1} (${a.label}): triggered_questions =`, a.triggered_questions);
+					}
+				});
+			});
+			
+			// Clear the add relationship UI and show success message
+			updateState({
+				addingRelationship: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null,
+				// Update the local question data to show triggered question immediately
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				// Add to relationship changes tracking
+				relationshipChanges: {
+					...state.relationshipChanges,
+					[relationshipKey]: {
+						action: 'add',
+						answerId: answerId,
+						relationshipType: 'question', // triggered question
+						targetId: selectedQuestion.id,
+						targetLabel: selectedQuestion.label,
+						timestamp: new Date().toISOString()
+					}
+				},
+				// Add to system messages to show it's been queued for save
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Triggered question "${selectedQuestion.label}" queued for save. Click "Save Changes" to apply.`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			console.log('=== CONFIRM_ADD_RELATIONSHIP - State updated successfully ===');
+			console.log('Relationship should now be queued for save');
+		},
+
+		'ADD_BRANCH_QUESTION': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {answerId, questionId, questionLabel} = action.payload;
+			
+			console.log('=== ADD_BRANCH_QUESTION ACTION TRIGGERED ===');
+			console.log('Adding branch question:', questionId, 'to answer:', answerId);
+			
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				questionId: questionId
+			});
+			
+			dispatch('MAKE_ADD_BRANCH_QUESTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					answerId: answerId,
+					questionId: questionId,
+					questionLabel: questionLabel
+				}
 			});
 		},
 
@@ -4234,6 +4851,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				questionChanges: {},
 				answerChanges: {},
+				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -4612,13 +5230,15 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Section changes:', state.sectionChanges);
 			console.log('Question changes:', state.questionChanges);
 			console.log('Answer changes:', state.answerChanges);
+			console.log('Relationship changes:', state.relationshipChanges);
 			
 			// Check what needs to be saved
 			const sectionChanges = Object.keys(state.sectionChanges || {});
 			const questionChanges = Object.keys(state.questionChanges || {});
 			const answerChanges = Object.keys(state.answerChanges || {});
+			const relationshipChanges = Object.keys(state.relationshipChanges || {});
 			
-			const hasChanges = sectionChanges.length > 0 || questionChanges.length > 0 || answerChanges.length > 0;
+			const hasChanges = sectionChanges.length > 0 || questionChanges.length > 0 || answerChanges.length > 0 || relationshipChanges.length > 0;
 			
 			if (hasChanges) {
 				updateState({
@@ -4827,6 +5447,25 @@ createCustomElement('cadal-careiq-builder', {
 							answerData: backendAnswerData
 						});
 					}
+				});
+			}
+			
+			// Save relationship changes
+			if (relationshipChanges.length > 0) {
+				relationshipChanges.forEach(relationshipKey => {
+					const relationshipData = state.relationshipChanges[relationshipKey];
+					console.log('Saving relationship:', relationshipKey, relationshipData);
+					
+					if (relationshipData.action === 'add' && relationshipData.relationshipType === 'question') {
+						console.log('Adding branch question relationship:', relationshipData.answerId, relationshipData.targetId);
+						
+						dispatch('ADD_BRANCH_QUESTION', {
+							answerId: relationshipData.answerId,
+							questionId: relationshipData.targetId,
+							questionLabel: relationshipData.targetLabel
+						});
+					}
+					// TODO: Handle other relationship types (problems, barriers, guidelines) when implemented
 				});
 			}
 			
@@ -5430,6 +6069,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				questionChanges: {},
 				answerChanges: {},
+				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -5558,6 +6198,7 @@ createCustomElement('cadal-careiq-builder', {
 						sectionChanges: {},
 						questionChanges: {},
 						answerChanges: {},
+						relationshipChanges: {},
 						editingSectionId: null,
 						editingSectionName: null
 					});
