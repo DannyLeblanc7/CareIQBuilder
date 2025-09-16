@@ -1261,9 +1261,37 @@ const view = (state, {updateState, dispatch}) => {
 																							// Find the triggered question to show its label
 																							const triggeredQuestion = state.currentQuestions?.questions?.find(q => q.ids.id === triggeredId);
 																							return (
-																								<span key={triggerIndex} className="triggered-question-label">
-																									→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
-																								</span>
+																								<div key={triggerIndex} className="triggered-question-item">
+																									<span className="triggered-question-label">
+																										→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
+																									</span>
+																									<button 
+																										className="delete-triggered-question-btn"
+																										onclick={(e) => {
+																											console.log('=== TRASH CAN CLICKED ===');
+																											console.log('Deleting triggered question:', triggeredId);
+																											console.log('From answer:', answer.ids.id);
+																											console.log('isEditable check:', {
+																												builderMode: state.builderMode,
+																												assessmentStatus: state.currentAssessment?.status,
+																												isEditable: isEditable
+																											});
+																											e.stopPropagation();
+																											dispatch('REMOVE_TRIGGERED_QUESTION', {
+																												answerId: answer.ids.id,
+																												questionId: triggeredId,
+																												questionLabel: triggeredQuestion?.label || 'Unknown Question'
+																											});
+																										}}
+																										title="Remove triggered question"
+																										style={{
+																											display: isEditable ? 'flex' : 'none',
+																											backgroundColor: isEditable ? '#fee2e2' : 'gray'
+																										}}
+																									>
+																										🗑️ DEBUG
+																									</button>
+																								</div>
 																							);
 																						})}
 																					</div>
@@ -1336,9 +1364,26 @@ const view = (state, {updateState, dispatch}) => {
 																								<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
 																								<div className="relationship-items">
 																									{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
-																										<span key={qIndex} className="relationship-item">
-																											→ {question.label}
-																										</span>
+																										<div key={qIndex} className="relationship-item">
+																											<span className="relationship-item-label">→ {question.label}</span>
+																											<button 
+																												className="delete-relationship-btn"
+																												onclick={(e) => {
+																													console.log('=== RELATIONSHIP TRASH CAN CLICKED ===');
+																													console.log('Deleting question:', question.id, question.label);
+																													console.log('From answer:', answer.ids.id);
+																													e.stopPropagation();
+																													dispatch('REMOVE_TRIGGERED_QUESTION', {
+																														answerId: answer.ids.id,
+																														questionId: question.id,
+																														questionLabel: question.label
+																													});
+																												}}
+																												title="Remove triggered question"
+																											>
+																												🗑️
+																											</button>
+																										</div>
 																									))}
 																								</div>
 																							</div>
@@ -1804,9 +1849,37 @@ const view = (state, {updateState, dispatch}) => {
 																							// Find the triggered question to show its label
 																							const triggeredQuestion = state.currentQuestions?.questions?.find(q => q.ids.id === triggeredId);
 																							return (
-																								<span key={triggerIndex} className="triggered-question-label">
-																									→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
-																								</span>
+																								<div key={triggerIndex} className="triggered-question-item">
+																									<span className="triggered-question-label">
+																										→ {triggeredQuestion?.label || `Question ${triggeredId.substring(0, 8)}...`}
+																									</span>
+																									<button 
+																										className="delete-triggered-question-btn"
+																										onclick={(e) => {
+																											console.log('=== TRASH CAN CLICKED ===');
+																											console.log('Deleting triggered question:', triggeredId);
+																											console.log('From answer:', answer.ids.id);
+																											console.log('isEditable check:', {
+																												builderMode: state.builderMode,
+																												assessmentStatus: state.currentAssessment?.status,
+																												isEditable: isEditable
+																											});
+																											e.stopPropagation();
+																											dispatch('REMOVE_TRIGGERED_QUESTION', {
+																												answerId: answer.ids.id,
+																												questionId: triggeredId,
+																												questionLabel: triggeredQuestion?.label || 'Unknown Question'
+																											});
+																										}}
+																										title="Remove triggered question"
+																										style={{
+																											display: isEditable ? 'flex' : 'none',
+																											backgroundColor: isEditable ? '#fee2e2' : 'gray'
+																										}}
+																									>
+																										🗑️ DEBUG
+																									</button>
+																								</div>
 																							);
 																						})}
 																					</div>
@@ -1879,9 +1952,26 @@ const view = (state, {updateState, dispatch}) => {
 																								<span className="relationship-label">Questions ({state.answerRelationships[answer.ids.id].questions.questions_quantity})</span>
 																								<div className="relationship-items">
 																									{state.answerRelationships[answer.ids.id].questions.questions.map((question, qIndex) => (
-																										<span key={qIndex} className="relationship-item">
-																											→ {question.label}
-																										</span>
+																										<div key={qIndex} className="relationship-item">
+																											<span className="relationship-item-label">→ {question.label}</span>
+																											<button 
+																												className="delete-relationship-btn"
+																												onclick={(e) => {
+																													console.log('=== RELATIONSHIP TRASH CAN CLICKED ===');
+																													console.log('Deleting question:', question.id, question.label);
+																													console.log('From answer:', answer.ids.id);
+																													e.stopPropagation();
+																													dispatch('REMOVE_TRIGGERED_QUESTION', {
+																														answerId: answer.ids.id,
+																														questionId: question.id,
+																														questionLabel: question.label
+																													});
+																												}}
+																												title="Remove triggered question"
+																											>
+																												🗑️
+																											</button>
+																										</div>
 																									))}
 																								</div>
 																							</div>
@@ -3082,9 +3172,25 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 			
-			// Complete state reset
+			// Complete state reset following CLAUDE.md refresh pattern
 			updateState({
 				assessmentDetailsLoading: true,
+				// Clear all change tracking arrays
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				relationshipChanges: {},
+				// Reset UI state - edit mode on, relationships off, collapsed  
+				builderMode: true,
+				showRelationships: false,
+				answerRelationships: {}, // Clear all expanded relationship data
+				relationshipsLoading: {},
+				// Clear any active relationship editing
+				addingRelationship: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null,
 				selectedSection: null,
 				selectedSectionLabel: null,
 				currentQuestions: null,
@@ -4093,6 +4199,103 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 		},
+		'DELETE_BRANCH_QUESTION': (coeffects) => {
+			const {action, state, dispatch, updateState} = coeffects;
+			const {answerId, questionId, questionLabel} = action.payload;
+			
+			console.log('=== DELETE_BRANCH_QUESTION ACTION TRIGGERED ===');
+			console.log('Deleting branch question:', questionId, 'from answer:', answerId);
+			
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				questionId: questionId
+			});
+			
+			dispatch('MAKE_DELETE_BRANCH_QUESTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					answerId: answerId,
+					questionId: questionId,
+					questionLabel: questionLabel
+				}
+			});
+		},
+		'MAKE_DELETE_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-branch-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_BRANCH_QUESTION_SUCCESS',
+			errorActionType: 'DELETE_BRANCH_QUESTION_ERROR'
+		}),
+		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			
+			console.log('=== DELETE_BRANCH_QUESTION_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Original action data:', action.meta);
+			
+			// Get original data from meta (passed through HTTP effect)
+			const {answerId, questionId, questionLabel} = action.meta || {};
+			
+			console.log('Branch question deleted successfully:', questionId, 'from answer:', answerId);
+			
+			// Follow CLAUDE.md refresh pattern - store current section for reselection
+			const currentSection = state.selectedSection;
+			const currentSectionLabel = state.selectedSectionLabel;
+			
+			// Clear all change tracking arrays and reset UI state for fresh start
+			updateState({
+				relationshipChanges: {},
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'success',
+						message: `Successfully deleted triggered question "${questionLabel}" from answer relationship! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Store pending reselection data - both ID and label needed
+				pendingReselectionSection: currentSection,
+				pendingReselectionSectionLabel: currentSectionLabel,
+				// Reset UI state - edit mode on, relationships off, collapsed
+				builderMode: true,
+				showRelationships: false,
+				answerRelationships: {}, // Clear all expanded relationship data
+				relationshipsLoading: {},
+				// Clear any active relationship editing
+				addingRelationship: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedRelationshipQuestion: null
+			});
+			
+			// Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
+			dispatch('FETCH_ASSESSMENT_DETAILS', {
+				assessmentId: state.currentAssessmentId
+			});
+		},
+		'DELETE_BRANCH_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			
+			console.error('DELETE_BRANCH_QUESTION_ERROR:', action.payload);
+			
+			updateState({
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Failed to delete triggered question: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
 
 		'TOGGLE_SYSTEM_MESSAGES': (coeffects) => {
 			const {updateState, state} = coeffects;
@@ -4367,6 +4570,87 @@ createCustomElement('cadal-careiq-builder', {
 			
 			console.log('=== CONFIRM_ADD_RELATIONSHIP - State updated successfully ===');
 			console.log('Relationship should now be queued for save');
+		},
+		'REMOVE_TRIGGERED_QUESTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, questionId, questionLabel} = action.payload;
+			
+			console.log('=== REMOVE_TRIGGERED_QUESTION ACTION TRIGGERED ===');
+			console.log('Removing question:', questionId, 'from answer:', answerId);
+			console.log('Question label:', questionLabel);
+			
+			// Immediately remove triggered question from local answer data
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				return {
+					...question,
+					answers: question.answers.map(answer => {
+						if (answer.ids.id === answerId) {
+							// Remove the triggered question from this answer's triggered_questions array
+							const currentTriggered = answer.triggered_questions || [];
+							const updatedTriggered = currentTriggered.filter(id => id !== questionId);
+							console.log('Current triggered questions:', currentTriggered);
+							console.log('Updated triggered questions:', updatedTriggered);
+							
+							return {
+								...answer,
+								triggered_questions: updatedTriggered
+							};
+						}
+						return answer;
+					})
+				};
+			});
+			
+			// Generate a unique key for this relationship change (same format as add)
+			const relationshipKey = `${answerId}_question_${questionId}`;
+			
+			// Also remove from answerRelationships display data for immediate UI feedback
+			const updatedAnswerRelationships = { ...state.answerRelationships };
+			if (updatedAnswerRelationships[answerId]?.questions?.questions) {
+				updatedAnswerRelationships[answerId] = {
+					...updatedAnswerRelationships[answerId],
+					questions: {
+						...updatedAnswerRelationships[answerId].questions,
+						questions: updatedAnswerRelationships[answerId].questions.questions.filter(q => q.id !== questionId),
+						questions_quantity: updatedAnswerRelationships[answerId].questions.questions.filter(q => q.id !== questionId).length
+					}
+				};
+			}
+			
+			// Track the deletion in relationshipChanges
+			updateState({
+				// Update local question data immediately
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				// Update relationship display data immediately
+				answerRelationships: updatedAnswerRelationships,
+				// Track the delete operation for save
+				relationshipChanges: {
+					...state.relationshipChanges,
+					[relationshipKey]: {
+						action: 'delete',
+						answerId: answerId,
+						relationshipType: 'question',
+						targetId: questionId,
+						targetLabel: questionLabel,
+						timestamp: new Date().toISOString()
+					}
+				},
+				// Show success message indicating it's queued for save
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Triggered question "${questionLabel}" queued for deletion. Click "Save Changes" to apply.`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+			
+			console.log('=== REMOVE_TRIGGERED_QUESTION - State updated successfully ===');
+			console.log('Relationship deletion should now be queued for save');
 		},
 
 		'ADD_BRANCH_QUESTION': (coeffects) => {
@@ -5460,6 +5744,14 @@ createCustomElement('cadal-careiq-builder', {
 						console.log('Adding branch question relationship:', relationshipData.answerId, relationshipData.targetId);
 						
 						dispatch('ADD_BRANCH_QUESTION', {
+							answerId: relationshipData.answerId,
+							questionId: relationshipData.targetId,
+							questionLabel: relationshipData.targetLabel
+						});
+					} else if (relationshipData.action === 'delete' && relationshipData.relationshipType === 'question') {
+						console.log('Deleting branch question relationship:', relationshipData.answerId, relationshipData.targetId);
+						
+						dispatch('DELETE_BRANCH_QUESTION', {
 							answerId: relationshipData.answerId,
 							questionId: relationshipData.targetId,
 							questionLabel: relationshipData.targetLabel
