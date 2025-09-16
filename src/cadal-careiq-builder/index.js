@@ -484,10 +484,19 @@ const view = (state, {updateState, dispatch}) => {
 					)}
 					
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
-						<div className="builder-content">
-							<div className="sections-sidebar">
+						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''}`}>
+							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`}>
 								<div className="sections-header">
-									<h3>Sections</h3>
+									<div className="sections-title-container">
+										<button 
+											className="expand-sections-btn"
+											onclick={() => dispatch('TOGGLE_SECTIONS_PANEL')}
+											title={state.sectionsPanelExpanded ? 'Collapse sections panel' : 'Expand sections panel'}
+										>
+											<span className={state.sectionsPanelExpanded ? 'expand-icon expanded' : 'expand-icon'}>⤢</span>
+										</button>
+										<h3>Sections</h3>
+									</div>
 									{state.builderMode && state.currentAssessment?.status === 'draft' && (
 										<button 
 											className="add-section-btn"
@@ -520,6 +529,16 @@ const view = (state, {updateState, dispatch}) => {
 																key={subsection.id} 
 																className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''} ${state.dragOverSection === subsection.id ? 'drag-over' : ''}`}
 																draggable={false}
+																ondblclick={(e) => {
+																	if (state.builderMode && state.currentAssessment?.status === 'draft') {
+																		e.stopPropagation();
+																		e.preventDefault();
+																		dispatch('EDIT_SECTION_NAME', {
+																			sectionId: subsection.id,
+																			sectionLabel: subsection.label
+																		});
+																	}
+																}}
 																ondragover={(e) => {
 																	if (state.draggingSection) {
 																		e.preventDefault();
@@ -556,25 +575,81 @@ const view = (state, {updateState, dispatch}) => {
 															>
 																{state.editingSectionId === subsection.id ? (
 																	<div className="section-name-edit-container">
-																		<input
-																			type="text"
-																			className="section-name-edit-input"
-																			value={state.editingSectionName !== null ? state.editingSectionName : subsection.label}
-																			oninput={(e) => dispatch('UPDATE_SECTION_NAME', {
-																				sectionName: e.target.value
-																			})}
-																			onkeydown={(e) => {
-																				if (e.key === 'Enter') {
-																					dispatch('SAVE_SECTION_NAME', {
-																						sectionId: subsection.id,
-																						sectionLabel: state.editingSectionName !== null ? state.editingSectionName : subsection.label
+																		<div className="typeahead-container">
+																			<input
+																				type="text"
+																				className="section-name-edit-input"
+																				value={state.editingSectionName !== null ? state.editingSectionName : subsection.label}
+																				oninput={(e) => {
+																					dispatch('UPDATE_SECTION_NAME', {
+																						sectionName: e.target.value
 																					});
-																				} else if (e.key === 'Escape') {
-																					dispatch('CANCEL_SECTION_EDIT');
-																				}
-																			}}
-																			autoFocus
-																		/>
+																					dispatch('SECTION_TYPEAHEAD_INPUT_CHANGE', {
+																						searchText: e.target.value
+																					});
+																				}}
+																				onkeydown={(e) => {
+																					if (e.key === 'Enter') {
+																						if (state.sectionTypeaheadVisible && state.sectionTypeaheadSelectedIndex >= 0) {
+																							e.preventDefault();
+																							dispatch('SECTION_TYPEAHEAD_KEYBOARD', { key: 'Enter' });
+																						} else {
+																							dispatch('SAVE_SECTION_NAME', {
+																								sectionId: subsection.id,
+																								sectionLabel: state.editingSectionName !== null ? state.editingSectionName : subsection.label
+																							});
+																						}
+																					} else if (e.key === 'Escape') {
+																						if (state.sectionTypeaheadVisible) {
+																							dispatch('SECTION_TYPEAHEAD_HIDE');
+																						} else {
+																							dispatch('CANCEL_SECTION_EDIT');
+																						}
+																					} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+																						e.preventDefault();
+																						dispatch('SECTION_TYPEAHEAD_KEYBOARD', { key: e.key });
+																					}
+																				}}
+																				onblur={(e) => {
+																					// Hide typeahead after a short delay to allow selection
+																					setTimeout(() => {
+																						dispatch('SECTION_TYPEAHEAD_HIDE');
+																					}, 150);
+																				}}
+																				autoFocus
+																			/>
+																			{state.sectionTypeaheadVisible && (
+																				<div className="typeahead-dropdown">
+																					{state.sectionTypeaheadLoading ? (
+																						<div className="typeahead-loading">Searching...</div>
+																					) : state.sectionTypeaheadResults.length > 0 ? (
+																						state.sectionTypeaheadResults.map((result, index) => (
+																							<div 
+																								key={result.id}
+																								className={`typeahead-item ${index === state.sectionTypeaheadSelectedIndex ? 'selected' : ''}`}
+																								onmousedown={(e) => {
+																									e.preventDefault(); // Prevent blur
+																									dispatch('SECTION_TYPEAHEAD_SELECT', {
+																										selectedItem: result
+																									});
+																								}}
+																								onmouseenter={() => {
+																									dispatch('SECTION_TYPEAHEAD_KEYBOARD', { key: 'MouseEnter', index });
+																								}}
+																							>
+																								{result.exact_match ? (
+																									<strong>{result.name}</strong>
+																								) : (
+																									result.name
+																								)}
+																							</div>
+																						))
+																					) : (
+																						<div className="typeahead-no-results">No matching sections found</div>
+																					)}
+																				</div>
+																			)}
+																		</div>
 																		<div className="section-edit-buttons">
 																			<button
 																				className="section-edit-save-btn"
@@ -582,6 +657,10 @@ const view = (state, {updateState, dispatch}) => {
 																					sectionId: subsection.id,
 																					sectionLabel: state.editingSectionName !== null ? state.editingSectionName : subsection.label
 																				})}
+																				ondblclick={(e) => {
+																					e.stopPropagation();
+																					e.preventDefault();
+																				}}
 																				title="Save changes"
 																			>
 																				✓
@@ -589,6 +668,10 @@ const view = (state, {updateState, dispatch}) => {
 																			<button
 																				className="section-edit-cancel-btn"
 																				onclick={() => dispatch('CANCEL_SECTION_EDIT')}
+																				ondblclick={(e) => {
+																					e.stopPropagation();
+																					e.preventDefault();
+																				}}
 																				title="Cancel changes"
 																			>
 																				✕
@@ -596,45 +679,7 @@ const view = (state, {updateState, dispatch}) => {
 																		</div>
 																	</div>
 																) : (
-																	<span 
-																		className="subsection-label"
-																		ondblclick={(e) => {
-																			if (state.builderMode && state.currentAssessment?.status === 'draft') {
-																				e.stopPropagation();
-																				e.preventDefault();
-																				dispatch('EDIT_SECTION_NAME', {
-																					sectionId: subsection.id,
-																					sectionLabel: subsection.label
-																				});
-																			}
-																		}}
-																	>
-																		{state.builderMode && state.currentAssessment?.status === 'draft' && (
-																			<span 
-																				className="edit-icon"
-																				title="Edit section text"
-																				style={{
-																					cursor: 'pointer',
-																					marginRight: '6px',
-																					padding: '1px 3px',
-																					backgroundColor: '#f0f0f0',
-																					borderRadius: '3px',
-																					fontSize: '11px',
-																					display: 'inline-block',
-																					border: '1px solid #ccc'
-																				}}
-																				onclick={(e) => {
-																					e.stopPropagation();
-																					dispatch('OPEN_EDIT_MODAL', {
-																						type: 'section',
-																						itemId: subsection.id,
-																						text: subsection.label
-																					});
-																				}}
-																			>
-																				🔍
-																			</span>
-																		)}
+																	<span className="subsection-label">
 																		{state.builderMode && state.currentAssessment?.status === 'draft' && (
 																			<span 
 																				className="section-drag-handle"
@@ -2104,6 +2149,7 @@ createCustomElement('cadal-careiq-builder', {
 		systemMessagesCollapsed: false,
 		showRelationships: false, // Toggle for relationship buttons visibility
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
+		sectionsPanelExpanded: false, // Toggle for expanded sections panel
 		// Modal state for editing long text
 		modalOpen: false,
 		modalType: null, // 'question' or 'answer'
@@ -2130,7 +2176,15 @@ createCustomElement('cadal-careiq-builder', {
 		editingTooltip: null,
 		editingTooltipText: null,
 		editingTooltipQuestionId: null,
-		editingTooltipAnswerId: null
+		editingTooltipAnswerId: null,
+		// Typeahead state
+		sectionTypeaheadResults: [],
+		sectionTypeaheadLoading: false,
+		sectionTypeaheadQuery: '',
+		sectionTypeaheadVisible: false,
+		sectionTypeaheadSelectedIndex: -1,
+		sectionTypeaheadDebounceTimeout: null,
+		selectedSectionLibraryId: null
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -2167,6 +2221,13 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Mobile view check - window.innerWidth:', window.innerWidth, 'isMobile:', isMobile);
 			updateState({
 				isMobileView: isMobile
+			});
+		},
+
+		'TOGGLE_SECTIONS_PANEL': (coeffects) => {
+			const {updateState, state} = coeffects;
+			updateState({
+				sectionsPanelExpanded: !state.sectionsPanelExpanded
 			});
 		},
 		
@@ -3839,9 +3900,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state} = coeffects;
 			
 			console.log('ADD_SECTION action triggered - adding locally');
-			console.log('Assessment structure:', state.currentAssessment);
-			console.log('Assessment IDs:', state.currentAssessment.ids);
-			console.log('Assessment id:', state.currentAssessment.id);
 			
 			// Get the parent section (first section)
 			const parentSection = state.currentAssessment.sections?.[0];
@@ -3868,7 +3926,7 @@ createCustomElement('cadal-careiq-builder', {
 			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 			const newSection = {
 				id: newSectionId,
-				label: 'New Section',
+				label: '',
 				sort_order: nextSortOrder,
 				questions_quantity: 0,
 				tooltip: '',
@@ -3907,6 +3965,7 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				sectionChanges: newSectionChanges,
 				editingSectionId: newSectionId, // Auto-edit the new section
+				editingSectionName: '', // Start with empty name for editing
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -3938,10 +3997,61 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SAVE_SECTION_NAME': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
 			
 			console.log('Saving section name:', sectionLabel);
+			console.log('Selected library_id:', state.selectedSectionLibraryId);
+			
+			// First check for exact matches using typeahead API
+			dispatch('CHECK_SECTION_DUPLICATE', {
+				sectionId,
+				sectionLabel
+			});
+		},
+
+		'CHECK_SECTION_DUPLICATE': (coeffects) => {
+			const {action, dispatch, state, updateState} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			
+			// Check for blank section name
+			if (!sectionLabel || sectionLabel.trim() === '') {
+				alert('Section name cannot be blank. Please enter a section name.');
+				return;
+			}
+			
+			// Check if this section name already exists in the current assessment
+			const existingSections = [];
+			if (state.currentAssessment?.sections) {
+				state.currentAssessment.sections.forEach(section => {
+					if (section.subsections) {
+						section.subsections.forEach(subsection => {
+							// Don't compare with itself
+							if (subsection.id !== sectionId) {
+								existingSections.push(subsection.label.toLowerCase().trim());
+							}
+						});
+					}
+				});
+			}
+			
+			const currentSectionName = sectionLabel.toLowerCase().trim();
+			if (existingSections.includes(currentSectionName)) {
+				alert(`Section "${sectionLabel}" already exists in this assessment. Please use a different name.`);
+				return;
+			}
+			
+			// No duplicate found, proceed with saving
+			dispatch('PROCEED_WITH_SECTION_SAVE', {
+				sectionId,
+				sectionLabel
+			});
+		},
+
+
+		'PROCEED_WITH_SECTION_SAVE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
 			
 			// Update the section label in the assessment
 			const updatedSections = state.currentAssessment.sections.map(section => ({
@@ -3953,6 +4063,17 @@ createCustomElement('cadal-careiq-builder', {
 				) || []
 			}));
 			
+			// Prepare the section changes with library_id if selected from typeahead
+			const sectionChangeData = {
+				...state.sectionChanges[sectionId],
+				label: sectionLabel
+			};
+			
+			// Add library_id if section was selected from typeahead
+			if (state.selectedSectionLibraryId) {
+				sectionChangeData.library_id = state.selectedSectionLibraryId;
+			}
+			
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
@@ -3962,21 +4083,88 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: null,
 				sectionChanges: {
 					...state.sectionChanges,
-					[sectionId]: {
-						...state.sectionChanges[sectionId],
-						label: sectionLabel
-					}
-				}
+					[sectionId]: sectionChangeData
+				},
+				// Clear typeahead state
+				sectionTypeaheadVisible: false,
+				sectionTypeaheadResults: [],
+				sectionTypeaheadQuery: '',
+				sectionTypeaheadSelectedIndex: -1,
+				selectedSectionLibraryId: null
 			});
 		},
 
 		'CANCEL_SECTION_EDIT': (coeffects) => {
-			const {updateState} = coeffects;
+			const {updateState, state} = coeffects;
 			
-			updateState({
-				editingSectionId: null,
-				editingSectionName: null
-			});
+			// Check if we're canceling a new section that should be removed
+			const editingSectionId = state.editingSectionId;
+			let shouldRemoveSection = false;
+			
+			if (editingSectionId) {
+				// Find the section being edited
+				const sectionToCheck = state.currentAssessment?.sections?.find(section =>
+					section.subsections?.some(subsection => subsection.id === editingSectionId)
+				);
+				
+				if (sectionToCheck) {
+					const subsectionToCheck = sectionToCheck.subsections?.find(subsection => 
+						subsection.id === editingSectionId
+					);
+					
+					// Remove if it's new (has isNew flag or temp ID) and has empty/blank label
+					if (subsectionToCheck && 
+						(subsectionToCheck.isNew || editingSectionId.startsWith('temp_')) &&
+						(!subsectionToCheck.label || subsectionToCheck.label.trim() === '')) {
+						shouldRemoveSection = true;
+					}
+				}
+			}
+			
+			if (shouldRemoveSection) {
+				// Remove the section from the assessment
+				const updatedSections = state.currentAssessment.sections.map(section => ({
+					...section,
+					subsections: section.subsections?.filter(subsection => 
+						subsection.id !== editingSectionId
+					) || []
+				}));
+				
+				updateState({
+					currentAssessment: {
+						...state.currentAssessment,
+						sections: updatedSections
+					},
+					editingSectionId: null,
+					editingSectionName: null,
+					// Clear typeahead state
+					sectionTypeaheadVisible: false,
+					sectionTypeaheadResults: [],
+					sectionTypeaheadQuery: '',
+					sectionTypeaheadSelectedIndex: -1,
+					selectedSectionLibraryId: null,
+					systemMessages: [
+						...state.systemMessages,
+						{
+							type: 'info',
+							message: 'New section removed.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			} else {
+				// Just cancel editing without removing
+				updateState({
+					editingSectionId: null,
+					editingSectionName: null,
+					// Clear typeahead state
+					sectionTypeaheadVisible: false,
+					sectionTypeaheadResults: [],
+					sectionTypeaheadQuery: '',
+					sectionTypeaheadSelectedIndex: -1,
+					selectedSectionLibraryId: null
+				});
+			}
 		},
 
 		'DELETE_SECTION': (coeffects) => {
@@ -4682,7 +4870,7 @@ createCustomElement('cadal-careiq-builder', {
 				const requestBody = JSON.stringify({
 					sort_order: sectionData.sort_order || 1,
 					gt_id: sectionData.gt_id,
-					label: sectionData.label || 'New Section',
+					label: sectionData.label || '',
 					parent_section_id: sectionData.parent_section_id,
 					library_id: sectionData.library_id || null
 				});
@@ -5387,6 +5575,188 @@ createCustomElement('cadal-careiq-builder', {
 					]
 				});
 			}
+		},
+
+		// Typeahead functionality for sections
+		'SECTION_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {searchText, debounce = true} = action.payload;
+			
+			console.log('Section typeahead input change:', searchText);
+			
+			// Clear existing timeout
+			if (state.sectionTypeaheadDebounceTimeout) {
+				clearTimeout(state.sectionTypeaheadDebounceTimeout);
+			}
+			
+			// Update query and hide dropdown if search is too short
+			if (searchText.length < 3) {
+				updateState({
+					sectionTypeaheadQuery: searchText,
+					sectionTypeaheadVisible: false,
+					sectionTypeaheadResults: [],
+					sectionTypeaheadDebounceTimeout: null
+				});
+				return;
+			}
+			
+			updateState({
+				sectionTypeaheadQuery: searchText,
+				sectionTypeaheadVisible: true
+			});
+			
+			if (debounce) {
+				// Set new timeout for debounced search
+				const timeoutId = setTimeout(() => {
+					const requestBody = JSON.stringify({
+						searchText: searchText,
+						contentType: 'section',
+						region: state.careiqConfig.region,
+						version: state.careiqConfig.version,
+						accessToken: state.accessToken,
+						app: state.careiqConfig.app
+					});
+					console.log('Typeahead request body:', requestBody);
+					dispatch('SECTION_TYPEAHEAD_SEARCH', { requestBody });
+				}, 500);
+				
+				updateState({
+					sectionTypeaheadDebounceTimeout: timeoutId
+				});
+			} else {
+				const requestBody = JSON.stringify({
+					searchText: searchText,
+					contentType: 'section',
+					region: state.careiqConfig.region,
+					version: state.careiqConfig.version,
+					accessToken: state.accessToken,
+					app: state.careiqConfig.app
+				});
+				console.log('Typeahead request body:', requestBody);
+				dispatch('SECTION_TYPEAHEAD_SEARCH', { requestBody });
+			}
+		},
+
+		'SECTION_TYPEAHEAD_SEARCH': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			startActionType: 'SECTION_TYPEAHEAD_SEARCH_START',
+			successActionType: 'SECTION_TYPEAHEAD_SEARCH_SUCCESS', 
+			errorActionType: 'SECTION_TYPEAHEAD_SEARCH_ERROR'
+		}),
+
+		'SECTION_TYPEAHEAD_SEARCH_START': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				sectionTypeaheadLoading: true
+			});
+		},
+
+		'SECTION_TYPEAHEAD_SEARCH_SUCCESS': (coeffects) => {
+			const {action, updateState} = coeffects;
+			console.log('Section typeahead search success:', action.payload);
+			console.log('Response type:', typeof action.payload);
+			console.log('Raw response:', JSON.stringify(action.payload));
+			
+			const response = action.payload;
+			const results = response.results || [];
+			console.log('Extracted results:', results);
+			console.log('Results length:', results.length);
+			
+			updateState({
+				sectionTypeaheadLoading: false,
+				sectionTypeaheadResults: results,
+				sectionTypeaheadSelectedIndex: -1
+			});
+		},
+
+		'SECTION_TYPEAHEAD_SEARCH_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Section typeahead search error:', action.payload);
+			console.error('Error details:', JSON.stringify(action.payload));
+			console.error('HTTP status:', action.payload?.status || 'unknown');
+			
+			updateState({
+				sectionTypeaheadLoading: false,
+				sectionTypeaheadResults: [],
+				sectionTypeaheadVisible: false,
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: 'Failed to search section library. Please try again.',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SECTION_TYPEAHEAD_SELECT': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {selectedItem} = action.payload;
+			
+			console.log('Section typeahead selected:', selectedItem);
+			
+			// Update the editing section name with selected item
+			updateState({
+				editingSectionName: selectedItem.name,
+				sectionTypeaheadVisible: false,
+				sectionTypeaheadQuery: selectedItem.name,
+				sectionTypeaheadResults: [],
+				// Store the master_id for use as library_id when creating the section
+				selectedSectionLibraryId: selectedItem.master_id
+			});
+		},
+
+		'SECTION_TYPEAHEAD_HIDE': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				sectionTypeaheadVisible: false,
+				sectionTypeaheadSelectedIndex: -1
+			});
+		},
+
+		'SECTION_TYPEAHEAD_KEYBOARD': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {key, index} = action.payload;
+			
+			if (!state.sectionTypeaheadVisible || state.sectionTypeaheadResults.length === 0) {
+				return;
+			}
+			
+			const results = state.sectionTypeaheadResults;
+			let newIndex = state.sectionTypeaheadSelectedIndex;
+			
+			switch (key) {
+				case 'ArrowDown':
+					newIndex = Math.min(newIndex + 1, results.length - 1);
+					break;
+				case 'ArrowUp':
+					newIndex = Math.max(newIndex - 1, -1);
+					break;
+				case 'Enter':
+					if (newIndex >= 0) {
+						dispatch('SECTION_TYPEAHEAD_SELECT', {
+							selectedItem: results[newIndex]
+						});
+					}
+					return;
+				case 'Escape':
+					dispatch('SECTION_TYPEAHEAD_HIDE');
+					return;
+				case 'MouseEnter':
+					newIndex = index;
+					break;
+				default:
+					return;
+			}
+			
+			updateState({
+				sectionTypeaheadSelectedIndex: newIndex
+			});
 		},
 
 	},
