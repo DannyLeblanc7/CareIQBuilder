@@ -110,6 +110,38 @@ currentGuidelineSearchAnswerId: null        // Clears cached answer ID
 - HTTP effects with start/success/error action types
 - State updates via `updateState()` method
 
+### Typeahead Dropdown Close Pattern
+**CRITICAL**: For consistent UX, all typeahead dropdowns must implement click-outside and Escape key behavior.
+
+**Required Implementation**:
+1. **Create HIDE action**: `[NAME]_TYPEAHEAD_HIDE` action that clears dropdown results and search state
+2. **Input event handlers**:
+   ```javascript
+   onkeydown={(e) => {
+       if (e.key === 'Escape') {
+           dispatch('[NAME]_TYPEAHEAD_HIDE');
+       }
+   }}
+   onblur={(e) => {
+       // Hide after delay to allow item selection
+       setTimeout(() => {
+           dispatch('[NAME]_TYPEAHEAD_HIDE');
+       }, 150);
+   }}
+   ```
+
+**Behavior Requirements**:
+- ✅ **Click outside**: Close with 150ms delay (allows item selection)
+- ✅ **Escape key**: Close immediately
+- ✅ **Empty input**: Keep open (don't close on empty)
+- ✅ **While focused**: Keep open while typing
+- ✅ **Tab switching**: Close when switching contexts
+- ✅ **Item selection**: Close when item is selected
+
+**State Cleanup**: HIDE action must clear both dropdown results and any stored search context (e.g., `currentGuidelineSearchAnswerId`)
+
+**Example**: See guideline typeahead implementation with `GUIDELINE_TYPEAHEAD_HIDE` action
+
 ## File Structure
 - `src/cadal-careiq-builder/index.js` - Main component
 - `src/cadal-careiq-builder/styles.scss` - Component styles

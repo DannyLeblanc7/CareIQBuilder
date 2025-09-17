@@ -1556,8 +1556,8 @@ const view = (state, {updateState, dispatch}) => {
 																									<div className="guideline-typeahead-section">
 																										<label>Search Guidelines:</label>
 																										<div className="typeahead-container">
-																											<input 
-																												type="text" 
+																											<input
+																												type="text"
 																												className="relationship-typeahead-input"
 																												placeholder="Type to search guidelines (min 3 chars)..."
 																												value={state.relationshipTypeaheadText || ''}
@@ -1566,6 +1566,17 @@ const view = (state, {updateState, dispatch}) => {
 																														text: e.target.value,
 																														answerId: answer.ids.id
 																													});
+																												}}
+																												onkeydown={(e) => {
+																													if (e.key === 'Escape') {
+																														dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+																													}
+																												}}
+																												onblur={(e) => {
+																													// Hide typeahead after a short delay to allow selection
+																													setTimeout(() => {
+																														dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+																													}, 150);
 																												}}
 																											/>
 																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
@@ -2246,8 +2257,8 @@ const view = (state, {updateState, dispatch}) => {
 																									<div className="guideline-typeahead-section">
 																										<label>Search Guidelines:</label>
 																										<div className="typeahead-container">
-																											<input 
-																												type="text" 
+																											<input
+																												type="text"
 																												className="relationship-typeahead-input"
 																												placeholder="Type to search guidelines (min 3 chars)..."
 																												value={state.relationshipTypeaheadText || ''}
@@ -2256,6 +2267,17 @@ const view = (state, {updateState, dispatch}) => {
 																														text: e.target.value,
 																														answerId: answer.ids.id
 																													});
+																												}}
+																												onkeydown={(e) => {
+																													if (e.key === 'Escape') {
+																														dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+																													}
+																												}}
+																												onblur={(e) => {
+																													// Hide typeahead after a short delay to allow selection
+																													setTimeout(() => {
+																														dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+																													}, 150);
 																												}}
 																											/>
 																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
@@ -4631,7 +4653,8 @@ createCustomElement('cadal-careiq-builder', {
 				selectedRelationshipType: relationshipType,
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedRelationshipQuestion: null
+				selectedRelationshipQuestion: null,
+				currentGuidelineSearchAnswerId: null
 			});
 		},
 
@@ -4945,6 +4968,14 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 		},
+		'GUIDELINE_TYPEAHEAD_HIDE': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				relationshipTypeaheadResults: [],
+				currentGuidelineSearchAnswerId: null
+			});
+		},
+
 		'SELECT_RELATIONSHIP_GUIDELINE': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName, guidelineMasterId, guidelineCategory} = action.payload;
