@@ -66,6 +66,25 @@ response.getStreamWriter().writeString(responseBody);
 
 **This pattern eliminates**: Config passing, token management, URL building, error handling - all handled by Script Include.
 
+### Relationship Editing State Reset Pattern
+When refreshing assessment data (like in `ASSESSMENT_DETAILS_SUCCESS`), always reset relationship editing state to return to clean UI:
+
+```javascript
+// Reset relationship editing state after refresh - return to original state
+showRelationships: false,                    // Unchecks "Edit Relationships" button
+answerRelationships: {},                    // Clear all expanded relationship data - closes panels
+relationshipsLoading: {},                   // Clear loading states
+relationshipVisibility: {},                 // Clear visibility tracking
+selectedRelationshipQuestion: null,         // Clears selected relationship
+selectedRelationshipType: null,             // Clears relationship type
+relationshipTypeaheadText: '',              // Clears typeahead input
+relationshipTypeaheadResults: [],           // Clears typeahead results
+relationshipTypeaheadLoading: false,        // Stops loading state
+currentGuidelineSearchAnswerId: null        // Clears cached answer ID
+```
+
+**Critical**: The key to closing relationship panels is `answerRelationships: {}` - panels are open when `state.answerRelationships[answerId]` exists.
+
 ### Version Management
 - **Always increment the last digit** in package.json version when making changes
 - Current pattern: 0.0.xxx (increment xxx)

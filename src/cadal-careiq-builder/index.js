@@ -1301,12 +1301,12 @@ const view = (state, {updateState, dispatch}) => {
 																			{/* Show guideline relationships indicator in edit mode */}
 																			{(() => {
 																				// Find guideline relationships for this answer
-																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change => 
-																					change.answerId === answer.ids.id && 
-																					change.relationshipType === 'guideline' && 
+																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change =>
+																					change.answerId === answer.ids.id &&
+																					change.relationshipType === 'guideline' &&
 																					change.action === 'add'
 																				);
-																				
+
 																				return guidelineRelationships.length > 0 && (
 																					<div className="triggered-questions-indicator guideline-indicator">
 																						<span className="trigger-icon">📋</span>
@@ -1469,7 +1469,7 @@ const view = (state, {updateState, dispatch}) => {
 																								<div className="relationship-items">
 																									{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
 																										<span key={gIndex} className="relationship-item">
-																											→ {guideline.label || guideline.name}
+																											→ {guideline.use_case_category?.name ? `${guideline.label || guideline.name} - ${guideline.use_case_category.name}` : (guideline.label || guideline.name)}
 																										</span>
 																									))}
 																								</div>
@@ -1586,7 +1586,8 @@ const view = (state, {updateState, dispatch}) => {
 																																	answerId: answer.ids.id,
 																																	guidelineId: guideline.id,
 																																	guidelineName: guideline.name,
-																																	guidelineMasterId: guideline.master_id
+																																	guidelineMasterId: guideline.master_id,
+																																	guidelineCategory: guideline.use_case_category?.name
 																																});
 																															}}
 																														>
@@ -1990,12 +1991,12 @@ const view = (state, {updateState, dispatch}) => {
 																			{/* Show guideline relationships indicator in edit mode */}
 																			{(() => {
 																				// Find guideline relationships for this answer
-																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change => 
-																					change.answerId === answer.ids.id && 
-																					change.relationshipType === 'guideline' && 
+																				const guidelineRelationships = Object.values(state.relationshipChanges || {}).filter(change =>
+																					change.answerId === answer.ids.id &&
+																					change.relationshipType === 'guideline' &&
 																					change.action === 'add'
 																				);
-																				
+
 																				return guidelineRelationships.length > 0 && (
 																					<div className="triggered-questions-indicator guideline-indicator">
 																						<span className="trigger-icon">📋</span>
@@ -2158,7 +2159,7 @@ const view = (state, {updateState, dispatch}) => {
 																								<div className="relationship-items">
 																									{state.answerRelationships[answer.ids.id].guidelines.guidelines.map((guideline, gIndex) => (
 																										<span key={gIndex} className="relationship-item">
-																											→ {guideline.label || guideline.name}
+																											→ {guideline.use_case_category?.name ? `${guideline.label || guideline.name} - ${guideline.use_case_category.name}` : (guideline.label || guideline.name)}
 																										</span>
 																									))}
 																								</div>
@@ -2275,7 +2276,8 @@ const view = (state, {updateState, dispatch}) => {
 																																	answerId: answer.ids.id,
 																																	guidelineId: guideline.id,
 																																	guidelineName: guideline.name,
-																																	guidelineMasterId: guideline.master_id
+																																	guidelineMasterId: guideline.master_id,
+																																	guidelineCategory: guideline.use_case_category?.name
 																																});
 																															}}
 																														>
@@ -3505,7 +3507,18 @@ createCustomElement('cadal-careiq-builder', {
 				originalAssessmentData: JSON.parse(JSON.stringify(action.payload)),
 				// Clear pending reselection
 				pendingReselectionSection: null,
-				pendingReselectionSectionLabel: null
+				pendingReselectionSectionLabel: null,
+				// Reset relationship editing state after refresh - return to original state
+				showRelationships: false,
+				answerRelationships: {}, // Clear all expanded relationship data - closes panels
+				relationshipsLoading: {},
+				relationshipVisibility: {},
+				selectedRelationshipQuestion: null,
+				selectedRelationshipType: null,
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false,
+				currentGuidelineSearchAnswerId: null
 			});
 			
 			// Re-select the section we were editing, or auto-select first section
@@ -4605,7 +4618,8 @@ createCustomElement('cadal-careiq-builder', {
 				selectedRelationshipType: null,
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedRelationshipQuestion: null
+				selectedRelationshipQuestion: null,
+				currentGuidelineSearchAnswerId: null
 			});
 		},
 
@@ -4813,9 +4827,11 @@ createCustomElement('cadal-careiq-builder', {
 			let filteredResults = results;
 			
 			console.log('=== DEBUGGING GUIDELINE FILTERING ===');
-			console.log('Answer ID:', answerId);
-			console.log('Full answerRelationships structure:', state.answerRelationships[answerId]);
-			console.log('Looking for guidelines in:', state.answerRelationships[answerId]?.guidelines);
+			console.log('Answer ID for filtering:', answerId);
+			console.log('Available answerRelationships keys:', Object.keys(state.answerRelationships || {}));
+			console.log('Full answerRelationships structure for this answer:', state.answerRelationships[answerId]);
+			console.log('Guidelines section:', state.answerRelationships[answerId]?.guidelines);
+			console.log('Raw search results before filtering:', results.map(g => ({id: g.id, name: g.name})));
 			
 			if (answerId && state.answerRelationships[answerId]) {
 				// Check if guidelines exist in the relationship data
@@ -4827,15 +4843,10 @@ createCustomElement('cadal-careiq-builder', {
 				
 				if (relationshipData.guidelines?.guidelines) {
 					existingGuidelineIds = relationshipData.guidelines.guidelines.map(g => g.id);
-					console.log('Found guidelines in guidelines.guidelines:', existingGuidelineIds);
-				} else if (relationshipData.triggered_guidelines?.triggered_guidelines) {
-					existingGuidelineIds = relationshipData.triggered_guidelines.triggered_guidelines.map(g => g.id);
-					console.log('Found guidelines in triggered_guidelines.triggered_guidelines:', existingGuidelineIds);
-				} else if (relationshipData.triggered_guidelines) {
-					existingGuidelineIds = relationshipData.triggered_guidelines.map(g => g.id);
-					console.log('Found guidelines in triggered_guidelines array:', existingGuidelineIds);
+					console.log('Found existing guideline IDs for filtering:', existingGuidelineIds);
+					console.log('Existing guideline details:', relationshipData.guidelines.guidelines.map(g => ({id: g.id, label: g.label})));
 				} else {
-					console.log('No existing guidelines found in any expected location');
+					console.log('No existing guidelines found - no filtering will occur');
 				}
 				
 				if (existingGuidelineIds.length > 0) {
@@ -4844,19 +4855,37 @@ createCustomElement('cadal-careiq-builder', {
 					filteredResults = results.filter(guideline => {
 						const notAlreadyAdded = !existingGuidelineIds.includes(guideline.id);
 						if (!notAlreadyAdded) {
-							console.log(`Filtering out guideline "${guideline.name}" - already added`);
+							console.log(`✅ FILTERING OUT: "${guideline.name}" (${guideline.use_case_category?.name}) - ID: ${guideline.id} already exists`);
+						} else {
+							console.log(`✅ KEEPING: "${guideline.name}" (${guideline.use_case_category?.name}) - ID: ${guideline.id} not found in existing`);
 						}
 						return notAlreadyAdded;
 					});
+
+					console.log('Filtered results count:', filteredResults.length, 'out of', results.length, 'total');
 				}
 			}
-			
+
+			// Also filter out the current assessment itself
+			const currentAssessmentId = state.currentAssessmentId;
+			if (currentAssessmentId) {
+				const beforeCurrentFilter = filteredResults.length;
+				filteredResults = filteredResults.filter(guideline => {
+					const isCurrentAssessment = guideline.id === currentAssessmentId;
+					if (isCurrentAssessment) {
+						console.log(`Filtering out current assessment "${guideline.name}" - can't trigger itself`);
+					}
+					return !isCurrentAssessment;
+				});
+				console.log(`Filtered out current assessment: ${beforeCurrentFilter} -> ${filteredResults.length} guidelines`);
+			}
+
 			console.log('Filtered guidelines:', filteredResults.length);
 			
 			updateState({
 				relationshipTypeaheadResults: filteredResults,
-				relationshipTypeaheadLoading: false,
-				currentGuidelineSearchAnswerId: null // Clear the stored answerId
+				relationshipTypeaheadLoading: false
+				// Keep currentGuidelineSearchAnswerId for subsequent searches
 			});
 			
 			// Position dropdown with fixed positioning to avoid clipping
@@ -4905,7 +4934,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				relationshipTypeaheadResults: [],
 				relationshipTypeaheadLoading: false,
-				currentGuidelineSearchAnswerId: null, // Clear the stored answerId
+				currentGuidelineSearchAnswerId: null, // Clear on error
 				systemMessages: [
 					...state.systemMessages,
 					{
@@ -4918,7 +4947,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 		'SELECT_RELATIONSHIP_GUIDELINE': (coeffects) => {
 			const {action, updateState} = coeffects;
-			const {answerId, guidelineId, guidelineName, guidelineMasterId} = action.payload;
+			const {answerId, guidelineId, guidelineName, guidelineMasterId, guidelineCategory} = action.payload;
 
 			console.log('=== SELECT_RELATIONSHIP_GUIDELINE ===');
 			console.log('Selected guideline ID:', guidelineId);
@@ -4930,9 +4959,10 @@ createCustomElement('cadal-careiq-builder', {
 				selectedRelationshipQuestion: {
 					id: guidelineId,
 					master_id: guidelineMasterId,
-					label: guidelineName
+					label: guidelineName,
+					category: guidelineCategory
 				},
-				relationshipTypeaheadText: guidelineName,
+				relationshipTypeaheadText: guidelineCategory ? `${guidelineName} - ${guidelineCategory}` : guidelineName,
 				relationshipTypeaheadResults: [] // Hide dropdown
 			});
 		},
@@ -4978,7 +5008,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerId: answerId,
 				relationshipType: relationshipType,
 				targetId: targetId,
-				targetLabel: selectedItem.label
+				targetLabel: selectedItem.category ? `${selectedItem.label} - ${selectedItem.category}` : selectedItem.label
 			});
 			
 			// Immediately add relationship to local answer data for instant feedback
@@ -5047,7 +5077,7 @@ createCustomElement('cadal-careiq-builder', {
 						answerId: answerId,
 						relationshipType: relationshipType,
 						targetId: targetId,
-						targetLabel: selectedItem.label,
+						targetLabel: selectedItem.category ? `${selectedItem.label} - ${selectedItem.category}` : selectedItem.label,
 						timestamp: new Date().toISOString()
 					}
 				},
