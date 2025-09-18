@@ -369,3 +369,43 @@ builderAddAnswersToQuestion: function(questionId, answers) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderAnswerTypeahead: function(searchText) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/answer/typeahead?text=' + encodeURIComponent(searchText));
+        var r = this._createRESTMessage('Answer Typeahead Search', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'AnswerTypeaheadSearch');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AnswerTypeaheadSearch - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+builderLibraryAnswerDetails: function(answerId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/library/answer/' + encodeURIComponent(answerId));
+        var r = this._createRESTMessage('Get Library Answer Details', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetLibraryAnswerDetails');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetLibraryAnswerDetails - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

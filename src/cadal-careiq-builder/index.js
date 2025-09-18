@@ -986,10 +986,7 @@ const view = (state, {updateState, dispatch}) => {
 																						e.stopPropagation();
 																					}}
 																				>
-																					<div className="typeahead-item-title">{result.name}</div>
-																					<div className="typeahead-item-meta">
-																						{result.exact_match ? 'Exact Match' : 'Partial Match'}
-																					</div>
+																					<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																				</div>
 																			))
 																		) : state.questionTypeaheadQuery.length >= 3 && !state.questionTypeaheadLoading ? (
@@ -1271,18 +1268,85 @@ const view = (state, {updateState, dispatch}) => {
 																				>
 																					🔍
 																				</span>
-																				<input 
-																					type="text"
-																					className="answer-label-input"
-																					value={answer.label}
-																					placeholder="Enter answer text..."
-																					oninput={(e) => {
-																						dispatch('UPDATE_ANSWER_LABEL', {
-																							answerId: answer.ids.id,
-																							newLabel: e.target.value
-																						});
-																					}}
-																				/>
+																				<div className="typeahead-container">
+																					<input
+																						type="text"
+																						className="answer-label-input"
+																						value={answer.label}
+																						placeholder="Enter answer text..."
+																						oninput={(e) => {
+																							const newValue = e.target.value;
+																							// Update the answer label locally
+																							dispatch('UPDATE_ANSWER_LABEL', {
+																								answerId: answer.ids.id,
+																								newLabel: newValue
+																							});
+																							// Trigger typeahead search if length >= 3
+																							if (newValue.length >= 3) {
+																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
+																									searchText: newValue,
+																									answerId: answer.ids.id
+																								});
+																							} else {
+																								dispatch('ANSWER_TYPEAHEAD_HIDE');
+																							}
+																						}}
+																						onkeydown={(e) => {
+																							if (e.key === 'Escape') {
+																								if (state.answerTypeaheadVisible) {
+																									dispatch('ANSWER_TYPEAHEAD_HIDE');
+																								}
+																							}
+																						}}
+																						onblur={(e) => {
+																							// Hide typeahead after a short delay to allow selection
+																							setTimeout(() => {
+																								dispatch('ANSWER_TYPEAHEAD_HIDE');
+																							}, 150);
+																						}}
+																						onmousedown={(e) => {
+																							e.stopPropagation();
+																						}}
+																						onfocus={(e) => {
+																							e.stopPropagation();
+																						}}
+																					/>
+																					{state.answerTypeaheadVisible && state.editingAnswerId === answer.ids.id && (
+																						<div className="typeahead-dropdown">
+																							{state.answerTypeaheadLoading ? (
+																								<div className="typeahead-item loading">
+																									<div className="loading-spinner"></div>
+																									Searching for answers...
+																								</div>
+																							) : state.answerTypeaheadResults && state.answerTypeaheadResults.length > 0 ? (
+																								state.answerTypeaheadResults.map((result, index) => (
+																									<div
+																										key={result.id}
+																										className="typeahead-item"
+																										onclick={(e) => {
+																											e.preventDefault();
+																											e.stopPropagation();
+																											dispatch('SELECT_LIBRARY_ANSWER', {
+																												answerId: answer.ids.id,
+																												libraryAnswer: result
+																											});
+																										}}
+																										onmousedown={(e) => {
+																											e.preventDefault();
+																											e.stopPropagation();
+																										}}
+																									>
+																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
+																									</div>
+																								))
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																								<div className="typeahead-item no-results">
+																									No matching answers found for "{state.answerTypeaheadQuery}"
+																								</div>
+																							) : null}
+																						</div>
+																					)}
+																				</div>
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
@@ -1965,18 +2029,85 @@ const view = (state, {updateState, dispatch}) => {
 																				>
 																					🔍
 																				</span>
-																				<input 
-																					type="text"
-																					className="answer-label-input"
-																					value={answer.label}
-																					placeholder="Enter answer text..."
-																					oninput={(e) => {
-																						dispatch('UPDATE_ANSWER_LABEL', {
-																							answerId: answer.ids.id,
-																							newLabel: e.target.value
-																						});
-																					}}
-																				/>
+																				<div className="typeahead-container">
+																					<input
+																						type="text"
+																						className="answer-label-input"
+																						value={answer.label}
+																						placeholder="Enter answer text..."
+																						oninput={(e) => {
+																							const newValue = e.target.value;
+																							// Update the answer label locally
+																							dispatch('UPDATE_ANSWER_LABEL', {
+																								answerId: answer.ids.id,
+																								newLabel: newValue
+																							});
+																							// Trigger typeahead search if length >= 3
+																							if (newValue.length >= 3) {
+																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
+																									searchText: newValue,
+																									answerId: answer.ids.id
+																								});
+																							} else {
+																								dispatch('ANSWER_TYPEAHEAD_HIDE');
+																							}
+																						}}
+																						onkeydown={(e) => {
+																							if (e.key === 'Escape') {
+																								if (state.answerTypeaheadVisible) {
+																									dispatch('ANSWER_TYPEAHEAD_HIDE');
+																								}
+																							}
+																						}}
+																						onblur={(e) => {
+																							// Hide typeahead after a short delay to allow selection
+																							setTimeout(() => {
+																								dispatch('ANSWER_TYPEAHEAD_HIDE');
+																							}, 150);
+																						}}
+																						onmousedown={(e) => {
+																							e.stopPropagation();
+																						}}
+																						onfocus={(e) => {
+																							e.stopPropagation();
+																						}}
+																					/>
+																					{state.answerTypeaheadVisible && state.editingAnswerId === answer.ids.id && (
+																						<div className="typeahead-dropdown">
+																							{state.answerTypeaheadLoading ? (
+																								<div className="typeahead-item loading">
+																									<div className="loading-spinner"></div>
+																									Searching for answers...
+																								</div>
+																							) : state.answerTypeaheadResults && state.answerTypeaheadResults.length > 0 ? (
+																								state.answerTypeaheadResults.map((result, index) => (
+																									<div
+																										key={result.id}
+																										className="typeahead-item"
+																										onclick={(e) => {
+																											e.preventDefault();
+																											e.stopPropagation();
+																											dispatch('SELECT_LIBRARY_ANSWER', {
+																												answerId: answer.ids.id,
+																												libraryAnswer: result
+																											});
+																										}}
+																										onmousedown={(e) => {
+																											e.preventDefault();
+																											e.stopPropagation();
+																										}}
+																									>
+																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
+																									</div>
+																								))
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																								<div className="typeahead-item no-results">
+																									No matching answers found for "{state.answerTypeaheadQuery}"
+																								</div>
+																							) : null}
+																						</div>
+																					)}
+																				</div>
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
@@ -2883,7 +3014,19 @@ createCustomElement('cadal-careiq-builder', {
 		sectionTypeaheadVisible: false,
 		sectionTypeaheadSelectedIndex: -1,
 		sectionTypeaheadDebounceTimeout: null,
-		selectedSectionLibraryId: null
+		selectedSectionLibraryId: null,
+
+		// Answer typeahead state
+		answerTypeaheadResults: [],
+		answerTypeaheadLoading: false,
+		answerTypeaheadQuery: '',
+		answerTypeaheadVisible: false,
+		answerTypeaheadSelectedIndex: -1,
+		answerTypeaheadDebounceTimeout: null,
+		editingAnswerId: null,
+		currentAnswerSearchQuestionId: null,
+		libraryAnswerLoading: null,
+		pendingLibraryAnswerReplacementId: null
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -5026,6 +5169,27 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
+		'MAKE_ANSWER_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ANSWER_SEARCH_SUCCESS',
+			errorActionType: 'ANSWER_SEARCH_ERROR'
+		}),
+
+		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/library-answer-details', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'LIBRARY_ANSWER_SUCCESS',
+			errorActionType: 'LIBRARY_ANSWER_ERROR',
+			metaParam: 'meta'
+		}),
+
 		'QUESTION_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
@@ -5128,6 +5292,109 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: `Error fetching library question: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ANSWER_SEARCH_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== ANSWER_SEARCH_SUCCESS ===');
+			console.log('Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+			console.log('Response keys:', Object.keys(action.payload));
+			console.log('action.payload.results:', action.payload.results);
+
+			const results = action.payload.results || [];
+			console.log('Found answers:', results.length);
+
+			updateState({
+				answerTypeaheadResults: results,
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: true
+			});
+
+			console.log('After ANSWER_SEARCH_SUCCESS - State check:');
+			console.log('answerTypeaheadVisible:', true);
+			console.log('editingAnswerId:', state.editingAnswerId);
+			console.log('Results length:', results.length);
+		},
+
+		'ANSWER_SEARCH_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('ANSWER_SEARCH_ERROR:', action.payload);
+
+			updateState({
+				answerTypeaheadResults: [],
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: false,
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Error searching answers: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'LIBRARY_ANSWER_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== LIBRARY_ANSWER_SUCCESS ===');
+			console.log('Response:', action.payload);
+
+			// Debug library answer structure
+			console.log('=== LIBRARY ANSWER DEBUG ===');
+			console.log('Library Answer ID:', action.payload.id);
+			console.log('Library Answer Label:', action.payload.label);
+			console.log('Library Answer Tooltip:', action.payload.tooltip);
+			console.log('Library Answer Secondary Input:', action.payload.secondary_input_type);
+
+			const libraryAnswer = action.payload;
+			const targetAnswerId = state.pendingLibraryAnswerReplacementId;
+
+			// Clear the typeahead and pending replacement ID
+			updateState({
+				answerTypeaheadResults: [],
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: false,
+				answerTypeaheadQuery: '',
+				answerTypeaheadSelectedIndex: -1,
+				currentAnswerSearchQuestionId: null,
+				libraryAnswerLoading: null,
+				pendingLibraryAnswerReplacementId: null
+			});
+
+			// Replace the target answer with the library answer
+			console.log('Replacing answer ID:', targetAnswerId, 'with library answer (from state)');
+			dispatch('REPLACE_ANSWER_WITH_LIBRARY', {
+				answerId: targetAnswerId,
+				libraryAnswerData: libraryAnswer
+			});
+		},
+
+		'LIBRARY_ANSWER_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('LIBRARY_ANSWER_ERROR:', action.payload);
+
+			updateState({
+				answerTypeaheadResults: [],
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: false,
+				currentAnswerSearchQuestionId: null,
+				libraryAnswerLoading: null,
+				pendingLibraryAnswerReplacementId: null,
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Error fetching library answer: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -7126,22 +7393,45 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 			
-			// Save answer changes
+			// Save answer changes - Group by question and action type
 			if (answerChanges.length > 0) {
+				// Group answers by question ID and action type
+				const answersGroupedByQuestion = {};
+				const individualAnswers = [];
+
 				answerChanges.forEach(answerId => {
 					const answerData = state.answerChanges[answerId];
-					console.log('Saving answer:', answerId, answerData);
-					
-					// Handle new answers with ADD API
+					console.log('Processing answer change:', answerId, answerData);
+
 					if (answerData.action === 'add') {
-						console.log('Adding new answer:', answerId);
-						
 						// Skip if the question is also new (temp ID) - will be handled with question creation
-						if (answerData.question_id.startsWith('temp_')) {
+						if (answerData.question_id && answerData.question_id.startsWith('temp_')) {
 							console.log('Skipping answer for new question - will be created with question');
 							return;
 						}
-						
+
+						// Group new answers by their question ID
+						const questionId = answerData.question_id || answerData.questionId;
+						if (questionId && !questionId.startsWith('temp_')) {
+							if (!answersGroupedByQuestion[questionId]) {
+								answersGroupedByQuestion[questionId] = [];
+							}
+							answersGroupedByQuestion[questionId].push({ answerId, answerData });
+							console.log('Grouped answer for bulk add:', answerId, 'to question:', questionId);
+						}
+					} else {
+						// Individual operations (update, delete, library_add, etc.)
+						individualAnswers.push({ answerId, answerData });
+					}
+				});
+
+				// Process grouped new answers first (use bulk ADD_ANSWERS_TO_QUESTION API)
+				Object.keys(answersGroupedByQuestion).forEach(questionId => {
+					const answersForQuestion = answersGroupedByQuestion[questionId];
+					console.log('Adding', answersForQuestion.length, 'answers to question:', questionId);
+
+					// Prepare answers array for bulk API
+					const answersArray = answersForQuestion.map(({ answerId, answerData }) => {
 						// Find the current answer in questions to get actual UI values
 						let currentAnswer = null;
 						if (state.currentQuestions && state.currentQuestions.questions) {
@@ -7152,41 +7442,47 @@ createCustomElement('cadal-careiq-builder', {
 								}
 							}
 						}
-						
-						// Prepare data for backend API using actual current values
-						const backendAnswerData = {
+
+						return {
 							label: currentAnswer ? currentAnswer.label : answerData.label,
 							tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
-							alternative_wording: answerData.alternative_wording || 'string',
+							alternative_wording: answerData.alternative_wording || '',
 							secondary_input_type: currentAnswer ? currentAnswer.secondary_input_type : answerData.secondary_input_type,
 							mutually_exclusive: currentAnswer ? (currentAnswer.mutually_exclusive || false) : (answerData.mutually_exclusive || false),
 							custom_attributes: answerData.custom_attributes || {},
-							required: answerData.required || false,
-							sort_order: answerData.sort_order,
-							question_id: answerData.question_id, // Must be real UUID
-							guideline_template_id: answerData.guideline_template_id
+							required: answerData.required || false
 						};
-						
-						dispatch('ADD_ANSWER_API', {
-							answerData: backendAnswerData,
-							questionId: answerData.questionId
-						});
-					} else if (answerData.action === 'delete') {
+					});
+
+					// Call bulk ADD_ANSWERS_TO_QUESTION API
+					const requestBody = JSON.stringify({
+						questionId: questionId,
+						guideline_template_id: state.currentAssessmentId,
+						answers: answersArray
+					});
+
+					console.log('Dispatching MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST for question:', questionId);
+					console.log('Request body:', requestBody);
+
+					dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
+				});
+
+				// Process individual answer operations
+				individualAnswers.forEach(({ answerId, answerData }) => {
+					console.log('Processing individual answer operation:', answerId, answerData.action);
+
+					if (answerData.action === 'delete') {
 						console.log('Deleting answer:', answerId);
-						
+
 						// Skip if the answer has a temp ID (was never saved to backend)
 						if (answerId.startsWith('temp_')) {
 							console.log('Skipping delete for temp answer - was never saved to backend');
 							return;
 						}
-						
+
 						dispatch('DELETE_ANSWER_API', {
 							answerId: answerId
 						});
-					} else if (answerData.action === 'library_add') {
-						console.log('Skipping library answer - will be saved with parent library question:', answerId);
-						// Library answers are now saved as part of the library question (ADD_QUESTION_API)
-						return;
 					} else if (answerData.action === 'update') {
 						console.log('Updating answer:', answerId);
 						
@@ -8452,9 +8748,9 @@ createCustomElement('cadal-careiq-builder', {
 		'SECTION_TYPEAHEAD_SELECT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {selectedItem} = action.payload;
-			
+
 			console.log('Section typeahead selected:', selectedItem);
-			
+
 			// Update the editing section name with selected item
 			updateState({
 				editingSectionName: selectedItem.name,
@@ -8463,6 +8759,166 @@ createCustomElement('cadal-careiq-builder', {
 				sectionTypeaheadResults: [],
 				// Store the master_id for use as library_id when creating the section
 				selectedSectionLibraryId: selectedItem.master_id
+			});
+		},
+
+		'SEARCH_ANSWERS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {searchText, answerId} = action.payload;
+
+			console.log('=== SEARCH_ANSWERS ===');
+			console.log('Searching for:', searchText);
+			console.log('Answer ID in SEARCH_ANSWERS:', answerId);
+
+			const requestBody = JSON.stringify({
+				searchText: searchText
+			});
+
+			updateState({
+				answerTypeaheadLoading: true,
+				currentAnswerSearchQuestionId: answerId
+			});
+
+			dispatch('MAKE_ANSWER_SEARCH_REQUEST', {
+				requestBody: requestBody
+			});
+		},
+
+		'ANSWER_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {searchText, answerId} = action.payload;
+
+			// Clear existing timeout
+			if (state.answerTypeaheadDebounceTimeout) {
+				clearTimeout(state.answerTypeaheadDebounceTimeout);
+			}
+
+			// Set up debounced search
+			const timeout = setTimeout(() => {
+				dispatch('SEARCH_ANSWERS', {
+					searchText: searchText,
+					answerId: answerId
+				});
+			}, 300);
+
+			updateState({
+				answerTypeaheadDebounceTimeout: timeout,
+				answerTypeaheadQuery: searchText,
+				editingAnswerId: answerId,
+				answerTypeaheadVisible: searchText.length >= 3
+			});
+		},
+
+		'SELECT_LIBRARY_ANSWER': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, libraryAnswer} = action.payload;
+
+			console.log('=== SELECT_LIBRARY_ANSWER ===');
+			console.log('Replacing answer ID:', answerId);
+			console.log('With library answer:', libraryAnswer);
+
+			// Hide typeahead dropdown but keep answer visible during fetch
+			updateState({
+				answerTypeaheadVisible: false,
+				answerTypeaheadLoading: true,
+				pendingLibraryAnswerReplacementId: answerId
+			});
+
+			// Fetch full library answer details
+			const requestBody = JSON.stringify({
+				answerId: libraryAnswer.id
+			});
+
+			dispatch('MAKE_LIBRARY_ANSWER_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					targetAnswerId: answerId
+				}
+			});
+		},
+
+		'REPLACE_ANSWER_WITH_LIBRARY': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, libraryAnswerData} = action.payload;
+
+			console.log('=== REPLACE_ANSWER_WITH_LIBRARY ===');
+			console.log('Replacing answer:', answerId, 'with library data:', libraryAnswerData);
+
+			// Find the answer and replace it with library data
+			const updatedQuestions = state.currentQuestions.questions.map(question => ({
+				...question,
+				answers: question.answers?.map(answer => {
+					if (answer.ids.id === answerId) {
+						return {
+							...answer,
+							label: libraryAnswerData.label,
+							tooltip: libraryAnswerData.tooltip || '',
+							alternative_wording: libraryAnswerData.alternative_wording || '',
+							secondary_input_type: libraryAnswerData.secondary_input_type,
+							mutually_exclusive: libraryAnswerData.mutually_exclusive || false,
+							isLibraryAnswer: true,
+							libraryAnswerId: libraryAnswerData.id,
+							libraryStatus: 'unmodified',
+							originalLibraryData: {
+								label: libraryAnswerData.label,
+								tooltip: libraryAnswerData.tooltip || '',
+								alternative_wording: libraryAnswerData.alternative_wording || '',
+								secondary_input_type: libraryAnswerData.secondary_input_type,
+								mutually_exclusive: libraryAnswerData.mutually_exclusive || false
+							}
+						};
+					}
+					return answer;
+				}) || []
+			}));
+
+			// Track this answer as changed for saving
+			const answerChanges = {
+				...state.answerChanges,
+				[answerId]: {
+					action: 'library_replace',
+					isLibraryAnswer: true,
+					libraryAnswerId: libraryAnswerData.id,
+					libraryStatus: 'unmodified',
+					originalLibraryData: {
+						label: libraryAnswerData.label,
+						tooltip: libraryAnswerData.tooltip || '',
+						alternative_wording: libraryAnswerData.alternative_wording || '',
+						secondary_input_type: libraryAnswerData.secondary_input_type,
+						mutually_exclusive: libraryAnswerData.mutually_exclusive || false
+					},
+					...libraryAnswerData
+				}
+			};
+
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				answerChanges: answerChanges,
+				answerTypeaheadLoading: false,
+				answerTypeaheadResults: [],
+				answerTypeaheadQuery: '',
+				pendingLibraryAnswerReplacementId: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Answer replaced with library answer: "${libraryAnswerData.label}"`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ANSWER_TYPEAHEAD_HIDE': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				answerTypeaheadVisible: false,
+				answerTypeaheadResults: [],
+				answerTypeaheadQuery: '',
+				currentAnswerSearchQuestionId: null
 			});
 		},
 
