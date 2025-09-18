@@ -411,24 +411,10 @@ const view = (state, {updateState, dispatch}) => {
 							</h2>
 						</div>
 						<div className="builder-controls">
-							<button 
+							<button
 								key="refresh-btn"
 								className="refresh-btn"
-								onclick={() => {
-									// Check if there are unsaved changes
-									const hasChanges = Object.keys(state.sectionChanges || {}).length > 0 || 
-													   Object.keys(state.questionChanges || {}).length > 0 || 
-													   Object.keys(state.answerChanges || {}).length > 0 ||
-													   Object.keys(state.relationshipChanges || {}).length > 0;
-									
-									if (hasChanges) {
-										if (confirm('You have unsaved changes. Are you sure you want to refresh and lose your changes?')) {
-											dispatch('REFRESH_ASSESSMENT');
-										}
-									} else {
-										dispatch('REFRESH_ASSESSMENT');
-									}
-								}}
+								onclick={() => dispatch('REFRESH_ASSESSMENT')}
 								title="Refresh assessment data"
 							>
 								🔄 Refresh
@@ -455,30 +441,7 @@ const view = (state, {updateState, dispatch}) => {
 								>
 									🔗 Edit Relationships
 								</button>,
-								// Show Save/Cancel buttons when there are unsaved changes
-								...(Object.keys(state.sectionChanges || {}).length > 0 || 
-								   Object.keys(state.questionChanges || {}).length > 0 || 
-								   Object.keys(state.answerChanges || {}).length > 0 ||
-								   Object.keys(state.relationshipChanges || {}).length > 0 ? [
-									<button 
-										key="save-btn"
-										className="save-changes-btn"
-										onclick={() => {
-											console.log('=== SAVE BUTTON CLICKED ===');
-											console.log('Dispatching SAVE_ALL_CHANGES');
-											dispatch('SAVE_ALL_CHANGES');
-										}}
-									>
-										💾 Save Changes
-									</button>,
-									<button 
-										key="cancel-btn"
-										className="cancel-changes-btn"
-										onclick={() => dispatch('CANCEL_ALL_CHANGES')}
-									>
-										🚫 Cancel Changes
-									</button>
-								] : [])
+								// Individual save buttons will be shown per question instead of holistic save
 							] : null}
 							{state.currentAssessment?.status === 'published' ? (
 								<span className="published-indicator">
@@ -735,9 +698,7 @@ const view = (state, {updateState, dispatch}) => {
 																			</span>
 																		)}
 																		{subsection.label}
-																		{state.sectionChanges[subsection.id] && (
-																			<span className="unsaved-indicator" title="Unsaved changes">●</span>
-																		)}
+																		{/* Sections auto-save - no unsaved indicator needed */}
 																	</span>
 																)}
 																{state.editingSectionId !== subsection.id && (
@@ -1101,8 +1062,36 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Date" selected={question.type === 'Date'}>Date</option>
 																	<option value="Numeric" selected={question.type === 'Numeric'}>Numeric</option>
 																</select>
-																<button 
-																	className="delete-question-btn" 
+																{question.isUnsaved && (
+																	<button
+																		className="save-question-btn"
+																		title="Save Question"
+																		style={{
+																			backgroundColor: '#28a745',
+																			color: 'white',
+																			border: 'none',
+																			borderRadius: '3px',
+																			padding: '4px 8px',
+																			marginRight: '5px',
+																			cursor: 'pointer',
+																			fontSize: '12px',
+																			...(state.isMobileView ? {
+																				flexShrink: '0',
+																				minWidth: '40px',
+																				marginBottom: '0.5rem'
+																			} : {})
+																		}}
+																		onclick={() => {
+																			dispatch('SAVE_QUESTION_IMMEDIATELY', {
+																				questionId: question.ids.id
+																			});
+																		}}
+																	>
+																		💾 Save
+																	</button>
+																)}
+																<button
+																	className="delete-question-btn"
 																	title="Delete Question"
 																	style={state.isMobileView ? {
 																		flexShrink: '0',
@@ -1136,14 +1125,14 @@ const view = (state, {updateState, dispatch}) => {
 																{question.hidden && <span className="hidden-indicator">Hidden</span>}
 																{question.isLibraryQuestion && (
 																	<span className="library-indicator" style={{
-																		backgroundColor: state.questionChanges[question.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																		backgroundColor: '#17a2b8',
 																		color: 'white',
 																		padding: '2px 6px',
 																		borderRadius: '10px',
 																		fontSize: '11px',
 																		fontWeight: 'bold'
 																	}}>
-																		{state.questionChanges[question.ids.id]?.libraryStatus === 'modified' ? '📚 LIBRARY (MODIFIED)' : '📚 LIBRARY'}
+																		📚 LIBRARY
 																	</span>
 																)}
 															</div>
@@ -1311,7 +1300,7 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																				{answer.isLibraryAnswer && (
 																					<span className="answer-library-indicator" style={{
-																						backgroundColor: state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																						backgroundColor: '#17a2b8',
 																						color: 'white',
 																						padding: '1px 4px',
 																						borderRadius: '8px',
@@ -1319,7 +1308,7 @@ const view = (state, {updateState, dispatch}) => {
 																						fontWeight: 'bold',
 																						marginLeft: '4px'
 																					}}>
-																						{state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '📚 MOD' : '📚 LIB'}
+																						📚 LIB
 																					</span>
 																				)}
 																				<div className="answer-controls" style={state.isMobileView ? {
@@ -2005,7 +1994,7 @@ const view = (state, {updateState, dispatch}) => {
 																				</div>
 																				{answer.isLibraryAnswer && (
 																					<span className="answer-library-indicator" style={{
-																						backgroundColor: state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																						backgroundColor: '#17a2b8',
 																						color: 'white',
 																						padding: '1px 4px',
 																						borderRadius: '8px',
@@ -2013,7 +2002,7 @@ const view = (state, {updateState, dispatch}) => {
 																						fontWeight: 'bold',
 																						marginLeft: '4px'
 																					}}>
-																						{state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '📚 MOD' : '📚 LIB'}
+																						📚 LIB
 																					</span>
 																				)}
 																				<div className="answer-controls" style={state.isMobileView ? {
@@ -2867,14 +2856,12 @@ createCustomElement('cadal-careiq-builder', {
 		// Section editing state
 		editingSectionId: null,
 		editingSectionName: null,
-		sectionChanges: {},
+		// Sections auto-save (no change tracking needed)
 		// Question editing state
 		editingQuestionId: null,
 		editingQuestionName: null,
-		// Change tracking for all components
-		questionChanges: {},
-		answerChanges: {},
-		relationshipChanges: {},
+		// Individual question editing state (replaces bulk change tracking)
+		editingQuestion: null, // {questionId, hasChanges}
 		// Original data backup for cancel functionality
 		originalAssessmentData: null,
 		// Section reselection after save
@@ -3472,8 +3459,6 @@ createCustomElement('cadal-careiq-builder', {
 				questionsLoading: false,
 				// Clear ALL change tracking
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				relationshipChanges: {},
 				// Clear editing states
 				editingSectionId: null,
@@ -3543,8 +3528,6 @@ createCustomElement('cadal-careiq-builder', {
 				assessmentDetailsLoading: true,
 				// Clear all change tracking arrays
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				relationshipChanges: {},
 				// Reset UI state - edit mode on, relationships off, collapsed  
 				builderMode: true,
@@ -3563,8 +3546,6 @@ createCustomElement('cadal-careiq-builder', {
 				questionsLoading: false,
 				// Clear ALL change tracking
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				relationshipChanges: {},
 				// Clear editing states
 				editingSectionId: null,
@@ -3842,8 +3823,6 @@ createCustomElement('cadal-careiq-builder', {
 				visibleQuestions: initialVisibleQuestions,
 				// Clear all changes after successful data refresh
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				relationshipChanges: {}
 			});
 		},
@@ -4043,7 +4022,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Calculate next sort_order to ensure new question appears last
 			const maxSortOrder = Math.max(...state.currentQuestions.questions.map(q => q.sort_order || 0), 0);
 			const nextSortOrder = maxSortOrder + 1;
-			
+
 			const newQuestion = {
 				ids: { id: newQuestionId },
 				label: 'New Question',
@@ -4062,30 +4041,17 @@ createCustomElement('cadal-careiq-builder', {
 						tooltip: '',
 						triggered_questions: []
 					}
-				]
+				],
+				// Mark as unsaved
+				isUnsaved: true
 			};
-			
+
 			const updatedQuestions = [...state.currentQuestions.questions, newQuestion];
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				questionChanges: {
-					...state.questionChanges,
-					[newQuestionId]: {
-						action: 'add',
-						type: newQuestion.type,
-						label: newQuestion.label,
-						required: newQuestion.required,
-						tooltip: newQuestion.tooltip,
-						sort_order: newQuestion.sort_order,
-						answers: newQuestion.answers,
-						sectionId: sectionId,
-						guideline_template_id: state.currentAssessmentId,
-						section_id: sectionId
-					}
 				}
 			});
 		},
@@ -4093,17 +4059,17 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_TYPE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newType} = action.payload;
-			
+
 			console.log('Updating question type:', questionId, 'to:', newType);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
-					const updatedQuestion = {...question, type: newType};
-					
+					const updatedQuestion = {...question, type: newType, isUnsaved: true};
+
 					// Handle type-specific changes
 					if (newType === 'Text' || newType === 'Date' || newType === 'Numeric') {
 						// Non-select types don't need answers
@@ -4122,24 +4088,16 @@ createCustomElement('cadal-careiq-builder', {
 							}
 						];
 					}
-					
+
 					return updatedQuestion;
 				}
 				return question;
 			});
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				questionChanges: {
-					...state.questionChanges,
-					[questionId]: {
-						...state.questionChanges[questionId],
-						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
-						type: newType
-					}
 				}
 			});
 		},
@@ -4154,38 +4112,17 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			const question = state.currentQuestions.questions.find(q => q.ids.id === questionId);
-			const existingChange = state.questionChanges[questionId];
-
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
-					return {...question, label: newLabel};
+					return {...question, label: newLabel, isUnsaved: true};
 				}
 				return question;
 			});
-
-			// Determine library status if this is a library question
-			let libraryStatus = existingChange?.libraryStatus;
-			if (question?.isLibraryQuestion && existingChange?.originalLibraryData) {
-				// Check if this modification deviates from original library data
-				const isModified = newLabel !== existingChange.originalLibraryData.label;
-				libraryStatus = isModified ? 'modified' : 'unmodified';
-			}
 
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				questionChanges: {
-					...state.questionChanges,
-					[questionId]: {
-						...state.questionChanges[questionId],
-						action: existingChange?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
-						label: newLabel,
-						libraryStatus: libraryStatus,  // Update library status
-						timestamp: new Date().toISOString()
-					}
 				}
 			});
 		},
@@ -4193,32 +4130,24 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_VOICE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newVoice} = action.payload;
-			
+
 			console.log('Updating question voice:', questionId, 'to:', newVoice);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
-					return {...question, voice: newVoice};
+					return {...question, voice: newVoice, isUnsaved: true};
 				}
 				return question;
 			});
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				questionChanges: {
-					...state.questionChanges,
-					[questionId]: {
-						...state.questionChanges[questionId],
-						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
-						voice: newVoice
-					}
 				}
 			});
 		},
@@ -4226,32 +4155,24 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_REQUIRED': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, required} = action.payload;
-			
+
 			console.log('Updating question required:', questionId, 'to:', required);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
-					return {...question, required: required};
+					return {...question, required: required, isUnsaved: true};
 				}
 				return question;
 			});
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				questionChanges: {
-					...state.questionChanges,
-					[questionId]: {
-						...state.questionChanges[questionId],
-						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
-						required: required
-					}
 				}
 			});
 		},
@@ -4259,22 +4180,21 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_ANSWER': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId} = action.payload;
-			
+
 			console.log('Adding new answer to question:', questionId);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
-			// Generate the new answer ID outside the map function so we can track it
+
+			// Generate the new answer ID outside the map function
 			const newAnswerId = 'temp_answer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-			let newAnswer = null;
-			
+
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
 					const nextSortOrder = question.answers ? question.answers.length + 1 : 1;
-					
-					newAnswer = {
+
+					const newAnswer = {
 						ids: { id: newAnswerId },
 						label: `Option ${nextSortOrder}`,
 						sort_order: nextSortOrder,
@@ -4283,38 +4203,20 @@ createCustomElement('cadal-careiq-builder', {
 						tooltip: '',
 						triggered_questions: []
 					};
-					
+
 					return {
 						...question,
-						answers: [...(question.answers || []), newAnswer]
+						answers: [...(question.answers || []), newAnswer],
+						isUnsaved: true // Mark question as needing save
 					};
 				}
 				return question;
 			});
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				answerChanges: {
-					...state.answerChanges,
-					[newAnswerId]: {
-						action: 'add',
-						questionId: questionId,
-						label: newAnswer.label,
-						sort_order: newAnswer.sort_order,
-						secondary_input_type: newAnswer.secondary_input_type,
-						mutually_exclusive: newAnswer.mutually_exclusive,
-						tooltip: newAnswer.tooltip,
-						triggered_questions: newAnswer.triggered_questions,
-						// Additional fields needed for backend API
-						alternative_wording: 'string',
-						custom_attributes: {},
-						required: false,
-						guideline_template_id: state.currentAssessmentId,
-						question_id: questionId // Real question ID (may be temp for new questions)
-					}
 				}
 			});
 		},
@@ -4322,91 +4224,112 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_ANSWER': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, questionId} = action.payload;
-			
+
 			console.log('Deleting answer:', answerId, 'from question:', questionId);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
 			// Remove the answer from the current questions
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
 					return {
 						...question,
-						answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
+						answers: question.answers?.filter(answer => answer.ids.id !== answerId) || [],
+						isUnsaved: true // Mark question as needing save
 					};
 				}
 				return question;
 			});
-			
-			// Track the deletion for save operation (only if not a temp answer)
-			let newAnswerChanges = {...state.answerChanges};
-			
-			if (answerId.startsWith('temp_')) {
-				// Remove temp answer from changes (was never saved)
-				delete newAnswerChanges[answerId];
-			} else {
-				// Mark real answer for deletion
-				newAnswerChanges[answerId] = {
-					action: 'delete'
-				};
-			}
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				},
-				answerChanges: newAnswerChanges
+				}
 			});
 		},
 
 		'DELETE_QUESTION': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
-			
+
 			console.log('Deleting question:', questionId);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
-			// Remove the question from the current questions
-			const updatedQuestions = state.currentQuestions.questions.filter(question => 
-				question.ids.id !== questionId
-			);
-			
-			// Track the deletion for save operation (only if not a temp question)
-			let newQuestionChanges = {...state.questionChanges};
-			
+
+			// Check if this is a temp question (never saved) or real question (needs API call)
 			if (questionId.startsWith('temp_')) {
-				// Remove temp question from changes (was never saved)
-				delete newQuestionChanges[questionId];
+				// Temp question - just remove locally
+				const updatedQuestions = state.currentQuestions.questions.filter(question =>
+					question.ids.id !== questionId
+				);
+
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Question removed!',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
 			} else {
-				// Mark real question for deletion
-				newQuestionChanges[questionId] = {
-					action: 'delete'
-				};
+				// Real question - call API to delete immediately
+				dispatch('DELETE_QUESTION_API', { questionId });
 			}
-			
-			// Also remove any answer changes for answers that belonged to this question
-			let newAnswerChanges = {...state.answerChanges};
-			Object.keys(newAnswerChanges).forEach(answerId => {
-				const answerData = newAnswerChanges[answerId];
-				if (answerData.questionId === questionId || answerData.question_id === questionId) {
-					delete newAnswerChanges[answerId];
-				}
-			});
-			
-			updateState({
-				currentQuestions: {
-					...state.currentQuestions,
-					questions: updatedQuestions
-				},
-				questionChanges: newQuestionChanges,
-				answerChanges: newAnswerChanges
-			});
+		},
+
+		'SAVE_QUESTION_IMMEDIATELY': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			console.log('Saving question immediately:', questionId);
+
+			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+			if (!question) {
+				console.error('Question not found for saving:', questionId);
+				return;
+			}
+
+			// Check if this is a temp question (add) or real question (update)
+			if (questionId.startsWith('temp_')) {
+				// New question - call ADD API
+				dispatch('ADD_QUESTION_API', {
+					questionData: {
+						sectionId: state.selectedSection,
+						label: question.label,
+						type: question.type,
+						required: question.required,
+						tooltip: question.tooltip || '',
+						voice: question.voice || 'CaseManager',
+						sort_order: question.sort_order,
+						answers: question.answers || []
+					}
+				});
+			} else {
+				// Existing question - call UPDATE API
+				dispatch('UPDATE_QUESTION_API', {
+					questionData: {
+						questionId: questionId,
+						label: question.label,
+						type: question.type,
+						required: question.required,
+						tooltip: question.tooltip || '',
+						voice: question.voice || 'CaseManager',
+						sort_order: question.sort_order,
+						answers: question.answers || []
+					}
+				});
+			}
 		},
 
 		'LOAD_ANSWER_RELATIONSHIPS': (coeffects) => {
@@ -4547,8 +4470,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				relationshipChanges: {},
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				pendingReselectionSection: currentSection,
 				systemMessages: [
 					...state.systemMessages,
@@ -4611,8 +4532,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				relationshipChanges: {},
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				systemMessages: [
 					...state.systemMessages,
 					{
@@ -4709,8 +4628,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				relationshipChanges: {},
 				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
 				systemMessages: [
 					...state.systemMessages,
 					{
@@ -6145,9 +6062,16 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 			
-			// Calculate next sort_order
+			// Calculate next sort_order to place new section at the end
 			const existingSubsections = parentSection.subsections || [];
-			const nextSortOrder = Math.max(...existingSubsections.map(s => s.sort_order || 0), 0) + 1;
+			console.log('Existing subsections for sort_order calculation:', existingSubsections.map(s => ({ label: s.label, sort_order: s.sort_order })));
+
+			// Get all existing sort_order values, defaulting to 0 for null/undefined, and find the max
+			const sortOrders = existingSubsections.map(s => s.sort_order || 0);
+			const maxSortOrder = sortOrders.length > 0 ? Math.max(...sortOrders) : 0;
+			const nextSortOrder = maxSortOrder + 1;
+
+			console.log('Calculated next sort_order:', nextSortOrder, 'from existing:', sortOrders);
 			
 			// Create a new section object with temporary ID
 			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -6292,17 +6216,6 @@ createCustomElement('cadal-careiq-builder', {
 				) || []
 			}));
 
-			// Prepare the section changes with library_id if selected from typeahead
-			const sectionChangeData = {
-				...state.sectionChanges[sectionId],
-				label: sectionLabel
-			};
-
-			// Add library_id if section was selected from typeahead
-			if (state.selectedSectionLibraryId) {
-				sectionChangeData.library_id = state.selectedSectionLibraryId;
-			}
-
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
@@ -6310,10 +6223,6 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				editingSectionId: null,
 				editingSectionName: null,
-				sectionChanges: {
-					...state.sectionChanges,
-					[sectionId]: sectionChangeData
-				},
 				// Clear typeahead state
 				sectionTypeaheadVisible: false,
 				sectionTypeaheadResults: [],
@@ -6322,8 +6231,12 @@ createCustomElement('cadal-careiq-builder', {
 				selectedSectionLibraryId: null
 			});
 
-			// AUTO-SAVE: Trigger save of all pending changes after section edit
-			dispatch('SAVE_ALL_CHANGES');
+			// Auto-save the section immediately
+			dispatch('SAVE_SECTION_IMMEDIATELY', {
+				sectionId: sectionId,
+				sectionLabel: sectionLabel,
+				libraryId: state.selectedSectionLibraryId
+			});
 		},
 
 		'CANCEL_SECTION_EDIT': (coeffects) => {
@@ -6399,8 +6312,65 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
+		'SAVE_SECTION_IMMEDIATELY': (coeffects) => {
+			const {action, dispatch, state} = coeffects;
+			const {sectionId, sectionLabel, libraryId} = action.payload;
+
+			console.log('Auto-saving section immediately:', sectionLabel);
+
+			// Determine if this is a new section (temp ID) or existing section
+			if (sectionId.startsWith('temp_')) {
+				// New section - find the actual section data to get the correct sort_order
+				let actualSection = null;
+				for (const section of state.currentAssessment.sections) {
+					if (section.subsections) {
+						const foundSubsection = section.subsections.find(sub => sub.id === sectionId);
+						if (foundSubsection) {
+							actualSection = foundSubsection;
+							break;
+						}
+					}
+				}
+
+				if (!actualSection) {
+					console.error('Could not find section data for temp section:', sectionId);
+					return;
+				}
+
+				console.log('Found actual section data with sort_order:', actualSection.sort_order);
+
+				const sectionData = {
+					label: sectionLabel,
+					guideline_template_id: state.currentAssessmentId,
+					sort_order: actualSection.sort_order  // Use the actual sort_order from the section
+				};
+
+				if (libraryId) {
+					sectionData.library_id = libraryId;
+				}
+
+				dispatch('ADD_SECTION_API', {
+					sectionData: sectionData
+				});
+			} else {
+				// Existing section - use UPDATE API
+				const sectionData = {
+					sectionId: sectionId,
+					label: sectionLabel
+				};
+
+				if (libraryId) {
+					sectionData.library_id = libraryId;
+				}
+
+				dispatch('UPDATE_SECTION_API', {
+					sectionData: sectionData
+				});
+			}
+		},
+
 		'DELETE_SECTION': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionName} = action.payload;
 			
 			console.log('Deleting section:', sectionName);
@@ -6418,15 +6388,67 @@ createCustomElement('cadal-careiq-builder', {
 						sections: updatedSections
 					},
 					selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
-					selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel,
-					sectionChanges: {
-						...state.sectionChanges,
-						[sectionId]: {
-							deleted: true
-						}
-					}
+					selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
 				});
+
+				// Auto-delete from backend immediately (only if not temp ID)
+				if (!sectionId.startsWith('temp_')) {
+					console.log('Calling backend API to delete section:', sectionId);
+					dispatch('DELETE_SECTION_API', {
+						sectionId: sectionId
+					});
+				} else {
+					console.log('Skipping backend API call - temp section:', sectionId);
+					// Show immediate success message for temp sections
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Section removed successfully!',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+				}
 			}
+		},
+
+		'ADD_SECTION_API': (coeffects) => {
+			const {action, dispatch, state} = coeffects;
+			const {sectionData} = action.payload;
+
+			console.log('Calling add section API with data:', sectionData);
+
+			// Send fields directly - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				gt_id: state.currentAssessmentId,
+				parent_section_id: state.currentAssessment?.sections?.[0]?.id, // Use first parent section
+				label: sectionData.label,
+				sort_order: sectionData.sort_order,
+				library_id: sectionData.library_id
+			});
+
+			console.log('Add section request body:', requestBody);
+			dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody: requestBody});
+		},
+
+		'UPDATE_SECTION_API': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {sectionData} = action.payload;
+
+			console.log('Calling update section API with data:', sectionData);
+
+			// Send fields directly - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				sectionId: sectionData.sectionId,
+				label: sectionData.label,
+				library_id: sectionData.library_id,
+				sort_order: sectionData.sort_order
+			});
+
+			console.log('Update section request body:', requestBody);
+			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionData.sectionId});
 		},
 
 		'DELETE_SECTION_API': (coeffects) => {
@@ -6454,45 +6476,23 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_SECTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Section deleted successfully:', action.payload);
-			
-			// Store the current section to re-select after refresh (if not the deleted one)
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-			
-			// Clear ALL changes since we're doing a full refresh
+
+			// The section was already removed locally by DELETE_SECTION handler
+			// Just confirm the backend operation succeeded
 			updateState({
-				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
-				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: 'Section deleted successfully! Refreshing data...',
+						message: 'Section deleted successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-			
-			// Refresh the entire assessment from server
-			console.log('Refreshing entire assessment from server after delete');
-			console.log('- Will re-select section (if still exists):', currentSection, currentSectionLabel);
-			
-			if (state.currentAssessmentId) {
-				// Store section to re-select in state temporarily (if it still exists)
-				updateState({
-					pendingReselectionSection: currentSection,
-					pendingReselectionSectionLabel: currentSectionLabel
-				});
 
-				dispatch('FETCH_ASSESSMENT_DETAILS', {
-					assessmentId: state.currentAssessmentId,
-					assessmentTitle: state.currentAssessment?.title || 'Assessment'
-				});
-			}
+			console.log('Section delete confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'DELETE_SECTION_ERROR': (coeffects) => {
@@ -6544,7 +6544,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DROP_SECTION': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {targetSectionId, targetIndex} = action.payload;
 			const draggingSection = state.draggingSection;
 			const draggingIndex = state.draggingSectionIndex;
@@ -6581,36 +6581,48 @@ createCustomElement('cadal-careiq-builder', {
 					return section;
 				});
 				
-				// Track which sections had their sort_order changed
-				const reorderedSection = updatedSections.find(section => 
-					section.subsections?.some(sub => sub.id === draggingSection || sub.id === targetSectionId)
-				);
-				
-				const newSectionChanges = {...state.sectionChanges};
-				if (reorderedSection && reorderedSection.subsections) {
-					reorderedSection.subsections.forEach(subsection => {
-						// Store complete section data for all reordered sections
-						newSectionChanges[subsection.id] = {
-							label: subsection.label,
-							tooltip: subsection.tooltip || '',
-							alternative_wording: subsection.alternative_wording || '',
-							required: subsection.required || false,
-							custom_attributes: subsection.custom_attributes || {},
-							sort_order: subsection.sort_order
-						};
-					});
-				}
-				
 				updateState({
 					currentAssessment: {
 						...state.currentAssessment,
 						sections: updatedSections
 					},
-					sectionChanges: newSectionChanges,
 					draggingSection: null,
 					dragOverSection: null,
 					draggingSectionIndex: null
 				});
+
+				// Auto-save all reordered sections immediately
+				const reorderedSection = updatedSections.find(section =>
+					section.subsections?.some(sub => sub.id === draggingSection || sub.id === targetSectionId)
+				);
+
+				if (reorderedSection && reorderedSection.subsections) {
+					console.log('Auto-saving reordered sections:', reorderedSection.subsections.map(s => ({ id: s.id, label: s.label, sort_order: s.sort_order })));
+
+					// Show immediate feedback for reordering operation
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: `Reordering ${reorderedSection.subsections.length} sections and saving to backend...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					reorderedSection.subsections.forEach(subsection => {
+						// Auto-save each reordered section with new sort_order
+						console.log(`Saving section ${subsection.label} with sort_order: ${subsection.sort_order}`);
+						dispatch('UPDATE_SECTION_API', {
+							sectionData: {
+								sectionId: subsection.id,
+								label: subsection.label,
+								sort_order: subsection.sort_order
+							}
+						});
+					});
+				}
 			}
 		},
 
@@ -6655,61 +6667,50 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionId) {
 				console.log('Saving tooltip for question:', questionId, 'New tooltip:', newTooltip);
 				
-				// Update the question in the current questions data
+				// Update the question in the current questions data and mark as unsaved
 				const updatedQuestions = {
 					...state.currentQuestions,
 					questions: state.currentQuestions.questions.map(question =>
 						question.ids.id === questionId
-							? {...question, tooltip: newTooltip}
+							? {...question, tooltip: newTooltip, isUnsaved: true}
 							: question
 					)
 				};
-				
+
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
 					editingTooltipQuestionId: null,
-					editingTooltipAnswerId: null,
-					// Track question changes for save functionality
-					questionChanges: {
-						...state.questionChanges,
-						[questionId]: {
-							...(state.questionChanges[questionId] || {}),
-							tooltip: newTooltip
-						}
-					}
+					editingTooltipAnswerId: null
 				});
 			} else if (answerId) {
 				console.log('Saving tooltip for answer:', answerId, 'New tooltip:', newTooltip);
 				
-				// Update the answer in the current questions data
+				// Update the answer in the current questions data and mark question as unsaved
 				const updatedQuestions = {
 					...state.currentQuestions,
-					questions: state.currentQuestions.questions.map(question => ({
-						...question,
-						answers: question.answers?.map(answer =>
-							answer.ids.id === answerId
-								? {...answer, tooltip: newTooltip}
-								: answer
-						) || []
-					}))
+					questions: state.currentQuestions.questions.map(question => {
+						const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === answerId);
+						return {
+							...question,
+							answers: question.answers?.map(answer =>
+								answer.ids.id === answerId
+									? {...answer, tooltip: newTooltip}
+									: answer
+							) || [],
+							// Mark question as unsaved if it contains the updated answer
+							isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+						};
+					})
 				};
-				
+
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
 					editingTooltipQuestionId: null,
-					editingTooltipAnswerId: null,
-					// Track answer changes for save functionality
-					answerChanges: {
-						...state.answerChanges,
-						[answerId]: {
-							...(state.answerChanges[answerId] || {}),
-							tooltip: newTooltip
-						}
-					}
+					editingTooltipAnswerId: null
 				});
 			}
 		},
@@ -6731,118 +6732,84 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('Updating answer label:', answerId, 'New label:', newLabel);
 
-			// Find the answer to determine if it's a library answer
-			let currentAnswer = null;
-			for (const question of state.currentQuestions.questions) {
-				const answer = question.answers?.find(a => a.ids.id === answerId);
-				if (answer) {
-					currentAnswer = answer;
-					break;
-				}
-			}
-
-			const existingChange = state.answerChanges[answerId];
-
-			// Update the answer in the current questions data
+			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
-				questions: state.currentQuestions.questions.map(question => ({
-					...question,
-					answers: question.answers?.map(answer =>
-						answer.ids.id === answerId
-							? {...answer, label: newLabel}
-							: answer
-					) || []
-				}))
+				questions: state.currentQuestions.questions.map(question => {
+					const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === answerId);
+					return {
+						...question,
+						answers: question.answers?.map(answer =>
+							answer.ids.id === answerId
+								? {...answer, label: newLabel}
+								: answer
+						) || [],
+						// Mark question as unsaved if it contains the updated answer
+						isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+					};
+				})
 			};
 
-			// Determine library status if this is a library answer
-			let libraryStatus = existingChange?.libraryStatus;
-			if (currentAnswer?.isLibraryAnswer && existingChange?.originalLibraryData) {
-				// Check if this modification deviates from original library data
-				const isModified = newLabel !== existingChange.originalLibraryData.label;
-				libraryStatus = isModified ? 'modified' : 'unmodified';
-			}
-
 			updateState({
-				currentQuestions: updatedQuestions,
-				// Track the change for save functionality
-				answerChanges: {
-					...state.answerChanges,
-					[answerId]: {
-						...(state.answerChanges[answerId] || {}),
-						action: existingChange?.action || 'update',
-						label: newLabel,
-						libraryStatus: libraryStatus,  // Update library status
-						timestamp: new Date().toISOString()
-					}
-				}
+				currentQuestions: updatedQuestions
 			});
 		},
 
 		'UPDATE_ANSWER_SECONDARY_INPUT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newSecondaryInputType} = action.payload;
-			
+
 			console.log('Updating answer secondary input:', answerId, 'New type:', newSecondaryInputType);
-			
-			// Update the answer in the current questions data
+
+			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
-				questions: state.currentQuestions.questions.map(question => ({
-					...question,
-					answers: question.answers?.map(answer =>
-						answer.ids.id === answerId
-							? {...answer, secondary_input_type: newSecondaryInputType}
-							: answer
-					) || []
-				}))
+				questions: state.currentQuestions.questions.map(question => {
+					const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === answerId);
+					return {
+						...question,
+						answers: question.answers?.map(answer =>
+							answer.ids.id === answerId
+								? {...answer, secondary_input_type: newSecondaryInputType}
+								: answer
+						) || [],
+						// Mark question as unsaved if it contains the updated answer
+						isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+					};
+				})
 			};
-			
+
 			updateState({
-				currentQuestions: updatedQuestions,
-				// Track the change for save functionality
-				answerChanges: {
-					...state.answerChanges,
-					[answerId]: {
-						...(state.answerChanges[answerId] || {}),
-						action: state.answerChanges[answerId]?.action || 'update',
-						secondary_input_type: newSecondaryInputType
-					}
-				}
+				currentQuestions: updatedQuestions
 			});
 		},
 
 		'UPDATE_ANSWER_MUTUALLY_EXCLUSIVE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, mutually_exclusive} = action.payload;
-			
+
 			console.log('Updating answer mutually_exclusive:', answerId, 'to:', mutually_exclusive);
-			
-			// Update the answer in the current questions data
+
+			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
-				questions: state.currentQuestions.questions.map(question => ({
-					...question,
-					answers: question.answers?.map(answer =>
-						answer.ids.id === answerId
-							? {...answer, mutually_exclusive: mutually_exclusive}
-							: answer
-					) || []
-				}))
+				questions: state.currentQuestions.questions.map(question => {
+					const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === answerId);
+					return {
+						...question,
+						answers: question.answers?.map(answer =>
+							answer.ids.id === answerId
+								? {...answer, mutually_exclusive: mutually_exclusive}
+								: answer
+						) || [],
+						// Mark question as unsaved if it contains the updated answer
+						isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+					};
+				})
 			};
-			
+
 			updateState({
-				currentQuestions: updatedQuestions,
-				// Track the change for save functionality
-				answerChanges: {
-					...state.answerChanges,
-					[answerId]: {
-						...(state.answerChanges[answerId] || {}),
-						action: state.answerChanges[answerId]?.action || 'update',
-						mutually_exclusive: mutually_exclusive
-					}
-				}
+				currentQuestions: updatedQuestions
 			});
 		},
 
@@ -7403,8 +7370,6 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Clear ALL changes since we're doing a full refresh
 			updateState({
-				questionChanges: {},
-				answerChanges: {},
 				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -7513,8 +7478,6 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Clear ALL changes since we're doing a full refresh
 			updateState({
-				questionChanges: {},
-				answerChanges: {},
 				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -7809,46 +7772,24 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Section update success:', action.payload);
 			console.log('Section update action meta:', action.meta);
-			
-			// Store the current section to re-select after refresh
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-			
-			// Clear ALL changes since we're doing a full refresh
+
+			// The section was already updated locally by SAVE_SECTION_IMMEDIATELY or reordering
+			// Just confirm the backend operation succeeded
 			updateState({
-				sectionChanges: {},
-				questionChanges: {},
-				answerChanges: {},
-				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: 'Changes saved successfully! Refreshing data...',
+						message: 'Section updated successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-			
-			// Refresh the entire assessment from server
-			console.log('Refreshing entire assessment from server after save');
-			console.log('- Will re-select section:', currentSection, currentSectionLabel);
-			
-			if (state.currentAssessment?.ids?.id) {
-				// Store section to re-select in state temporarily
-				updateState({
-					pendingReselectionSection: currentSection,
-					pendingReselectionSectionLabel: currentSectionLabel
-				});
-				
-				dispatch('FETCH_ASSESSMENT_DETAILS', {
-					assessmentId: state.currentAssessment.ids.id,
-					assessmentTitle: state.currentAssessment.title
-				});
-			}
+
+			console.log('Section update confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'SECTION_UPDATE_ERROR': (coeffects) => {
@@ -7870,35 +7811,44 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ADD_SECTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Add section success:', action.payload);
-			
+
 			// The response contains the new section ID: { "id": "uuid" }
 			const newSectionId = action.payload.id;
-			
-			// Store the current section to re-select after refresh
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-			
+
+			console.log('Updating temp section with real ID:', newSectionId);
+
+			// Find and update the temp section with the real ID locally
+			const updatedSections = state.currentAssessment.sections.map(section => ({
+				...section,
+				subsections: section.subsections?.map(subsection => {
+					// If this is the temp section (marked as isNew), replace with real data
+					if (subsection.isNew && subsection.id.startsWith('temp_')) {
+						console.log('Replacing temp section:', subsection.id, 'with real ID:', newSectionId);
+						return {
+							...subsection,
+							id: newSectionId,
+							isNew: false // Remove the temp flag
+						};
+					}
+					return subsection;
+				}) || []
+			}));
+
 			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: 'Section added successfully',
+						message: 'Section added successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-			
-			// Refresh the assessment data to get the updated sections
-			const assessmentId = state.currentAssessmentId;
-			console.log('ADD_SECTION_SUCCESS - currentAssessment:', state.currentAssessment);
-			console.log('ADD_SECTION_SUCCESS - assessmentId from stored ID:', assessmentId);
-			
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: assessmentId,
-				assessmentTitle: state.currentAssessment.title
 			});
 		},
 
