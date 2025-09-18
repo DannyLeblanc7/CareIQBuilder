@@ -3939,31 +3939,57 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'REORDER_QUESTIONS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {sourceIndex, targetIndex} = action.payload;
-			
+
 			console.log('Reordering questions:', {sourceIndex, targetIndex});
-			
+
 			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
 				return;
 			}
-			
+
 			const questions = [...state.currentQuestions.questions];
 			const [movedQuestion] = questions.splice(sourceIndex, 1);
 			questions.splice(targetIndex, 0, movedQuestion);
-			
+
 			// Update sort_order for all questions
 			const updatedQuestions = questions.map((question, index) => ({
 				...question,
 				sort_order: index + 1
 			}));
-			
+
+			// Track all affected questions as changed for auto-save
+			const updatedQuestionChanges = { ...state.questionChanges };
+
+			updatedQuestions.forEach(question => {
+				// Only track real questions (not temp ones) that have changed sort order
+				if (!question.ids.id.startsWith('temp_')) {
+					updatedQuestionChanges[question.ids.id] = {
+						...updatedQuestionChanges[question.ids.id],
+						action: updatedQuestionChanges[question.ids.id]?.action || 'update',
+						questionId: question.ids.id,
+						sort_order: question.sort_order,
+						// Preserve other existing changes
+						label: question.label,
+						type: question.type,
+						required: question.required || false,
+						tooltip: question.tooltip || '',
+						voice: question.voice || 'Patient'
+					};
+				}
+			});
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				}
+				},
+				questionChanges: updatedQuestionChanges
 			});
+
+			// Auto-save the reordering changes immediately
+			console.log('Question reorder completed - auto-saving changes');
+			dispatch('SAVE_ALL_CHANGES');
 		},
 
 		'REORDER_ANSWERS': (coeffects) => {
@@ -4261,9 +4287,19 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			// Check if this is a temp question (never saved) or real question (needs API call)
-			if (questionId.startsWith('temp_')) {
-				// Temp question - just remove locally
+			// Find the question to get its label
+			const questionToDelete = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+			if (!questionToDelete) {
+				console.error('Question not found for deletion:', questionId);
+				return;
+			}
+
+			const questionLabel = questionToDelete.label || 'Untitled Question';
+			console.log('Deleting question:', questionLabel);
+
+			// Show confirmation alert like sections
+			if (confirm(`Are you sure you want to delete question "${questionLabel}"?`)) {
+				// Remove question from local state immediately (optimistic update)
 				const updatedQuestions = state.currentQuestions.questions.filter(question =>
 					question.ids.id !== questionId
 				);
@@ -4272,19 +4308,27 @@ createCustomElement('cadal-careiq-builder', {
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					},
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'success',
-							message: 'Question removed!',
-							timestamp: new Date().toISOString()
-						}
-					]
+					}
 				});
-			} else {
-				// Real question - call API to delete immediately
-				dispatch('DELETE_QUESTION_API', { questionId });
+
+				// Auto-delete from backend immediately (only if not temp ID)
+				if (!questionId.startsWith('temp_')) {
+					console.log('Calling backend API to delete question:', questionId);
+					dispatch('DELETE_QUESTION_API', { questionId });
+				} else {
+					console.log('Skipping backend API call - temp question:', questionId);
+					// Show immediate success message for temp questions
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Question removed successfully! No backend call needed.',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+				}
 			}
 		},
 
@@ -4302,19 +4346,76 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if this is a temp question (add) or real question (update)
 			if (questionId.startsWith('temp_')) {
-				// New question - call ADD API
-				dispatch('ADD_QUESTION_API', {
-					questionData: {
-						sectionId: state.selectedSection,
+				// New question - use new 2-step process
+				console.log('Using new 2-step process for question type:', question.type);
+
+				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
+					// Step 1: Add question to section (no answers needed)
+					console.log('Step 1: Adding Text/Date/Numeric question to section');
+					dispatch('ADD_QUESTION_TO_SECTION_API', {
+						questionData: {
+							label: question.label,
+							type: question.type,
+							required: question.required,
+							tooltip: question.tooltip || '',
+							voice: question.voice || 'CaseManager',
+							sort_order: question.sort_order,
+							alternative_wording: '',
+							custom_attributes: {},
+							available: false,
+							has_quality_measures: false
+						},
+						sectionId: state.selectedSection
+					});
+				} else if (question.type === 'Single Select' || question.type === 'Multiselect') {
+					// Check if this is a library question
+					// Use 2-step process for both library and regular questions
+					console.log('Step 1: Adding Single Select/Multiselect question to section');
+
+					if (question.isLibraryQuestion) {
+						console.log('Library question ID:', question.libraryQuestionId);
+					}
+
+					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
 						voice: question.voice || 'CaseManager',
 						sort_order: question.sort_order,
-						answers: question.answers || []
+						alternative_wording: '',
+						custom_attributes: {},
+						available: false,
+						has_quality_measures: false
+					};
+
+					// Add library_id for library questions
+					if (question.isLibraryQuestion && question.libraryQuestionId) {
+						questionData.library_id = question.libraryQuestionId;
 					}
-				});
+
+					dispatch('ADD_QUESTION_TO_SECTION_API', {
+						questionData: questionData,
+						sectionId: state.selectedSection,
+						// Store answers for step 2 (both library and regular questions)
+						pendingAnswers: question.answers || []
+					});
+				} else {
+					// Fallback for any other question types
+					console.log('Using fallback method for question type:', question.type);
+					dispatch('ADD_QUESTION_API', {
+						questionData: {
+							sectionId: state.selectedSection,
+							label: question.label,
+							type: question.type,
+							required: question.required,
+							tooltip: question.tooltip || '',
+							voice: question.voice || 'CaseManager',
+							sort_order: question.sort_order,
+							answers: question.answers || []
+						}
+					});
+				}
 			} else {
 				// Existing question - call UPDATE API
 				dispatch('UPDATE_QUESTION_API', {
@@ -4973,6 +5074,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('=== LIBRARY_QUESTION_SUCCESS ===');
 			console.log('Response:', action.payload);
+
+			// Debug library question structure
+			if (action.payload.answers) {
+				console.log('=== LIBRARY QUESTION ANSWERS DEBUG ===');
+				action.payload.answers.forEach((answer, index) => {
+					console.log(`Answer ${index + 1}:`, answer);
+					console.log(`  - id: ${answer.id}`);
+					console.log(`  - master_id: ${answer.master_id}`);
+					console.log(`  - label: ${answer.label || answer.text}`);
+				});
+			}
+
 			console.log('Meta:', action.meta);
 			console.log('Meta keys:', Object.keys(action.meta || {}));
 			console.log('Meta values:', action.meta);
@@ -5186,7 +5299,8 @@ createCustomElement('cadal-careiq-builder', {
 				custom_attributes: libraryQuestion.custom_attributes || {},
 				answers: [],
 				isLibraryQuestion: true,
-				libraryQuestionId: libraryQuestion.master_id || libraryQuestion.id
+				libraryQuestionId: libraryQuestion.master_id || libraryQuestion.id,
+				isUnsaved: true // Show save button for library questions
 			};
 
 			// Add library answers if they exist
@@ -6957,37 +7071,30 @@ createCustomElement('cadal-careiq-builder', {
 						console.log('Question answers count:', questionAnswers.length);
 						console.log('Question answers:', questionAnswers);
 
-						// Save library question exactly like a new question
-						const backendQuestionData = {
+						// Use 2-step process for library questions to handle answers correctly
+						console.log('Using 2-step process for library question');
+
+						// Use the standard 2-step API flow which now handles library answers correctly
+						const questionData = {
 							label: currentQuestion.label,
 							type: currentQuestion.type,
 							tooltip: currentQuestion.tooltip || '',
 							alternative_wording: questionData.alternative_wording || '',
-							answers: questionAnswers.map(answer => ({
-								label: answer.label,
-								tooltip: answer.tooltip || '',
-								alternative_wording: answer.alternative_wording || '',
-								secondary_input_type: answer.secondary_input_type,
-								mutually_exclusive: answer.mutually_exclusive || false,
-								custom_attributes: {},
-								required: answer.required || false
-							})),
-							guideline_template_id: state.currentAssessmentId,
-							section_id: state.selectedSection,
 							sort_order: currentQuestion.sort_order || 0,
 							custom_attributes: {},
 							voice: currentQuestion.voice || 'Patient',
 							required: currentQuestion.required || false,
-							available: false
+							available: false,
+							has_quality_measures: false,
+							library_id: currentQuestion.libraryQuestionId // Include library ID
 						};
 
-						console.log('=== BACKEND QUESTION DATA ===');
-						console.log(JSON.stringify(backendQuestionData, null, 2));
-						console.log('================================');
+						console.log('Library question using standard ADD_QUESTION_TO_SECTION_API flow');
 
-						dispatch('ADD_QUESTION_API', {
-							questionData: backendQuestionData,
-							sectionId: state.selectedSection
+						dispatch('ADD_QUESTION_TO_SECTION_API', {
+							questionData: questionData,
+							sectionId: state.selectedSection,
+							pendingAnswers: questionAnswers // Raw answers - will be processed by API handler
 						});
 					} else if (questionData.action === 'update') {
 						console.log('Updating question:', questionId);
@@ -7282,6 +7389,82 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_ADD_QUESTION_REQUEST', {requestBody: requestBody});
 		},
 
+		'ADD_QUESTION_TO_SECTION_API': (coeffects) => {
+			const {action, dispatch, state, updateState} = coeffects;
+			const {questionData, sectionId, pendingAnswers} = action.payload;
+
+			console.log('ADD_QUESTION_TO_SECTION_API handler called');
+			console.log('Question data:', questionData);
+			console.log('Section ID:', sectionId);
+			console.log('Pending answers:', pendingAnswers);
+
+			// Store pending answers in state for later use in success handler
+			if (pendingAnswers && pendingAnswers.length > 0) {
+				// Process pending answers to add library_id for library answers ONLY
+				const processedPendingAnswers = pendingAnswers.map((answer, index) => {
+					console.log('=== PROCESSING PENDING ANSWER ===');
+					console.log('Answer index:', index);
+					console.log('Answer object:', answer);
+					console.log('isLibraryAnswer:', answer.isLibraryAnswer);
+					console.log('libraryAnswerId:', answer.libraryAnswerId);
+
+					// Base payload for all answers (library and non-library)
+					const answerPayload = {
+						sort_order: answer.sort_order || index,
+						label: answer.label,
+						tooltip: answer.tooltip || '',
+						alternative_wording: answer.alternative_wording || '',
+						secondary_input_type: answer.secondary_input_type || null,
+						mutually_exclusive: answer.mutually_exclusive || false,
+						custom_attributes: answer.custom_attributes || {},
+						required: answer.required || false
+					};
+
+					// ONLY add library_id for library answers
+					if (answer.isLibraryAnswer && answer.libraryAnswerId) {
+						answerPayload.library_id = answer.libraryAnswerId;
+						console.log('✅ Added library_id for library answer:', answer.libraryAnswerId);
+					} else {
+						console.log('⚪ Non-library answer - no library_id added');
+					}
+
+					console.log('Final answer payload:', answerPayload);
+					return answerPayload;
+				});
+
+				updateState({
+					pendingQuestionAnswers: processedPendingAnswers
+				});
+				console.log('Stored processed pending answers:', processedPendingAnswers.length);
+			}
+
+			// Send fields directly - ServiceNow adds data wrapper automatically
+			const requestBodyData = {
+				sectionId: sectionId,
+				label: questionData.label,
+				type: questionData.type,
+				tooltip: questionData.tooltip || '',
+				alternative_wording: questionData.alternative_wording || '',
+				sort_order: questionData.sort_order,
+				custom_attributes: questionData.custom_attributes || {},
+				voice: questionData.voice || 'CaseManager',
+				required: questionData.required || false,
+				available: questionData.available || false,
+				has_quality_measures: questionData.has_quality_measures || false
+			};
+
+			// Add library_id for library questions
+			if (questionData.library_id) {
+				requestBodyData.library_id = questionData.library_id;
+				console.log('Adding library_id to request:', questionData.library_id);
+			}
+
+			const requestBody = JSON.stringify(requestBodyData);
+
+			console.log('Add Question to Section request body:', requestBody);
+			dispatch('MAKE_ADD_QUESTION_TO_SECTION_REQUEST', {requestBody: requestBody});
+		},
+
 		'ADD_ANSWER_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {answerData} = action.payload;
@@ -7529,6 +7712,26 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_QUESTION_ERROR'
 		}),
 
+		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_QUESTION_TO_SECTION_SUCCESS',
+			errorActionType: 'ADD_QUESTION_TO_SECTION_ERROR'
+		}),
+
+		'MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answers-to-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_ANSWERS_TO_QUESTION_SUCCESS',
+			errorActionType: 'ADD_ANSWERS_TO_QUESTION_ERROR'
+		}),
+
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('Question added successfully:', action.payload);
@@ -7596,6 +7799,220 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: 'Error creating question: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_QUESTION_TO_SECTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('Question added to section successfully:', action.payload);
+
+			// Handle different response formats
+			let newQuestionId = action.payload.id;
+			let isLibraryResponse = false;
+
+			// Check if this is a library question response (might have detail instead of id)
+			if (!newQuestionId && action.payload.detail) {
+				console.log('Library question response detected:', action.payload.detail);
+				isLibraryResponse = true;
+				// For library questions, we might need to generate a temporary ID or handle differently
+				// The backend should still provide some way to identify the created question
+			}
+
+			console.log('New Question ID received:', newQuestionId);
+			console.log('Is library response:', isLibraryResponse);
+
+			// Find and update the temp question with the real ID locally
+			const updatedQuestions = state.currentQuestions.questions.map(question => {
+				// If this is the temp question being saved, replace with real data
+				if (question.isUnsaved && question.ids.id.startsWith('temp_')) {
+					console.log('Replacing temp question:', question.ids.id, 'with real ID:', newQuestionId);
+					return {
+						...question,
+						ids: { id: newQuestionId || question.ids.id }, // Keep temp ID if no real ID provided
+						isUnsaved: false // Remove the unsaved flag
+					};
+				}
+				return question;
+			});
+
+			// Check if there are pending answers to add (for Single Select/Multiselect questions)
+			const pendingAnswers = state.pendingQuestionAnswers;
+			console.log('=== CHECKING FOR PENDING ANSWERS ===');
+			console.log('newQuestionId:', newQuestionId);
+			console.log('pendingAnswers:', pendingAnswers);
+			console.log('pendingAnswers type:', typeof pendingAnswers);
+			console.log('pendingAnswers length:', pendingAnswers?.length);
+
+			if (pendingAnswers && pendingAnswers.length > 0) {
+				console.log('Step 2: Adding answers to newly created question');
+				console.log('Pending answers:', pendingAnswers);
+
+				// Handle library questions that might not return a real question ID
+				if (!newQuestionId && isLibraryResponse) {
+					console.log('Library question without ID - skipping answer addition (backend should handle library answers)');
+					updateState({
+						currentQuestions: {
+							...state.currentQuestions,
+							questions: updatedQuestions
+						},
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Library question added successfully! Please refresh to see complete data.',
+								timestamp: new Date().toISOString()
+							}
+						],
+						// Clear pending answers
+						pendingQuestionAnswers: null
+					});
+					return;
+				}
+
+				// Validate newQuestionId for regular questions
+				if (!newQuestionId) {
+					console.error('CRITICAL ERROR: newQuestionId is missing! Cannot add answers.');
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'error',
+								message: 'Error: Question ID missing, cannot add answers.',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
+
+				// Transform answers to match API format - PRESERVE library_id if present
+				const answersForAPI = pendingAnswers.map((answer, index) => {
+					const apiAnswer = {
+						sort_order: answer.sort_order || index,
+						label: answer.label,
+						tooltip: answer.tooltip || '',
+						alternative_wording: '',
+						secondary_input_type: answer.secondary_input_type || null,
+						mutually_exclusive: answer.mutually_exclusive || false,
+						custom_attributes: {},
+						required: false
+					};
+
+					// CRITICAL: Preserve library_id for library answers
+					if (answer.library_id) {
+						apiAnswer.library_id = answer.library_id;
+						console.log('🔥 PRESERVING library_id in final payload:', answer.library_id);
+					}
+
+					return apiAnswer;
+				});
+
+				console.log('=== ADD ANSWERS REQUEST DEBUG ===');
+				console.log('questionId for request:', newQuestionId);
+				console.log('answersForAPI:', answersForAPI);
+				console.log('answersForAPI length:', answersForAPI.length);
+
+				// Create request body for add answers API
+				// Don't add data wrapper - ServiceNow adds it automatically
+				const requestBody = JSON.stringify({
+					questionId: newQuestionId,
+					answers: answersForAPI
+				});
+
+				console.log('ADD ANSWERS requestBody:', requestBody);
+
+				// Dispatch the add answers request
+				dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
+
+				// Update UI with message about adding answers and clear pending answers
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Question added to section successfully! Adding answers...',
+							timestamp: new Date().toISOString()
+						}
+					],
+					// Clear pending answers since we're using them now
+					pendingQuestionAnswers: null
+				});
+			} else {
+				// No answers to add, just update state
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Question added to section successfully! No refresh needed.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
+		},
+
+		'ADD_QUESTION_TO_SECTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Question add to section error:', action.payload);
+
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add question to section';
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error adding question to section: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_ANSWERS_TO_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.log('Answers added to question successfully:', action.payload);
+
+			// The response should contain array of answer UUIDs
+			const newAnswerIds = action.payload;
+			console.log('New Answer IDs received:', newAnswerIds);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `${newAnswerIds.length} answer(s) added to question successfully!`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_ANSWERS_TO_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Add answers to question error:', action.payload);
+
+			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add answers to question';
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Error adding answers to question: ' + errorMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -7677,29 +8094,23 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_QUESTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Question deleted successfully:', action.payload);
-			
+
+			// The question was already removed locally by DELETE_QUESTION handler
+			// Just confirm the backend operation succeeded
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: 'Question deleted successfully! Refreshing data...',
+						message: 'Question deleted successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-			
-			// Refresh the questions for the current section
-			if (state.selectedSection) {
-				console.log('Refreshing questions for section:', state.selectedSection);
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: state.selectedSection,
-					config: state.careiqConfig,
-					accessToken: state.accessToken
-				});
-			}
+
+			console.log('Question delete confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'DELETE_QUESTION_ERROR': (coeffects) => {

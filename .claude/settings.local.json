@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Read(//c/Users/zolmo/.claude/**)"
     ],
     "deny": [],
     "ask": []

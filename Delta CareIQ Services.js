@@ -303,3 +303,69 @@ builderUpdateAnswer: function(answerId, answerData) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderAddQuestionToSection: function(sectionId, label, type, tooltip, alternative_wording, sort_order, custom_attributes, voice, required, available, has_quality_measures, library_id) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/section/' + encodeURIComponent(sectionId) + '/questions');
+        var r = this._createRESTMessage('Add Question to Section', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request body matching the CareIQ API specification
+        var requestBody = {
+            tooltip: tooltip || '',
+            alternative_wording: alternative_wording || '',
+            sort_order: sort_order || 0,
+            custom_attributes: custom_attributes || {},
+            voice: voice || 'CaseManager',
+            required: required || false,
+            available: available || false,
+            has_quality_measures: has_quality_measures || false,
+            label: label,
+            type: type
+        };
+
+        // Add library_id for library questions
+        if (library_id) {
+            requestBody.library_id = library_id;
+        }
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'AddQuestionToSection');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddQuestionToSection - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+builderAddAnswersToQuestion: function(questionId, answers) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/question/' + encodeURIComponent(questionId) + '/answers');
+        var r = this._createRESTMessage('Add Answers to Question', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request body - answers array directly as CareIQ expects
+        var requestBody = answers;
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'AddAnswersToQuestion');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddAnswersToQuestion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
