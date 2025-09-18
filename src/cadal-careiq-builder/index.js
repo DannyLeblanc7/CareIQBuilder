@@ -196,6 +196,21 @@ const view = (state, {updateState, dispatch}) => {
 							❌ <strong>Error:</strong> {state.error}
 						</div>
 					)}
+					{/* Dynamic system messages */}
+					{state.systemMessages && state.systemMessages.map((msg, index) => (
+						<div key={index} className={`system-message ${msg.type}`}>
+							{msg.type === 'loading' && '🔄'}
+							{msg.type === 'success' && '✅'}
+							{msg.type === 'error' && '❌'}
+							{msg.type === 'warning' && '⚠️'}
+							{msg.type === 'info' && 'ℹ️'}
+							{' '}
+							<strong>{msg.message}</strong>
+							{msg.timestamp && (
+								<span className="timestamp"> ({new Date(msg.timestamp).toLocaleTimeString()})</span>
+							)}
+						</div>
+					))}
 					</div>
 				)}
 			</div>
@@ -934,29 +949,50 @@ const view = (state, {updateState, dispatch}) => {
 																>
 																	🔍
 																</span>
-																<input 
-																	type="text" 
-																	className="question-label-input"
-																	value={question.label}
-																	placeholder="Enter question text..."
-																	onkeyup={(e) => {
-																		const newLabel = e.target.value.trim();
-																		if (newLabel !== question.label && newLabel !== '') {
+																<div className="typeahead-container">
+																	<input
+																		type="text"
+																		className="question-label-input"
+																		value={question.label}
+																		placeholder="Enter question text..."
+																		oninput={(e) => {
+																			const newValue = e.target.value;
+																			// Update the question label locally
 																			dispatch('UPDATE_QUESTION_LABEL', {
 																				questionId: question.ids.id,
-																				newLabel: newLabel
+																				newLabel: newValue
 																			});
-																		}
-																	}}
-																	onblur={(e) => {
-																		const newLabel = e.target.value.trim();
-																		if (newLabel !== question.label && newLabel !== '') {
-																			dispatch('UPDATE_QUESTION_LABEL', {
-																				questionId: question.ids.id,
-																				newLabel: newLabel
-																			});
-																		}
-																	}}
+																			// Trigger typeahead search if length >= 3
+																			if (newValue.length >= 3) {
+																				dispatch('QUESTION_TYPEAHEAD_INPUT_CHANGE', {
+																					searchText: newValue,
+																					questionId: question.ids.id
+																				});
+																			} else {
+																				dispatch('QUESTION_TYPEAHEAD_HIDE');
+																			}
+																		}}
+																		onkeydown={(e) => {
+																			if (e.key === 'Enter') {
+																				if (state.questionTypeaheadVisible && state.questionTypeaheadSelectedIndex >= 0) {
+																					e.preventDefault();
+																					dispatch('QUESTION_TYPEAHEAD_KEYBOARD', { key: 'Enter' });
+																				}
+																			} else if (e.key === 'Escape') {
+																				if (state.questionTypeaheadVisible) {
+																					dispatch('QUESTION_TYPEAHEAD_HIDE');
+																				}
+																			} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+																				e.preventDefault();
+																				dispatch('QUESTION_TYPEAHEAD_KEYBOARD', { key: e.key });
+																			}
+																		}}
+																		onblur={(e) => {
+																			// Hide typeahead after a short delay to allow selection
+																			setTimeout(() => {
+																				dispatch('QUESTION_TYPEAHEAD_HIDE');
+																			}, 150);
+																		}}
 																	onmousedown={(e) => {
 																		e.stopPropagation();
 																	}}
@@ -964,6 +1000,45 @@ const view = (state, {updateState, dispatch}) => {
 																		e.stopPropagation();
 																	}}
 																/>
+																{state.questionTypeaheadVisible && state.editingQuestionId === question.ids.id && (
+																	<div className="typeahead-dropdown">
+																		{state.questionTypeaheadLoading ? (
+																			<div className="typeahead-item loading">
+																				<div className="loading-spinner"></div>
+																				Searching for questions...
+																			</div>
+																		) : state.questionTypeaheadResults && state.questionTypeaheadResults.length > 0 ? (
+																			state.questionTypeaheadResults.map((result, index) => (
+																				<div
+																					key={result.id}
+																					className={`typeahead-item ${index === state.questionTypeaheadSelectedIndex ? 'selected' : ''}`}
+																					onclick={(e) => {
+																						e.preventDefault();
+																						e.stopPropagation();
+																						dispatch('SELECT_LIBRARY_QUESTION', {
+																							questionId: question.ids.id,
+																							libraryQuestion: result
+																						});
+																					}}
+																					onmousedown={(e) => {
+																						e.preventDefault();
+																						e.stopPropagation();
+																					}}
+																				>
+																					<div className="typeahead-item-title">{result.name}</div>
+																					<div className="typeahead-item-meta">
+																						{result.exact_match ? 'Exact Match' : 'Partial Match'}
+																					</div>
+																				</div>
+																			))
+																		) : state.questionTypeaheadQuery.length >= 3 && !state.questionTypeaheadLoading ? (
+																			<div className="typeahead-item no-results">
+																				No matching questions found for "{state.questionTypeaheadQuery}"
+																			</div>
+																		) : null}
+																	</div>
+																)}
+															</div>
 																<div className="tooltip-edit-icon">
 																	<span 
 																		className={`tooltip-icon ${question.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
@@ -1059,11 +1134,37 @@ const view = (state, {updateState, dispatch}) => {
 															<div className="question-meta">
 																<span className="question-type">{question.type}</span>
 																{question.hidden && <span className="hidden-indicator">Hidden</span>}
+																{question.isLibraryQuestion && (
+																	<span className="library-indicator" style={{
+																		backgroundColor: state.questionChanges[question.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																		color: 'white',
+																		padding: '2px 6px',
+																		borderRadius: '10px',
+																		fontSize: '11px',
+																		fontWeight: 'bold'
+																	}}>
+																		{state.questionChanges[question.ids.id]?.libraryStatus === 'modified' ? '📚 LIBRARY (MODIFIED)' : '📚 LIBRARY'}
+																	</span>
+																)}
 															</div>
 														</div>
 													)}
 												</div>
-												
+
+												{state.libraryQuestionLoading === question.ids.id && (
+													<div className="library-loading-overlay" style={{
+														padding: '10px',
+														textAlign: 'center',
+														backgroundColor: '#f8f9fa',
+														border: '1px solid #dee2e6',
+														borderRadius: '4px',
+														margin: '5px 0',
+														color: '#6c757d'
+													}}>
+														⏳ Loading library question and answers...
+													</div>
+												)}
+
 												<div className="question-body">
 													{/* Single Select Questions */}
 													{question.type === 'Single Select' && (
@@ -1194,7 +1295,7 @@ const view = (state, {updateState, dispatch}) => {
 																					}}
 																				/>
 																				<div className="answer-tooltip-icon">
-																					<span 
+																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
 																						title={answer.tooltip || 'Click to add tooltip'}
 																						ondblclick={(e) => {
@@ -1208,6 +1309,19 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
+																				{answer.isLibraryAnswer && (
+																					<span className="answer-library-indicator" style={{
+																						backgroundColor: state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																						color: 'white',
+																						padding: '1px 4px',
+																						borderRadius: '8px',
+																						fontSize: '9px',
+																						fontWeight: 'bold',
+																						marginLeft: '4px'
+																					}}>
+																						{state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '📚 MOD' : '📚 LIB'}
+																					</span>
+																				)}
 																				<div className="answer-controls" style={state.isMobileView ? {
 																					display: 'flex',
 																					flexWrap: 'wrap',
@@ -1875,7 +1989,7 @@ const view = (state, {updateState, dispatch}) => {
 																					}}
 																				/>
 																				<div className="answer-tooltip-icon">
-																					<span 
+																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
 																						title={answer.tooltip || 'Click to add tooltip'}
 																						ondblclick={(e) => {
@@ -1889,6 +2003,19 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
+																				{answer.isLibraryAnswer && (
+																					<span className="answer-library-indicator" style={{
+																						backgroundColor: state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '#ffc107' : '#17a2b8',
+																						color: 'white',
+																						padding: '1px 4px',
+																						borderRadius: '8px',
+																						fontSize: '9px',
+																						fontWeight: 'bold',
+																						marginLeft: '4px'
+																					}}>
+																						{state.answerChanges[answer.ids.id]?.libraryStatus === 'modified' ? '📚 MOD' : '📚 LIB'}
+																					</span>
+																				)}
 																				<div className="answer-controls" style={state.isMobileView ? {
 																					display: 'flex',
 																					flexWrap: 'wrap',
@@ -2501,7 +2628,7 @@ const view = (state, {updateState, dispatch}) => {
 										
 										{/* Add Question Button - only show in edit mode for draft assessments */}
 										{state.builderMode && state.currentAssessment?.status === 'draft' && (
-											<button 
+											<button
 												className="add-question-btn"
 												onclick={() => dispatch('ADD_QUESTION', {
 													sectionId: state.selectedSection
@@ -2721,6 +2848,16 @@ createCustomElement('cadal-careiq-builder', {
 		relationshipTypeaheadResults: [], // search results for relationship typeahead
 		relationshipTypeaheadLoading: false,
 		selectedRelationshipQuestion: null, // {id, label} of selected question
+		// Question typeahead state (similar to section typeahead)
+		questionTypeaheadResults: [],
+		questionTypeaheadLoading: false,
+		questionTypeaheadQuery: '',
+		questionTypeaheadVisible: false,
+		questionTypeaheadSelectedIndex: -1,
+		questionTypeaheadDebounceTimeout: null,
+		selectedQuestionLibraryId: null,
+		pendingLibraryQuestionReplacementId: null,
+		libraryQuestionLoading: null,
 		// Modal state for editing long text
 		modalOpen: false,
 		modalType: null, // 'question' or 'answer'
@@ -2731,6 +2868,9 @@ createCustomElement('cadal-careiq-builder', {
 		editingSectionId: null,
 		editingSectionName: null,
 		sectionChanges: {},
+		// Question editing state
+		editingQuestionId: null,
+		editingQuestionName: null,
 		// Change tracking for all components
 		questionChanges: {},
 		answerChanges: {},
@@ -3890,16 +4030,19 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {sectionId} = action.payload;
-			
+
 			console.log('Adding new question to section:', sectionId);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
 			// Generate a temporary UUID for the new question
 			const newQuestionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-			const nextSortOrder = state.currentQuestions.questions.length + 1;
+
+			// Calculate next sort_order to ensure new question appears last
+			const maxSortOrder = Math.max(...state.currentQuestions.questions.map(q => q.sort_order || 0), 0);
+			const nextSortOrder = maxSortOrder + 1;
 			
 			const newQuestion = {
 				ids: { id: newQuestionId },
@@ -4004,20 +4147,31 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_LABEL': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newLabel} = action.payload;
-			
+
 			console.log('Updating question label:', questionId, 'to:', newLabel);
-			
+
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
-			
+
+			const question = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+			const existingChange = state.questionChanges[questionId];
+
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				if (question.ids.id === questionId) {
 					return {...question, label: newLabel};
 				}
 				return question;
 			});
-			
+
+			// Determine library status if this is a library question
+			let libraryStatus = existingChange?.libraryStatus;
+			if (question?.isLibraryQuestion && existingChange?.originalLibraryData) {
+				// Check if this modification deviates from original library data
+				const isModified = newLabel !== existingChange.originalLibraryData.label;
+				libraryStatus = isModified ? 'modified' : 'unmodified';
+			}
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
@@ -4027,8 +4181,10 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[questionId]: {
 						...state.questionChanges[questionId],
-						action: state.questionChanges[questionId]?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
-						label: newLabel
+						action: existingChange?.action || (questionId.startsWith('temp_') ? 'add' : 'update'),
+						label: newLabel,
+						libraryStatus: libraryStatus,  // Update library status
+						timestamp: new Date().toISOString()
 					}
 				}
 			});
@@ -4830,6 +4986,399 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GUIDELINE_SEARCH_ERROR',
 			metaParam: 'meta'
 		}),
+
+		'MAKE_QUESTION_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/question-typeahead', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'QUESTION_SEARCH_SUCCESS',
+			errorActionType: 'QUESTION_SEARCH_ERROR'
+		}),
+
+		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-library-question', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'LIBRARY_QUESTION_SUCCESS',
+			errorActionType: 'LIBRARY_QUESTION_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'QUESTION_SEARCH_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== QUESTION_SEARCH_SUCCESS ===');
+			console.log('Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+			console.log('Response keys:', Object.keys(action.payload || {}));
+			console.log('action.payload.results:', action.payload.results);
+
+			const results = action.payload.results || [];
+			console.log('Found questions:', results.length);
+
+			updateState({
+				questionTypeaheadResults: results,
+				questionTypeaheadLoading: false
+			});
+
+			console.log('After QUESTION_SEARCH_SUCCESS - State check:');
+			console.log('questionTypeaheadVisible:', state.questionTypeaheadVisible);
+			console.log('editingQuestionId:', state.editingQuestionId);
+			console.log('Results length:', results.length);
+		},
+
+		'QUESTION_SEARCH_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('QUESTION_SEARCH_ERROR:', action.payload);
+
+			updateState({
+				questionTypeaheadResults: [],
+				questionTypeaheadLoading: false,
+				currentQuestionSearchSectionId: null,
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Error searching questions: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'LIBRARY_QUESTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== LIBRARY_QUESTION_SUCCESS ===');
+			console.log('Response:', action.payload);
+			console.log('Meta:', action.meta);
+			console.log('Meta keys:', Object.keys(action.meta || {}));
+			console.log('Meta values:', action.meta);
+			console.log('targetQuestionId from meta:', action.meta?.targetQuestionId);
+
+			const libraryQuestion = action.payload;
+			const targetQuestionId = state.pendingLibraryQuestionReplacementId;
+
+			// Clear the typeahead and pending replacement ID
+			updateState({
+				questionTypeaheadLoading: false,
+				questionTypeaheadText: '',
+				questionTypeaheadResults: [],
+				currentQuestionSearchSectionId: null,
+				pendingLibraryQuestionReplacementId: null,  // Clear after use
+				libraryQuestionLoading: null  // Clear loading state
+			});
+
+			// Replace the target question with the library question
+			console.log('Replacing question ID:', targetQuestionId, 'with library question (from state)');
+			dispatch('REPLACE_QUESTION_WITH_LIBRARY', {
+				targetQuestionId: targetQuestionId,
+				libraryQuestion: libraryQuestion
+			});
+		},
+
+		'LIBRARY_QUESTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('LIBRARY_QUESTION_ERROR:', action.payload);
+
+			updateState({
+				questionTypeaheadResults: [],
+				questionTypeaheadLoading: false,
+				currentQuestionSearchSectionId: null,
+				libraryQuestionLoading: null,  // Clear loading state
+				pendingLibraryQuestionReplacementId: null,  // Clear pending ID
+				systemMessages: [
+					...state.systemMessages,
+					{
+						type: 'error',
+						message: `Error fetching library question: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_LIBRARY_QUESTION_TO_SECTION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {sectionId, libraryQuestion} = action.payload;
+
+			console.log('=== ADD_LIBRARY_QUESTION_TO_SECTION ===');
+			console.log('Section ID:', sectionId);
+			console.log('Library Question:', libraryQuestion);
+
+			if (!state.currentQuestions?.questions) {
+				console.error('No current questions available');
+				return;
+			}
+
+			// Generate a temporary UUID for the new question
+			const newQuestionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+			const nextSortOrder = state.currentQuestions.questions.length + 1;
+
+			// Create the question structure based on library question
+			const newQuestion = {
+				ids: { id: newQuestionId },
+				label: libraryQuestion.label,
+				required: libraryQuestion.required || false,
+				type: libraryQuestion.type,
+				tooltip: libraryQuestion.tooltip || '',
+				alternative_wording: libraryQuestion.alternative_wording || '',
+				voice: libraryQuestion.voice || 'Patient',
+				sort_order: nextSortOrder,
+				hidden: false,
+				custom_attributes: libraryQuestion.custom_attributes || {},
+				answers: [],
+				// Mark as library question for proper backend handling
+				isLibraryQuestion: true,
+				libraryQuestionId: libraryQuestion.master_id || libraryQuestion.id
+			};
+
+			// Add all library answers if they exist
+			if (libraryQuestion.answers && libraryQuestion.answers.length > 0) {
+				newQuestion.answers = libraryQuestion.answers.map((libraryAnswer, index) => {
+					const tempAnswerId = 'temp_answer_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 9);
+
+					return {
+						ids: { id: tempAnswerId },
+						label: libraryAnswer.text,
+						tooltip: libraryAnswer.tooltip || '',
+						alternative_wording: libraryAnswer.alternative_wording || '',
+						secondary_input_type: libraryAnswer.secondary_input_type || null,
+						mutually_exclusive: libraryAnswer.mutually_exclusive || false,
+						sort_order: libraryAnswer.sort_order || index,
+						// Mark as library answer for proper backend handling
+						isLibraryAnswer: true,
+						libraryAnswerId: libraryAnswer.master_id || libraryAnswer.id
+					};
+				});
+			}
+
+			// Add question to current questions
+			const updatedQuestions = [
+				...state.currentQuestions.questions,
+				newQuestion
+			];
+
+			// Track the library question addition in questionChanges
+			const questionChangeKey = newQuestionId;
+			const questionChangeData = {
+				action: 'add',
+				questionId: newQuestionId,
+				label: newQuestion.label,
+				required: newQuestion.required,
+				type: newQuestion.type,
+				tooltip: newQuestion.tooltip,
+				alternative_wording: newQuestion.alternative_wording,
+				voice: newQuestion.voice,
+				sort_order: newQuestion.sort_order,
+				sectionId: sectionId,
+				isLibraryQuestion: true,
+				libraryQuestionId: newQuestion.libraryQuestionId,
+				timestamp: new Date().toISOString()
+			};
+
+			// Track all library answers in answerChanges
+			const updatedAnswerChanges = { ...state.answerChanges };
+			newQuestion.answers.forEach(answer => {
+				const answerChangeKey = answer.ids.id;
+				updatedAnswerChanges[answerChangeKey] = {
+					action: 'add',
+					answerId: answer.ids.id,
+					questionId: newQuestionId,
+					label: answer.label,
+					tooltip: answer.tooltip,
+					alternative_wording: answer.alternative_wording,
+					secondary_input_type: answer.secondary_input_type,
+					mutually_exclusive: answer.mutually_exclusive,
+					sort_order: answer.sort_order,
+					isLibraryAnswer: true,
+					libraryAnswerId: answer.libraryAnswerId,
+					timestamp: new Date().toISOString()
+				};
+			});
+
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				// Track the library question change
+				questionChanges: {
+					...state.questionChanges,
+					[questionChangeKey]: questionChangeData
+				},
+				// Track all library answer changes
+				answerChanges: updatedAnswerChanges,
+				// Add success message
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Library question "${libraryQuestion.label}" added with ${libraryQuestion.answers?.length || 0} answers. Click "Save Changes" to apply.`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			console.log('=== LIBRARY QUESTION ADDED SUCCESSFULLY ===');
+			console.log('Question ID:', newQuestionId);
+			console.log('Library Question ID:', newQuestion.libraryQuestionId);
+			console.log('Number of library answers:', newQuestion.answers.length);
+		},
+
+		'REPLACE_QUESTION_WITH_LIBRARY': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {targetQuestionId, libraryQuestion} = action.payload;
+
+			console.log('=== REPLACE_QUESTION_WITH_LIBRARY ===');
+			console.log('Target Question ID:', targetQuestionId);
+			console.log('Library Question:', libraryQuestion);
+
+			if (!state.currentQuestions?.questions) {
+				console.error('No current questions available');
+				return;
+			}
+
+			// Find the target question to replace
+			const questionIndex = state.currentQuestions.questions.findIndex(q => q.ids.id === targetQuestionId);
+			if (questionIndex === -1) {
+				console.error('Target question not found:', targetQuestionId);
+				return;
+			}
+
+			const currentQuestion = state.currentQuestions.questions[questionIndex];
+			console.log('Found target question:', currentQuestion.label);
+
+			// Create replacement question with library data
+			const replacementQuestion = {
+				ids: { id: targetQuestionId }, // Keep the same ID
+				label: libraryQuestion.label || libraryQuestion.name,
+				required: libraryQuestion.required || false,
+				type: libraryQuestion.type || 'Single Select',
+				tooltip: libraryQuestion.tooltip || '',
+				alternative_wording: libraryQuestion.alternative_wording || '',
+				voice: libraryQuestion.voice || 'Patient',
+				sort_order: currentQuestion.sort_order, // Keep original sort order
+				hidden: currentQuestion.hidden || false,
+				custom_attributes: libraryQuestion.custom_attributes || {},
+				answers: [],
+				isLibraryQuestion: true,
+				libraryQuestionId: libraryQuestion.master_id || libraryQuestion.id
+			};
+
+			// Add library answers if they exist
+			if (libraryQuestion.answers && libraryQuestion.answers.length > 0) {
+				replacementQuestion.answers = libraryQuestion.answers.map((libraryAnswer, index) => {
+					const tempAnswerId = 'temp_answer_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 9);
+
+					return {
+						ids: { id: tempAnswerId },
+						label: libraryAnswer.text || libraryAnswer.label,
+						tooltip: libraryAnswer.tooltip || '',
+						alternative_wording: libraryAnswer.alternative_wording || '',
+						secondary_input_type: libraryAnswer.secondary_input_type || null,
+						mutually_exclusive: libraryAnswer.mutually_exclusive || false,
+						sort_order: libraryAnswer.sort_order || (index + 1),
+						triggered_questions: [],
+						isLibraryAnswer: true,
+						libraryAnswerId: libraryAnswer.master_id || libraryAnswer.id
+					};
+				});
+			}
+
+			// Update the questions array
+			const updatedQuestions = [...state.currentQuestions.questions];
+			updatedQuestions[questionIndex] = replacementQuestion;
+
+			// Update question changes tracking with library question status
+			const questionChangeKey = targetQuestionId;
+			const updatedQuestionChanges = {
+				...state.questionChanges,
+				[questionChangeKey]: {
+					action: 'library_replace',  // Special action for library replacement
+					questionId: targetQuestionId,
+					type: replacementQuestion.type,
+					label: replacementQuestion.label,
+					required: replacementQuestion.required,
+					tooltip: replacementQuestion.tooltip,
+					alternative_wording: replacementQuestion.alternative_wording,
+					voice: replacementQuestion.voice,
+					sort_order: replacementQuestion.sort_order,
+					isLibraryQuestion: true,
+					libraryQuestionId: replacementQuestion.libraryQuestionId,
+					libraryStatus: 'unmodified',  // Track modification status
+					originalLibraryData: {  // Store original library data for comparison
+						label: libraryQuestion.label || libraryQuestion.name,
+						type: libraryQuestion.type,
+						required: libraryQuestion.required || false,
+						tooltip: libraryQuestion.tooltip || '',
+						alternative_wording: libraryQuestion.alternative_wording || '',
+						voice: libraryQuestion.voice || 'Patient'
+					},
+					timestamp: new Date().toISOString()
+				}
+			};
+
+			// Track all library answers in answerChanges
+			const updatedAnswerChanges = { ...state.answerChanges };
+			replacementQuestion.answers.forEach((answer, index) => {
+				const answerChangeKey = answer.ids.id;
+				const originalLibraryAnswer = libraryQuestion.answers[index];
+				updatedAnswerChanges[answerChangeKey] = {
+					action: 'library_add',  // Special action for library answers
+					answerId: answer.ids.id,
+					questionId: targetQuestionId,
+					label: answer.label,
+					tooltip: answer.tooltip,
+					alternative_wording: answer.alternative_wording,
+					secondary_input_type: answer.secondary_input_type,
+					mutually_exclusive: answer.mutually_exclusive,
+					sort_order: answer.sort_order,
+					isLibraryAnswer: true,
+					libraryAnswerId: answer.libraryAnswerId,
+					libraryStatus: 'unmodified',  // Track modification status
+					originalLibraryData: {  // Store original library answer data
+						label: originalLibraryAnswer.text || originalLibraryAnswer.label,
+						tooltip: originalLibraryAnswer.tooltip || '',
+						alternative_wording: originalLibraryAnswer.alternative_wording || '',
+						secondary_input_type: originalLibraryAnswer.secondary_input_type || null,
+						mutually_exclusive: originalLibraryAnswer.mutually_exclusive || false,
+						sort_order: originalLibraryAnswer.sort_order || (index + 1)
+					},
+					libraryAnswerId: answer.libraryAnswerId,
+					timestamp: new Date().toISOString()
+				};
+			});
+
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				},
+				questionChanges: updatedQuestionChanges,
+				answerChanges: updatedAnswerChanges,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Question replaced with library question "${replacementQuestion.label}" (${replacementQuestion.answers.length} answers). Click "Save Changes" to apply.`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			console.log('=== QUESTION REPLACED SUCCESSFULLY ===');
+			console.log('Replaced Question ID:', targetQuestionId);
+			console.log('Library Question ID:', replacementQuestion.libraryQuestionId);
+			console.log('Number of library answers:', replacementQuestion.answers.length);
+		},
+
 		'GUIDELINE_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			
@@ -4973,6 +5522,169 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				relationshipTypeaheadResults: [],
 				currentGuidelineSearchAnswerId: null
+			});
+		},
+
+		'QUESTION_TYPEAHEAD_INPUT': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {text, sectionId} = action.payload;
+
+			console.log('=== QUESTION_TYPEAHEAD_INPUT ===');
+			console.log('Search text:', text);
+			console.log('Section ID:', sectionId);
+			console.log('Text length:', text.length);
+
+			updateState({
+				questionTypeaheadText: text,
+				currentQuestionSearchSectionId: sectionId
+			});
+
+			// Only search after 3 characters
+			if (text.length >= 3) {
+				console.log('Triggering question search for:', text);
+				dispatch('SEARCH_QUESTIONS', {
+					searchText: text,
+					sectionId: sectionId
+				});
+			} else {
+				updateState({
+					questionTypeaheadResults: []
+				});
+			}
+		},
+
+		'SEARCH_QUESTIONS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {searchText, sectionId} = action.payload;
+
+			console.log('=== SEARCH_QUESTIONS ===');
+			console.log('Searching for:', searchText);
+			console.log('Section ID in SEARCH_QUESTIONS:', sectionId);
+
+			const requestBody = JSON.stringify({
+				searchText: searchText
+			});
+
+			updateState({
+				questionTypeaheadLoading: true,
+				currentQuestionSearchSectionId: sectionId
+			});
+
+			console.log('Question search request body:', requestBody);
+			dispatch('MAKE_QUESTION_SEARCH_REQUEST', {requestBody: requestBody});
+		},
+
+		'QUESTION_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {searchText, questionId} = action.payload;
+
+			// Clear existing timeout
+			if (state.questionTypeaheadDebounceTimeout) {
+				clearTimeout(state.questionTypeaheadDebounceTimeout);
+			}
+
+			// Set up debounced search
+			const timeout = setTimeout(() => {
+				dispatch('SEARCH_QUESTIONS', {
+					searchText: searchText
+				});
+			}, 300);
+
+			updateState({
+				questionTypeaheadQuery: searchText,
+				questionTypeaheadVisible: true,
+				questionTypeaheadSelectedIndex: -1,
+				questionTypeaheadDebounceTimeout: timeout,
+				editingQuestionId: questionId
+			});
+		},
+
+		'QUESTION_TYPEAHEAD_HIDE': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				questionTypeaheadVisible: false,
+				questionTypeaheadResults: [],
+				questionTypeaheadSelectedIndex: -1,
+				editingQuestionId: null
+			});
+		},
+
+		'QUESTION_TYPEAHEAD_KEYBOARD': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {key} = action.payload;
+
+			if (key === 'ArrowDown') {
+				const newIndex = state.questionTypeaheadSelectedIndex < state.questionTypeaheadResults.length - 1
+					? state.questionTypeaheadSelectedIndex + 1
+					: 0;
+				updateState({
+					questionTypeaheadSelectedIndex: newIndex
+				});
+			} else if (key === 'ArrowUp') {
+				const newIndex = state.questionTypeaheadSelectedIndex > 0
+					? state.questionTypeaheadSelectedIndex - 1
+					: state.questionTypeaheadResults.length - 1;
+				updateState({
+					questionTypeaheadSelectedIndex: newIndex
+				});
+			} else if (key === 'Enter' && state.questionTypeaheadSelectedIndex >= 0) {
+				const selectedResult = state.questionTypeaheadResults[state.questionTypeaheadSelectedIndex];
+				if (selectedResult) {
+					dispatch('SELECT_LIBRARY_QUESTION', {
+						questionId: state.editingQuestionId,
+						libraryQuestion: selectedResult
+					});
+				}
+			}
+		},
+
+		'SELECT_LIBRARY_QUESTION': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {questionId, libraryQuestion} = action.payload;
+
+			console.log('=== SELECT_LIBRARY_QUESTION ===');
+			console.log('Replacing question ID:', questionId);
+			console.log('With library question:', libraryQuestion);
+
+			// Hide typeahead dropdown but keep question visible during fetch
+			updateState({
+				questionTypeaheadVisible: false,
+				questionTypeaheadResults: [],
+				questionTypeaheadSelectedIndex: -1,
+				pendingLibraryQuestionReplacementId: questionId,  // Store for later use
+				libraryQuestionLoading: questionId  // Show loading state on specific question
+			});
+
+			// Fetch the full library question details including answers
+			console.log('Fetching library question details for:', libraryQuestion.id);
+			dispatch('FETCH_LIBRARY_QUESTION', {
+				libraryQuestionId: libraryQuestion.id,
+				targetQuestionId: questionId
+			});
+		},
+
+		'FETCH_LIBRARY_QUESTION': (coeffects) => {
+			const {action, updateState, dispatch} = coeffects;
+			const {libraryQuestionId, targetQuestionId} = action.payload;
+
+			console.log('=== FETCH_LIBRARY_QUESTION ===');
+			console.log('Fetching library question ID:', libraryQuestionId);
+			console.log('To replace target question ID:', targetQuestionId);
+
+			const requestBody = JSON.stringify({
+				questionId: libraryQuestionId
+			});
+
+			updateState({
+				questionTypeaheadLoading: true
+			});
+
+			console.log('Library question request body:', requestBody);
+			dispatch('MAKE_LIBRARY_QUESTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					targetQuestionId: targetQuestionId
+				}
 			});
 		},
 
@@ -5565,30 +6277,32 @@ createCustomElement('cadal-careiq-builder', {
 
 
 		'PROCEED_WITH_SECTION_SAVE': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
+
+			console.log('Section checkmark clicked - auto-saving all changes!');
+
 			// Update the section label in the assessment
 			const updatedSections = state.currentAssessment.sections.map(section => ({
 				...section,
-				subsections: section.subsections?.map(subsection => 
-					subsection.id === sectionId 
+				subsections: section.subsections?.map(subsection =>
+					subsection.id === sectionId
 						? {...subsection, label: sectionLabel}
 						: subsection
 				) || []
 			}));
-			
+
 			// Prepare the section changes with library_id if selected from typeahead
 			const sectionChangeData = {
 				...state.sectionChanges[sectionId],
 				label: sectionLabel
 			};
-			
+
 			// Add library_id if section was selected from typeahead
 			if (state.selectedSectionLibraryId) {
 				sectionChangeData.library_id = state.selectedSectionLibraryId;
 			}
-			
+
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
@@ -5607,6 +6321,9 @@ createCustomElement('cadal-careiq-builder', {
 				sectionTypeaheadSelectedIndex: -1,
 				selectedSectionLibraryId: null
 			});
+
+			// AUTO-SAVE: Trigger save of all pending changes after section edit
+			dispatch('SAVE_ALL_CHANGES');
 		},
 
 		'CANCEL_SECTION_EDIT': (coeffects) => {
@@ -5764,16 +6481,16 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Refreshing entire assessment from server after delete');
 			console.log('- Will re-select section (if still exists):', currentSection, currentSectionLabel);
 			
-			if (state.currentAssessment?.ids?.id) {
+			if (state.currentAssessmentId) {
 				// Store section to re-select in state temporarily (if it still exists)
 				updateState({
 					pendingReselectionSection: currentSection,
 					pendingReselectionSectionLabel: currentSectionLabel
 				});
-				
+
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
-					assessmentId: state.currentAssessment.ids.id,
-					assessmentTitle: state.currentAssessment.title
+					assessmentId: state.currentAssessmentId,
+					assessmentTitle: state.currentAssessment?.title || 'Assessment'
 				});
 			}
 		},
@@ -6011,9 +6728,21 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_LABEL': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newLabel} = action.payload;
-			
+
 			console.log('Updating answer label:', answerId, 'New label:', newLabel);
-			
+
+			// Find the answer to determine if it's a library answer
+			let currentAnswer = null;
+			for (const question of state.currentQuestions.questions) {
+				const answer = question.answers?.find(a => a.ids.id === answerId);
+				if (answer) {
+					currentAnswer = answer;
+					break;
+				}
+			}
+
+			const existingChange = state.answerChanges[answerId];
+
 			// Update the answer in the current questions data
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -6026,7 +6755,15 @@ createCustomElement('cadal-careiq-builder', {
 					) || []
 				}))
 			};
-			
+
+			// Determine library status if this is a library answer
+			let libraryStatus = existingChange?.libraryStatus;
+			if (currentAnswer?.isLibraryAnswer && existingChange?.originalLibraryData) {
+				// Check if this modification deviates from original library data
+				const isModified = newLabel !== existingChange.originalLibraryData.label;
+				libraryStatus = isModified ? 'modified' : 'unmodified';
+			}
+
 			updateState({
 				currentQuestions: updatedQuestions,
 				// Track the change for save functionality
@@ -6034,8 +6771,10 @@ createCustomElement('cadal-careiq-builder', {
 					...state.answerChanges,
 					[answerId]: {
 						...(state.answerChanges[answerId] || {}),
-						action: state.answerChanges[answerId]?.action || 'update',
-						label: newLabel
+						action: existingChange?.action || 'update',
+						label: newLabel,
+						libraryStatus: libraryStatus,  // Update library status
+						timestamp: new Date().toISOString()
 					}
 				}
 			});
@@ -6227,15 +6966,71 @@ createCustomElement('cadal-careiq-builder', {
 						dispatch('DELETE_QUESTION_API', {
 							questionId: questionId
 						});
+					} else if (questionData.action === 'library_replace') {
+						console.log('=== LIBRARY QUESTION SAVE DEBUG ===');
+						console.log('Library question ID:', questionId);
+						console.log('Question data from changes:', questionData);
+						console.log('Current assessment ID:', state.currentAssessmentId);
+						console.log('Selected section ID:', state.selectedSection);
+
+						// Find the current question to get actual UI values
+						let currentQuestion = null;
+						if (state.currentQuestions && state.currentQuestions.questions) {
+							currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+							console.log('Found current question:', currentQuestion);
+						}
+
+						if (!currentQuestion) {
+							console.error('CRITICAL ERROR: Current question not found for library save!');
+							return;
+						}
+
+						// Get all library answers for this question
+						const questionAnswers = currentQuestion.answers || [];
+						console.log('Question answers count:', questionAnswers.length);
+						console.log('Question answers:', questionAnswers);
+
+						// Save library question exactly like a new question
+						const backendQuestionData = {
+							label: currentQuestion.label,
+							type: currentQuestion.type,
+							tooltip: currentQuestion.tooltip || '',
+							alternative_wording: questionData.alternative_wording || '',
+							answers: questionAnswers.map(answer => ({
+								label: answer.label,
+								tooltip: answer.tooltip || '',
+								alternative_wording: answer.alternative_wording || '',
+								secondary_input_type: answer.secondary_input_type,
+								mutually_exclusive: answer.mutually_exclusive || false,
+								custom_attributes: {},
+								required: answer.required || false
+							})),
+							guideline_template_id: state.currentAssessmentId,
+							section_id: state.selectedSection,
+							sort_order: currentQuestion.sort_order || 0,
+							custom_attributes: {},
+							voice: currentQuestion.voice || 'Patient',
+							required: currentQuestion.required || false,
+							available: false
+						};
+
+						console.log('=== BACKEND QUESTION DATA ===');
+						console.log(JSON.stringify(backendQuestionData, null, 2));
+						console.log('================================');
+
+						dispatch('ADD_QUESTION_API', {
+							questionData: backendQuestionData,
+							sectionId: state.selectedSection
+						});
 					} else if (questionData.action === 'update') {
 						console.log('Updating question:', questionId);
-						
+
 						// Find the current question to get actual UI values
 						let currentQuestion = null;
 						if (state.currentQuestions && state.currentQuestions.questions) {
 							currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
 						}
-						
+
 						// Prepare data for backend API using actual current values
 						const backendQuestionData = {
 							questionId: questionId,
@@ -6248,7 +7043,7 @@ createCustomElement('cadal-careiq-builder', {
 							voice: currentQuestion ? (currentQuestion.voice || 'Patient') : (questionData.voice || 'Patient'),
 							type: currentQuestion ? currentQuestion.type : questionData.type
 						};
-						
+
 						dispatch('UPDATE_QUESTION_API', {
 							questionData: backendQuestionData
 						});
@@ -6314,6 +7109,10 @@ createCustomElement('cadal-careiq-builder', {
 						dispatch('DELETE_ANSWER_API', {
 							answerId: answerId
 						});
+					} else if (answerData.action === 'library_add') {
+						console.log('Skipping library answer - will be saved with parent library question:', answerId);
+						// Library answers are now saved as part of the library question (ADD_QUESTION_API)
+						return;
 					} else if (answerData.action === 'update') {
 						console.log('Updating answer:', answerId);
 						
@@ -6495,7 +7294,7 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('ADD_QUESTION_API handler called');
 			console.log('Question data:', questionData);
 			
-			// Prepare request body following the established pattern (direct fields, no data wrapper)
+			// CORRECT: Send fields directly - ServiceNow HTTP framework adds data wrapper automatically
 			const requestBody = JSON.stringify({
 				label: questionData.label,
 				type: questionData.type,
@@ -6770,25 +7569,47 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('Question added successfully:', action.payload);
-			
+			console.log('Full action.payload structure:', JSON.stringify(action.payload, null, 2));
+
 			// Log the question UUID to console
 			if (action.payload && action.payload.id) {
 				console.log('=== QUESTION CREATED SUCCESSFULLY ===');
 				console.log('New Question UUID:', action.payload.id);
 				console.log('=====================================');
 			}
-			
+
+			// Check for backend messages (like duplicate prevention)
+			let systemMessage = 'Question created successfully! Refreshing data...';
+			let messageType = 'success';
+
+			// Debug: Check all possible locations for the message
+			console.log('Checking for backend messages:');
+			console.log('action.payload.detail:', action.payload?.detail);
+			console.log('action.payload.message:', action.payload?.message);
+			console.log('action.payload.data?.detail:', action.payload?.data?.detail);
+
+			// Surface any backend detail messages to user
+			if (action.payload && action.payload.detail) {
+				systemMessage = action.payload.detail;
+				messageType = 'warning';
+				console.log('Found detail message:', systemMessage);
+			} else if (action.payload && action.payload.data && action.payload.data.detail) {
+				systemMessage = action.payload.data.detail;
+				messageType = 'warning';
+				console.log('Found data.detail message:', systemMessage);
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
-						type: 'success',
-						message: 'Question created successfully! Refreshing data...',
+						type: messageType,
+						message: systemMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-			
+
 			// Refresh the questions for the current section
 			if (state.selectedSection) {
 				console.log('Refreshing questions for section:', state.selectedSection);

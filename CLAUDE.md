@@ -88,6 +88,7 @@ currentGuidelineSearchAnswerId: null        // Clears cached answer ID
 ### Version Management
 - **Always increment the last digit** in package.json version when making changes
 - Current pattern: 0.0.xxx (increment xxx)
+- **CRITICAL: Update version after EVERY development cycle** - after completing any set of changes (even if just 1 change), always update package.json version before finishing
 
 ### CareIQ API Integration
 - **Dynamic URL building** using client-provided parameters:
@@ -109,6 +110,31 @@ currentGuidelineSearchAnswerId: null        // Clears cached answer ID
 - Use ServiceNow UI-Core action handlers pattern
 - HTTP effects with start/success/error action types
 - State updates via `updateState()` method
+
+### Flex Input Layout Fix Pattern
+**CRITICAL**: When inputs are truncated in flex containers, apply this complete fix pattern.
+
+**Problem**: Input fields in flex layouts don't extend to available space, appearing truncated before adjacent elements (like tooltip icons).
+
+**Solution**: Apply flex properties to BOTH container and input:
+```scss
+.container {
+  flex: 1;           // Take remaining space in parent flex
+  width: 100%;       // Full width within flex item
+  min-width: 0;      // Allow shrinking below content width
+}
+
+.input {
+  flex: 1;           // Take remaining space in container
+  width: 100%;       // Full width within container
+  min-width: 0;      // Allow shrinking below content width
+  box-sizing: border-box; // Include padding in width calculation
+}
+```
+
+**Key Insight**: Both `flex: 1` AND `width: 100%` are needed. `flex: 1` alone is insufficient for input elements to extend fully.
+
+**Applied to**: `.typeahead-container` and `.question-label-input` classes
 
 ### Typeahead Dropdown Close Pattern
 **CRITICAL**: For consistent UX, all typeahead dropdowns must implement click-outside and Escape key behavior.
@@ -271,6 +297,77 @@ When implementing any action that modifies assessment data, you MUST:
 
 **CRITICAL**: If you forget to update change tracking, users won't see the save button and changes will be lost!
 
+## CRITICAL PATTERN: Post-Save Reload (ALWAYS Required)
+**ALWAYS reload assessment data after ANY save operation completes successfully.**
+
+### Rule: Every SUCCESS Handler Must Reload
+ALL save success handlers must trigger `FETCH_ASSESSMENT_DETAILS` to refresh the entire assessment:
+
+```javascript
+'[OPERATION]_SUCCESS': (coeffects) => {
+    // 1. Store current context for reselection
+    const currentSection = state.selectedSection;
+
+    // 2. Clear change tracking
+    updateState({
+        sectionChanges: {},
+        questionChanges: {},
+        answerChanges: {},
+        relationshipChanges: {}
+    });
+
+    // 3. ALWAYS reload assessment data
+    if (state.currentAssessmentId) {
+        dispatch('FETCH_ASSESSMENT_DETAILS', {
+            assessmentId: state.currentAssessmentId,  // Use stored ID
+            assessmentTitle: state.currentAssessment?.title || 'Assessment'
+        });
+    }
+}
+```
+
+### Operations That Must Include Reload:
+- `DELETE_SECTION_SUCCESS` ✅
+- `ADD_SECTION_SUCCESS` ✅
+- `SECTION_UPDATE_SUCCESS` ✅
+- `ADD_QUESTION_SUCCESS` ⚠️ (currently only refreshes questions)
+- `DELETE_QUESTION_SUCCESS`
+- `UPDATE_QUESTION_SUCCESS`
+- `ADD_ANSWER_SUCCESS`
+- `DELETE_ANSWER_SUCCESS`
+- `UPDATE_ANSWER_SUCCESS`
+
+### Why Reload Is Critical:
+1. **Clears save button** (change tracking reset)
+2. **Reflects server state** (including server-side processing)
+3. **Updates IDs** (temp IDs become real UUIDs)
+4. **Maintains UI consistency** with backend truth
+
+## CRITICAL PATTERN: Section Auto-Save on Checkmark
+**Sections have special auto-save behavior**: When user clicks checkmark (✓) to confirm section edit, automatically save ALL pending changes.
+
+### Implementation:
+```javascript
+'PROCEED_WITH_SECTION_SAVE': (coeffects) => {
+    // 1. Update section data locally
+    updateState({ /* section updates */ });
+
+    // 2. AUTO-SAVE: Save ALL pending changes immediately
+    dispatch('SAVE_ALL_CHANGES');
+}
+```
+
+### Behavior:
+- ✅ **Checkmark click** → Save section + question changes + answer changes + relationship changes
+- ✅ **Immediate save** → No separate "Save Changes" button click needed
+- ✅ **Full reload** → Assessment data refreshes after save completes
+- ✅ **User feedback** → Shows "Saving changes to backend..." message
+
+### Why This Pattern:
+- **Better UX**: Section edits feel immediate and committed
+- **Reduces confusion**: No pending changes left hanging after section edit
+- **Consistent state**: UI always reflects what user just confirmed
+
 ## CRITICAL PATTERN: Assessment ID Access
 **PROBLEM**: `state.currentAssessment` from API responses does NOT contain the assessment ID.
 
@@ -378,6 +475,96 @@ When ServiceNow APIs return "Missing required fields" errors, follow this debugg
 - Mismatched field names between client and server
 - HTTP effect `dataParam` not matching dispatch payload key
 - Server-side API not accessing data correctly
+
+## System Message Pattern for Backend Responses
+**CRITICAL**: Always surface backend messages to system messages for user visibility.
+
+### Pattern Implementation:
+All SUCCESS action handlers should check for backend messages and surface them to users through system messages.
+
+```javascript
+'ACTION_SUCCESS': (coeffects) => {
+    const {action, updateState, state, dispatch} = coeffects;
+
+    // Default success message
+    let systemMessage = 'Operation completed successfully!';
+    let messageType = 'success';
+
+    // Surface any backend detail messages to user
+    if (action.payload && action.payload.detail) {
+        systemMessage = action.payload.detail;
+        // Classify message type based on content
+        if (systemMessage.toLowerCase().includes('duplicate') ||
+            systemMessage.toLowerCase().includes('already')) {
+            messageType = 'warning'; // Informational, not error
+        }
+    }
+
+    updateState({
+        systemMessages: [
+            ...(state.systemMessages || []),
+            {
+                type: messageType,
+                message: systemMessage,
+                timestamp: new Date().toISOString()
+            }
+        ]
+    });
+}
+```
+
+### Use Cases:
+- **Duplicate Prevention**: Backend prevents duplicates → Show as warning message
+- **Validation Messages**: Backend validation feedback → Show as error/warning
+- **Information Messages**: Backend status updates → Show as info messages
+- **Success with Details**: Backend success with additional info → Enhanced success message
+
+### Message Types:
+- `success` - Operation completed successfully
+- `warning` - Operation completed but with important information (duplicates, etc.)
+- `error` - Operation failed
+- `info` - General information messages
+
+**Rule**: Never hide backend messages from users. Always surface them through the system messages UI for better user experience and debugging.
+
+## Library Question/Answer Tracking Pattern
+**CRITICAL**: Track library questions and answers for different save scenarios.
+
+### Library Status Types:
+1. **'unmodified'**: Library content with no changes → Save as library reference
+2. **'modified'**: Library content that was changed → Save as new content based on library
+3. **New content**: Non-library content → Save as completely new
+
+### Implementation:
+```javascript
+// When replacing with library question/answer, track original data:
+{
+    action: 'library_replace', // or 'library_add' for answers
+    isLibraryQuestion: true,   // or isLibraryAnswer: true
+    libraryQuestionId: 'uuid',
+    libraryStatus: 'unmodified',
+    originalLibraryData: {
+        label: 'original library text',
+        type: 'Single Select',
+        // ... other original fields
+    },
+    // ... current values
+}
+
+// When user modifies library content, update libraryStatus:
+if (newValue !== existingChange.originalLibraryData.field) {
+    libraryStatus = 'modified';
+}
+```
+
+### Save Strategy:
+- **Unmodified library**: Reference library ID, minimal API calls
+- **Modified library**: Save as new with library metadata
+- **New content**: Standard save process
+
+### Visual Indicators:
+- **Unmodified library**: Blue badge "📚 LIBRARY"
+- **Modified library**: Yellow badge "📚 LIBRARY (MODIFIED)" or "📚 MOD"
 
 ## CRITICAL: Two Different API Patterns
 There are **TWO DIFFERENT** request body patterns in this codebase:
@@ -594,6 +781,39 @@ Building comprehensive assessment editor with hierarchical structure:
 - **Secondary inputs**: Display additional input fields when answers with `secondary_input_type` are selected
 - **Mutually exclusive**: Automatically deselect other answers when mutually exclusive answer is selected
 - **State management**: Track selected answers and their relationships across questions
+
+## CRITICAL PATTERN: Delta CareIQ Services Consolidation
+**PROBLEM**: Multiple "Delta CareIQ Services - *" files create confusion and inconsistency.
+
+### Single Source of Truth Pattern:
+**ALWAYS use `Delta CareIQ Services - Consolidated.js` as the single source of truth** for all Script Include methods to be added to the main CareIQ Services.js file.
+
+### Rules:
+1. **All new Script Include methods** must be added to the consolidated file
+2. **Never create new individual delta files** - update the consolidated file instead
+3. **Organized by functional groups**:
+   - Builder Section Operations
+   - Builder Question Operations
+   - Builder Answer Operations
+   - Typeahead Operations
+   - Relationship Operations
+4. **Each method must include**:
+   - Proper error handling with this._logError()
+   - Configuration validation with this._validateConfig()
+   - Appropriate HTTP method and endpoint building
+   - Consistent parameter naming and structure
+
+### File Organization:
+```
+Delta CareIQ Services - Consolidated.js (SINGLE SOURCE OF TRUTH)
+├── BUILDER - SECTION OPERATIONS
+├── BUILDER - QUESTION OPERATIONS
+├── BUILDER - ANSWER OPERATIONS
+├── TYPEAHEAD OPERATIONS
+└── RELATIONSHIP OPERATIONS
+```
+
+**This pattern eliminates confusion and ensures all Script Include additions are tracked in one place.**
 
 # CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.

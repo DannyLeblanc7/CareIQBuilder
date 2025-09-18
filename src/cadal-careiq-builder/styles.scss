@@ -1464,19 +1464,7 @@
   }
 }
 
-.question-label-input {
-  flex: 1;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-  }
-}
+// Removed duplicate .question-label-input - using the unified version below
 
 .tooltip-edit-icon {
   flex-shrink: 0;
@@ -1610,13 +1598,16 @@
 }
 
 .question-label-input {
-  padding: 0.75rem 1rem;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 4px;
+  font-size: 0.875rem;
   background-color: #ffffff;
-  
+  box-sizing: border-box;
+
   &:focus {
     outline: none;
     border-color: #3b82f6;
@@ -3269,16 +3260,14 @@
 /* Typeahead Dropdown Styles */
 .typeahead-container {
   position: relative;
+  flex: 1;
   width: 100%;
+  min-width: 0;
   overflow: visible;
   z-index: 10000;
 }
 
 /* Ensure parent containers don't clip the dropdown */
-.typeahead-container {
-  overflow: visible !important;
-  z-index: 9999;
-}
 
 /* Alternative approach: make the dropdown appear upward if it's near the bottom */
 .typeahead-container.dropdown-up .typeahead-dropdown {
@@ -3451,9 +3440,7 @@
   }
 }
 
-.typeahead-container {
-  position: relative;
-}
+// Removed duplicate .typeahead-container definition - using unified version above
 
 .relationship-typeahead-input {
   width: 100%;
