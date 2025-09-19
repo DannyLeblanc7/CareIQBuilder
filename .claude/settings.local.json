@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Read(//c/Users/zolmo/.claude/**)"
+      "Read(//c/Users/zolmo/.claude/**)",
+      "WebSearch",
+      "WebFetch(domain:app.stg.careiq.cadalysapp.com)"
     ],
     "deny": [],
     "ask": []

@@ -1562,7 +1562,21 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="relationships-display">
 																					<div className="relationships-header">
 																						🔍 <strong>Relationships for "{answer.label}"</strong>
-																						<button 
+																						<button
+																							className="refresh-relationships-btn"
+																							title="Refresh relationships"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							🔄
+																						</button>
+																						<button
 																							className="close-relationships-btn"
 																							on={{
 																								click: (e) => {
@@ -1837,12 +1851,6 @@ const view = (state, {updateState, dispatch}) => {
 																							</div>
 																						)}
 																					</div>
-																				</div>
-																			)}
-																			{/* Loading state */}
-																			{isEditable && state.showRelationships && state.relationshipsLoading[answer.ids.id] && (
-																				<div className="relationships-loading">
-																					⏳ Loading relationships...
 																				</div>
 																			)}
 																		</div>
@@ -2343,7 +2351,21 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="relationships-display">
 																					<div className="relationships-header">
 																						🔍 <strong>Relationships for "{answer.label}"</strong>
-																						<button 
+																						<button
+																							className="refresh-relationships-btn"
+																							title="Refresh relationships"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							🔄
+																						</button>
+																						<button
 																							className="close-relationships-btn"
 																							on={{
 																								click: (e) => {
@@ -2618,12 +2640,6 @@ const view = (state, {updateState, dispatch}) => {
 																							</div>
 																						)}
 																					</div>
-																				</div>
-																			)}
-																			{/* Loading state */}
-																			{isEditable && state.showRelationships && state.relationshipsLoading[answer.ids.id] && (
-																				<div className="relationships-loading">
-																					⏳ Loading relationships...
 																				</div>
 																			)}
 																		</div>
@@ -4763,11 +4779,13 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ANSWER_RELATIONSHIPS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
-			// console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
+
+			console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
 			console.log('Full Response:', action.payload);
 			console.log('Response type:', typeof action.payload);
 			console.log('Response keys:', Object.keys(action.payload || {}));
+			console.log('Action meta:', action.meta);
+			console.log('Guidelines in response:', action.payload?.guidelines);
 			
 			// The answerId should be in the response, let's use that
 			const answerId = action.payload?.id;
@@ -4850,11 +4868,32 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 
 			console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
 			console.log('Guideline relationship added successfully');
 			console.log('Response payload:', action.payload);
+			console.log('Action meta:', action.meta);
+
+			// Get the answer ID from the original request body since meta doesn't persist through HTTP effect
+			let answerId = null;
+			try {
+				// The answerId should be in the original request that triggered this success
+				// Look for it in the current action or extract from stored state
+				if (action.meta && action.meta.answerId) {
+					answerId = action.meta.answerId;
+					console.log('Got answerId from action.meta:', answerId);
+				} else {
+					// Fallback: look for the currently opened relationship panel
+					const openPanels = Object.keys(state.answerRelationships || {});
+					if (openPanels.length > 0) {
+						answerId = openPanels[0]; // Use the first open panel
+						console.log('Got answerId from open relationship panel:', answerId);
+					}
+				}
+			} catch (e) {
+				console.error('Error extracting answerId:', e);
+			}
 
 			// Clear relationship changes and show success message
 			updateState({
@@ -4863,11 +4902,19 @@ createCustomElement('cadal-careiq-builder', {
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: `Guideline relationship saved successfully!`,
+						message: `Guideline relationship saved successfully! Auto-refreshing now...`,
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
+
+			// Immediate auto-refresh since backend has already committed
+			if (answerId) {
+				console.log('=== AUTO-REFRESH: Immediately refreshing for answerId:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
 		},
 
 		'ADD_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
@@ -6465,10 +6512,8 @@ createCustomElement('cadal-careiq-builder', {
 
 			// AUTO-SAVE: Immediately call API like sections do
 			const requestBody = JSON.stringify({
-				data: {
-					answerId: answerId,
-					guidelineId: guidelineId
-				}
+				answerId: answerId,
+				guidelineId: guidelineId
 			});
 
 			dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {

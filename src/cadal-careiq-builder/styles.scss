@@ -2111,6 +2111,7 @@
   }
 }
 
+.refresh-relationships-btn,
 .close-relationships-btn {
   background: none;
   border: none;
@@ -2120,12 +2121,19 @@
   padding: 0.25rem;
   border-radius: 4px;
   transition: all 0.2s;
-  
+  margin-left: 0.5rem;
+
   &:hover {
     background-color: #f3f4f6;
     color: #374151;
   }
-  
+}
+
+.refresh-relationships-btn {
+  &:hover {
+    transform: rotate(180deg);
+  }
+
   &:active {
     transform: scale(0.95);
   }
