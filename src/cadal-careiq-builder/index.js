@@ -765,14 +765,14 @@ const view = (state, {updateState, dispatch}) => {
 											})
 											.map((question, qIndex) => {
 												const isEditable = state.builderMode && state.currentAssessment?.status === 'draft';
-												console.log('Question render debug:', {
-													builderMode: state.builderMode,
-													assessmentStatus: state.currentAssessment?.status,
-													isEditable: isEditable,
-													questionId: question.ids.id,
-													voice: question.voice,
-													label: question.label
-												});
+												// console.log('Question render debug:', {
+												//	builderMode: state.builderMode,
+												//	assessmentStatus: state.currentAssessment?.status,
+												//	isEditable: isEditable,
+												//	questionId: question.ids.id,
+												//	voice: question.voice,
+												//	label: question.label
+												// });
 											return (
 											<div 
 												key={question.ids.id} 
@@ -3258,7 +3258,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			console.log('USE_CASE_CATEGORIES_SUCCESS - Full Response:', action.payload);
+			// console.log('USE_CASE_CATEGORIES_SUCCESS - Full Response:', action.payload);
 			console.log('Response type:', typeof action.payload);
 			console.log('Response keys:', Object.keys(action.payload || {}));
 			
@@ -3337,7 +3337,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
-			console.log('ASSESSMENTS_SUCCESS - Full Response:', action.payload);
+			// console.log('ASSESSMENTS_SUCCESS - Full Response:', action.payload);
 			
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
@@ -3655,7 +3655,8 @@ createCustomElement('cadal-careiq-builder', {
 				console.error('No assessment ID found for refresh!');
 				updateState({
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'error',
 							message: 'Unable to refresh: No assessment ID found',
@@ -3708,6 +3709,7 @@ createCustomElement('cadal-careiq-builder', {
 				pendingReselectionSectionLabel: currentSectionLabel,
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'loading',
 						message: 'Refreshing assessment data...',
@@ -3768,7 +3770,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
+			// console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
 			
 			// Debug section sort_order values
 			if (action.payload?.sections) {
@@ -3794,6 +3796,11 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear pending reselection
 				pendingReselectionSection: null,
 				pendingReselectionSectionLabel: null,
+				// CRITICAL: Clear change tracking after successful save/refresh
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				relationshipChanges: {},
 				// Reset relationship editing state after refresh - return to original state
 				showRelationships: false,
 				answerRelationships: {}, // Clear all expanded relationship data - closes panels
@@ -3926,10 +3933,10 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SECTION_QUESTIONS_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			console.log('SECTION_QUESTIONS_SUCCESS - Full Response:', action.payload);
-			console.log('SECTION_QUESTIONS_SUCCESS - Response type:', typeof action.payload);
-			console.log('SECTION_QUESTIONS_SUCCESS - Response keys:', Object.keys(action.payload || {}));
-			console.log('SECTION_QUESTIONS_SUCCESS - Questions array:', action.payload?.questions);
+			// console.log('SECTION_QUESTIONS_SUCCESS - Full Response:', action.payload);
+			// console.log('SECTION_QUESTIONS_SUCCESS - Response type:', typeof action.payload);
+			// console.log('SECTION_QUESTIONS_SUCCESS - Response keys:', Object.keys(action.payload || {}));
+			// console.log('SECTION_QUESTIONS_SUCCESS - Questions array:', action.payload?.questions);
 			
 			// Sort questions by sort_order
 			const questions = action.payload?.questions || [];
@@ -4382,11 +4389,29 @@ createCustomElement('cadal-careiq-builder', {
 				return question;
 			});
 
+			// Track this new answer in answerChanges for save logic (similar to library answers)
+			const answerChanges = {
+				...state.answerChanges,
+				[newAnswerId]: {
+					action: 'add',
+					questionId: questionId,
+					label: `Option ${updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1}`,
+					sort_order: updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1,
+					tooltip: '',
+					alternative_wording: '',
+					secondary_input_type: null,
+					mutually_exclusive: false,
+					custom_attributes: {},
+					required: false
+				}
+			};
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				}
+				},
+				answerChanges: answerChanges // Track the new answer for save
 			});
 		},
 
@@ -4412,11 +4437,22 @@ createCustomElement('cadal-careiq-builder', {
 				return question;
 			});
 
+			// Track this deletion in answerChanges for save logic (similar to add/library answers)
+			const answerChanges = {
+				...state.answerChanges,
+				[answerId]: {
+					action: 'delete',
+					question_id: questionId, // Use question_id to match other patterns
+					answerId: answerId
+				}
+			};
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
-				}
+				},
+				answerChanges: answerChanges // Track the deletion for save
 			});
 		},
 
@@ -4463,7 +4499,8 @@ createCustomElement('cadal-careiq-builder', {
 					// Show immediate success message for temp questions
 					updateState({
 						systemMessages: [
-							...(state.systemMessages || []),
+					...(state.systemMessages || []),
+							
 							{
 								type: 'success',
 								message: 'Question removed successfully! No backend call needed.',
@@ -4492,9 +4529,17 @@ createCustomElement('cadal-careiq-builder', {
 				const answerData = state.answerChanges[answerId];
 				// Check if this answer belongs to the question being saved
 				let belongsToQuestion = false;
+
+				// For existing answers (add/library_replace), check if answer exists in question
 				if (question.answers) {
 					belongsToQuestion = question.answers.some(ans => ans.ids.id === answerId);
 				}
+
+				// For deleted answers, check the question_id in answerChanges since answer is removed from UI
+				if (!belongsToQuestion && answerData.question_id === questionId) {
+					belongsToQuestion = true;
+				}
+
 				return belongsToQuestion;
 			});
 
@@ -4507,6 +4552,32 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if this is a temp question (add) or real question (update)
 			if (questionId.startsWith('temp_')) {
+				// Check for duplicate question before saving
+				const existingQuestions = [];
+				if (state.currentQuestions?.questions) {
+					state.currentQuestions.questions.forEach(existingQuestion => {
+						// Don't compare with itself
+						if (existingQuestion.ids.id !== questionId) {
+							existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+						}
+					});
+				}
+
+				const currentQuestionLabel = question.label.toLowerCase().trim();
+				if (existingQuestions.includes(currentQuestionLabel)) {
+					updateState({
+						systemMessages: [
+					...(state.systemMessages || []),
+							
+							{
+								type: 'error',
+								message: `Question "${question.label}" already exists in this section. Please use a different name.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return; // Stop the save process
+				}
 				// New question - use new 2-step process
 				console.log('Using new 2-step process for question type:', question.type);
 
@@ -4634,7 +4705,7 @@ createCustomElement('cadal-careiq-builder', {
 		'ANSWER_RELATIONSHIPS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			
-			console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
+			// console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
 			console.log('Full Response:', action.payload);
 			console.log('Response type:', typeof action.payload);
 			console.log('Response keys:', Object.keys(action.payload || {}));
@@ -4722,7 +4793,7 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
+			// console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
 			console.log('Guideline relationship added successfully');
 
 			// Store current section for reselection after refresh
@@ -4734,6 +4805,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				pendingReselectionSection: currentSection,
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'success',
@@ -4764,6 +4836,7 @@ createCustomElement('cadal-careiq-builder', {
 			
 			updateState({
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -4777,7 +4850,7 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			
-			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
+			// console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
 			console.log('API Response:', action.payload);
 			console.log('Original action data:', action.meta);
 			
@@ -4795,6 +4868,7 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipChanges: {},
 				sectionChanges: {},
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'success',
@@ -4831,6 +4905,7 @@ createCustomElement('cadal-careiq-builder', {
 			
 			updateState({
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -4891,6 +4966,7 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipChanges: {},
 				sectionChanges: {},
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'success',
@@ -4926,6 +5002,7 @@ createCustomElement('cadal-careiq-builder', {
 			
 			updateState({
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -5241,6 +5318,7 @@ createCustomElement('cadal-careiq-builder', {
 				questionTypeaheadLoading: false,
 				currentQuestionSearchSectionId: null,
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -5306,6 +5384,7 @@ createCustomElement('cadal-careiq-builder', {
 				libraryQuestionLoading: null,  // Clear loading state
 				pendingLibraryQuestionReplacementId: null,  // Clear pending ID
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -5350,6 +5429,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadLoading: false,
 				answerTypeaheadVisible: false,
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -5409,6 +5489,7 @@ createCustomElement('cadal-careiq-builder', {
 				libraryAnswerLoading: null,
 				pendingLibraryAnswerReplacementId: null,
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -5533,6 +5614,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Add success message
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: `Library question "${libraryQuestion.label}" added with ${libraryQuestion.answers?.length || 0} answers. Click "Save Changes" to apply.`,
@@ -5681,6 +5763,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerChanges: updatedAnswerChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: `Question replaced with library question "${replacementQuestion.label}" (${replacementQuestion.answers.length} answers). Click "Save Changes" to apply.`,
@@ -5824,6 +5907,7 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipTypeaheadLoading: false,
 				currentGuidelineSearchAnswerId: null, // Clear on error
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -6041,7 +6125,17 @@ createCustomElement('cadal-careiq-builder', {
 			
 			if (!selectedItem || !relationshipType) {
 				console.error('No relationship item or type selected to confirm');
-				alert('Error: No relationship selected to confirm');
+				updateState({
+					systemMessages: [
+					...(state.systemMessages || []),
+						
+						{
+							type: 'error',
+							message: 'Error: No relationship selected to confirm',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
 				return;
 			}
 			
@@ -6143,6 +6237,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Add to system messages to show it's been queued for save
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: `${relationshipType === 'question' ? 'Triggered question' : 'Guideline relationship'} "${selectedItem.label}" queued for save. Click "Save Changes" to apply.`,
@@ -6224,6 +6319,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Show success message indicating it's queued for save
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: `Triggered question "${questionLabel}" queued for deletion. Click "Save Changes" to apply.`,
@@ -6261,6 +6357,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Add to system messages to show it's been removed
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'warning',
 						message: `Guideline relationship "${guidelineName}" removed from queue.`,
@@ -6450,7 +6547,8 @@ createCustomElement('cadal-careiq-builder', {
 				console.error('No parent section found');
 				updateState({
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'error',
 							message: 'No parent section found to add subsection to',
@@ -6518,6 +6616,7 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: '', // Start with empty name for editing
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: 'Section added locally - click Save to persist changes',
@@ -6566,7 +6665,17 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Check for blank section name
 			if (!sectionLabel || sectionLabel.trim() === '') {
-				alert('Section name cannot be blank. Please enter a section name.');
+				updateState({
+					systemMessages: [
+					...(state.systemMessages || []),
+						
+						{
+							type: 'error',
+							message: 'Section name cannot be blank. Please enter a section name.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
 				return;
 			}
 			
@@ -6587,7 +6696,17 @@ createCustomElement('cadal-careiq-builder', {
 			
 			const currentSectionName = sectionLabel.toLowerCase().trim();
 			if (existingSections.includes(currentSectionName)) {
-				alert(`Section "${sectionLabel}" already exists in this assessment. Please use a different name.`);
+				updateState({
+					systemMessages: [
+					...(state.systemMessages || []),
+						
+						{
+							type: 'error',
+							message: `Section "${sectionLabel}" already exists in this assessment. Please use a different name.`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
 				return;
 			}
 			
@@ -6640,45 +6759,52 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CANCEL_SECTION_EDIT': (coeffects) => {
 			const {updateState, state} = coeffects;
-			
+
 			// Check if we're canceling a new section that should be removed
 			const editingSectionId = state.editingSectionId;
 			let shouldRemoveSection = false;
-			
+
 			if (editingSectionId) {
 				// Find the section being edited
 				const sectionToCheck = state.currentAssessment?.sections?.find(section =>
 					section.subsections?.some(subsection => subsection.id === editingSectionId)
 				);
-				
+
 				if (sectionToCheck) {
-					const subsectionToCheck = sectionToCheck.subsections?.find(subsection => 
+					const subsectionToCheck = sectionToCheck.subsections?.find(subsection =>
 						subsection.id === editingSectionId
 					);
-					
+
 					// Remove if it's new (has isNew flag or temp ID) and has empty/blank label
-					if (subsectionToCheck && 
+					if (subsectionToCheck &&
 						(subsectionToCheck.isNew || editingSectionId.startsWith('temp_')) &&
 						(!subsectionToCheck.label || subsectionToCheck.label.trim() === '')) {
 						shouldRemoveSection = true;
 					}
 				}
 			}
-			
+
+			// Clear section from change tracking (important fix!)
+			const updatedSectionChanges = {...state.sectionChanges};
+			if (editingSectionId && updatedSectionChanges[editingSectionId]) {
+				delete updatedSectionChanges[editingSectionId];
+			}
+
 			if (shouldRemoveSection) {
 				// Remove the section from the assessment
 				const updatedSections = state.currentAssessment.sections.map(section => ({
 					...section,
-					subsections: section.subsections?.filter(subsection => 
+					subsections: section.subsections?.filter(subsection =>
 						subsection.id !== editingSectionId
 					) || []
 				}));
-				
+
 				updateState({
 					currentAssessment: {
 						...state.currentAssessment,
 						sections: updatedSections
 					},
+					sectionChanges: updatedSectionChanges, // Clear change tracking
 					editingSectionId: null,
 					editingSectionName: null,
 					// Clear typeahead state
@@ -6688,7 +6814,8 @@ createCustomElement('cadal-careiq-builder', {
 					sectionTypeaheadSelectedIndex: -1,
 					selectedSectionLibraryId: null,
 					systemMessages: [
-						...state.systemMessages,
+					...(state.systemMessages || []),
+						
 						{
 							type: 'info',
 							message: 'New section removed.',
@@ -6699,6 +6826,7 @@ createCustomElement('cadal-careiq-builder', {
 			} else {
 				// Just cancel editing without removing
 				updateState({
+					sectionChanges: updatedSectionChanges, // Clear change tracking
 					editingSectionId: null,
 					editingSectionName: null,
 					// Clear typeahead state
@@ -6801,7 +6929,8 @@ createCustomElement('cadal-careiq-builder', {
 					// Show immediate success message for temp sections
 					updateState({
 						systemMessages: [
-							...(state.systemMessages || []),
+					...(state.systemMessages || []),
+							
 							{
 								type: 'success',
 								message: 'Section removed successfully!',
@@ -6883,6 +7012,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: 'Section deleted successfully! No refresh needed.',
@@ -6903,6 +7033,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: errorMessage,
@@ -7001,7 +7132,8 @@ createCustomElement('cadal-careiq-builder', {
 					// Show immediate feedback for reordering operation
 					updateState({
 						systemMessages: [
-							...(state.systemMessages || []),
+					...(state.systemMessages || []),
+							
 							{
 								type: 'success',
 								message: `Reordering ${reorderedSection.subsections.length} sections and saving to backend...`,
@@ -7227,26 +7359,143 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_ALL_CHANGES': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
-			
-			console.log('=== SAVE_ALL_CHANGES HANDLER TRIGGERED ===');
-			console.log('Saving all changes to backend');
-			console.log('Section changes:', state.sectionChanges);
-			console.log('Question changes:', state.questionChanges);
-			console.log('Answer changes:', state.answerChanges);
-			console.log('Relationship changes:', state.relationshipChanges);
-			
-			// Check what needs to be saved
+
+			// console.log('=== SAVE_ALL_CHANGES HANDLER TRIGGERED ===');
+			// console.log('Saving all changes to backend');
+			// console.log('Section changes:', state.sectionChanges);
+			// console.log('Question changes:', state.questionChanges);
+			console.log('Answer changes:', state.answerChanges); // Keep for delete debugging
+			// console.log('Relationship changes:', state.relationshipChanges);
+
+			// CRITICAL: Capture changes to save, then IMMEDIATELY clear tracking to prevent duplicates
 			const sectionChanges = Object.keys(state.sectionChanges || {});
 			const questionChanges = Object.keys(state.questionChanges || {});
 			const answerChanges = Object.keys(state.answerChanges || {});
 			const relationshipChanges = Object.keys(state.relationshipChanges || {});
-			
+
+			// IMMEDIATELY clear change tracking to prevent duplicate calls
+			updateState({
+				sectionChanges: {},
+				questionChanges: {},
+				answerChanges: {},
+				relationshipChanges: {},
+				// Clear isUnsaved flags from all questions to hide save buttons
+				currentQuestions: state.currentQuestions ? {
+					...state.currentQuestions,
+					questions: state.currentQuestions.questions.map(q => ({
+						...q,
+						isUnsaved: false
+					}))
+				} : state.currentQuestions
+			});
+
+			// FIRST: Run all deduplication checks before any save operations
+
+			// Check for duplicate questions
+			if (questionChanges.length > 0) {
+				const duplicateQuestions = [];
+				questionChanges.forEach(questionId => {
+					const questionData = state.questionChanges[questionId];
+					if (questionData.action === 'add') {
+						// Check if this question already exists in the current section
+						const existingQuestions = [];
+						if (state.currentQuestions?.questions) {
+							state.currentQuestions.questions.forEach(existingQuestion => {
+								// Don't compare with itself (in case it's a temp ID)
+								if (existingQuestion.ids.id !== questionId) {
+									existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+								}
+							});
+						}
+
+						const currentQuestionLabel = questionData.label.toLowerCase().trim();
+						if (existingQuestions.includes(currentQuestionLabel)) {
+							duplicateQuestions.push(questionData.label);
+						}
+					}
+				});
+
+				// If duplicates found, show error and stop saving
+				if (duplicateQuestions.length > 0) {
+					const duplicateList = duplicateQuestions.join(', ');
+					updateState({
+						systemMessages: [
+					...(state.systemMessages || []),
+							
+							{
+								type: 'error',
+								message: `Question(s) already exist in this section: ${duplicateList}. Please use different names.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return; // Stop the entire save process
+				}
+			}
+
+			// Check for duplicate answers
+			if (answerChanges.length > 0) {
+				const duplicateAnswers = [];
+				answerChanges.forEach(answerId => {
+					const answerData = state.answerChanges[answerId];
+					if (answerData.action === 'add' || answerData.action === 'library_replace') {
+						// Find which question this answer belongs to
+						let targetQuestion = null;
+						if (state.currentQuestions?.questions) {
+							for (let question of state.currentQuestions.questions) {
+								if (question.answers) {
+									const foundAnswer = question.answers.find(ans => ans.ids.id === answerId);
+									if (foundAnswer) {
+										targetQuestion = question;
+										break;
+									}
+								}
+							}
+						}
+
+						if (targetQuestion) {
+							// Check if this answer already exists in the target question
+							const existingAnswers = [];
+							targetQuestion.answers.forEach(existingAnswer => {
+								// Don't compare with itself
+								if (existingAnswer.ids.id !== answerId) {
+									existingAnswers.push(existingAnswer.label.toLowerCase().trim());
+								}
+							});
+
+							const currentAnswerLabel = answerData.label.toLowerCase().trim();
+							if (existingAnswers.includes(currentAnswerLabel)) {
+								duplicateAnswers.push(`"${answerData.label}" in question "${targetQuestion.label}"`);
+							}
+						}
+					}
+				});
+
+				// If duplicates found, show error and stop saving
+				if (duplicateAnswers.length > 0) {
+					const duplicateList = duplicateAnswers.join(', ');
+					updateState({
+						systemMessages: [
+					...(state.systemMessages || []),
+							
+							{
+								type: 'error',
+								message: `Answer(s) already exist: ${duplicateList}. Please use different answer text.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return; // Stop the entire save process
+				}
+			}
+
 			const hasChanges = sectionChanges.length > 0 || questionChanges.length > 0 || answerChanges.length > 0 || relationshipChanges.length > 0;
-			
+
 			if (hasChanges) {
 				updateState({
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'loading',
 							message: 'Saving changes to backend...',
@@ -7288,7 +7537,7 @@ createCustomElement('cadal-careiq-builder', {
 				questionChanges.forEach(questionId => {
 					const questionData = state.questionChanges[questionId];
 					console.log('Saving question:', questionId, questionData);
-					
+
 					// Handle new questions with ADD API
 					if (questionData.action === 'add') {
 						console.log('Adding new question:', questionId);
@@ -7545,7 +7794,8 @@ createCustomElement('cadal-careiq-builder', {
 						}
 
 						dispatch('DELETE_ANSWER_API', {
-							answerId: answerId
+							answerId: answerId,
+							suppressMessage: true // Suppress individual success message during bulk save
 						});
 					} else if (answerData.action === 'update') {
 						console.log('Updating answer:', answerId);
@@ -7638,7 +7888,8 @@ createCustomElement('cadal-careiq-builder', {
 				// No changes to save
 				updateState({
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'warning',
 							message: 'No changes to save.',
@@ -7853,19 +8104,21 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_ANSWER_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
-			const {answerId} = action.payload;
-			
+			const {answerId, suppressMessage} = action.payload;
+
 			console.log('DELETE_ANSWER_API handler called');
 			console.log('Answer ID to delete:', answerId);
-			
+
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerId
 			});
-			
+
 			console.log('Delete Answer request body:', requestBody);
-			
-			dispatch('MAKE_DELETE_ANSWER_REQUEST', {requestBody: requestBody});
+
+			dispatch('MAKE_DELETE_ANSWER_REQUEST', {
+				requestBody: requestBody
+			});
 		},
 
 		'UPDATE_ANSWER_API': (coeffects) => {
@@ -7911,11 +8164,11 @@ createCustomElement('cadal-careiq-builder', {
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
 			
-			// Clear ALL changes since we're doing a full refresh
+			// Add success message
 			updateState({
-				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
+
 					{
 						type: 'success',
 						message: 'Answer updated successfully! Refreshing data...',
@@ -7950,6 +8203,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: `Failed to update answer: ${errorMessage}`,
@@ -8012,35 +8266,20 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Question updated successfully:', action.payload);
 
-			// Store the current section to re-select after refresh
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-
-			// Clear ALL changes since we're doing a full refresh
+			// Just show success message - no refresh needed
 			updateState({
-				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
-						message: 'Question updated successfully! Refreshing data...',
+						message: 'Question updated successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-
-			// Set pending reselection data
-			updateState({
-				pendingReselectionSection: currentSection
-			});
-
-			// Trigger data refresh with proper reselection
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessmentId,
-				assessmentTitle: state.currentAssessment?.title || 'Assessment'
 			});
 		},
 
@@ -8053,6 +8292,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: `Failed to update question: ${errorMessage}`,
@@ -8128,6 +8368,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: messageType,
 						message: systemMessage,
@@ -8156,6 +8397,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error creating question: ' + errorMessage,
@@ -8219,7 +8461,8 @@ createCustomElement('cadal-careiq-builder', {
 							questions: updatedQuestions
 						},
 						systemMessages: [
-							...(state.systemMessages || []),
+					...(state.systemMessages || []),
+							
 							{
 								type: 'success',
 								message: 'Library question added successfully! Please refresh to see complete data.',
@@ -8237,7 +8480,8 @@ createCustomElement('cadal-careiq-builder', {
 					console.error('CRITICAL ERROR: newQuestionId is missing! Cannot add answers.');
 					updateState({
 						systemMessages: [
-							...(state.systemMessages || []),
+					...(state.systemMessages || []),
+							
 							{
 								type: 'error',
 								message: 'Error: Question ID missing, cannot add answers.',
@@ -8294,7 +8538,8 @@ createCustomElement('cadal-careiq-builder', {
 						questions: updatedQuestions
 					},
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'success',
 							message: 'Question added to section successfully! Adding answers...',
@@ -8312,7 +8557,8 @@ createCustomElement('cadal-careiq-builder', {
 						questions: updatedQuestions
 					},
 					systemMessages: [
-						...(state.systemMessages || []),
+					...(state.systemMessages || []),
+						
 						{
 							type: 'success',
 							message: 'Question added to section successfully! No refresh needed.',
@@ -8332,6 +8578,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error adding question to section: ' + errorMessage,
@@ -8358,6 +8605,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: successMessage,
@@ -8376,6 +8624,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error adding answers to question: ' + errorMessage,
@@ -8406,23 +8655,24 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_ANSWER_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.log('Answer deleted successfully:', action.payload);
-			
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+
 					{
 						type: 'success',
-						message: 'Answer deleted successfully! Refreshing data...',
+						message: 'Answer deleted successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-			
-			// Refresh the questions for the current section
+
+			// Refresh the questions for the current section to clear isUnsaved flags
 			if (state.selectedSection) {
-				console.log('Refreshing questions for section:', state.selectedSection);
+				console.log('Refreshing questions for section after delete:', state.selectedSection);
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					config: state.careiqConfig,
@@ -8440,6 +8690,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error deleting answer: ' + errorMessage,
@@ -8468,6 +8719,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: 'Question deleted successfully! No refresh needed.',
@@ -8488,6 +8740,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error deleting question: ' + errorMessage,
@@ -8511,6 +8764,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+
 					{
 						type: 'success',
 						message: 'Answer created successfully! Refreshing data...',
@@ -8539,6 +8793,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: 'Error creating answer: ' + errorMessage,
@@ -8558,6 +8813,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: 'Section updated successfully! No refresh needed.',
@@ -8578,6 +8834,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: `Error saving section: ${errorMessage}`,
@@ -8620,6 +8877,7 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: 'Section added successfully! No refresh needed.',
@@ -8638,6 +8896,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'error',
 						message: `Error adding section: ${errorMessage}`,
@@ -8687,6 +8946,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Show warning message
 				updateState({
 					systemMessages: [
+					...(state.systemMessages || []),
 						...state.systemMessages,
 						{
 							type: 'warning',
@@ -8805,6 +9065,7 @@ createCustomElement('cadal-careiq-builder', {
 				sectionTypeaheadResults: [],
 				sectionTypeaheadVisible: false,
 				systemMessages: [
+					...(state.systemMessages || []),
 					...state.systemMessages,
 					{
 						type: 'error',
@@ -8973,6 +9234,7 @@ createCustomElement('cadal-careiq-builder', {
 				pendingLibraryAnswerReplacementId: null,
 				systemMessages: [
 					...(state.systemMessages || []),
+					
 					{
 						type: 'success',
 						message: `Answer replaced with library answer: "${libraryAnswerData.label}"`,
