@@ -4487,6 +4487,24 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Check if there are answer changes for this question - if so, use SAVE_ALL_CHANGES
+			const questionAnswerChanges = Object.keys(state.answerChanges || {}).filter(answerId => {
+				const answerData = state.answerChanges[answerId];
+				// Check if this answer belongs to the question being saved
+				let belongsToQuestion = false;
+				if (question.answers) {
+					belongsToQuestion = question.answers.some(ans => ans.ids.id === answerId);
+				}
+				return belongsToQuestion;
+			});
+
+			if (questionAnswerChanges.length > 0) {
+				console.log('Question has answer changes - using SAVE_ALL_CHANGES instead');
+				console.log('Answer changes found:', questionAnswerChanges);
+				dispatch('SAVE_ALL_CHANGES');
+				return;
+			}
+
 			// Check if this is a temp question (add) or real question (update)
 			if (questionId.startsWith('temp_')) {
 				// New question - use new 2-step process
@@ -7403,21 +7421,37 @@ createCustomElement('cadal-careiq-builder', {
 					const answerData = state.answerChanges[answerId];
 					console.log('Processing answer change:', answerId, answerData);
 
-					if (answerData.action === 'add') {
+					if (answerData.action === 'add' || answerData.action === 'library_replace') {
 						// Skip if the question is also new (temp ID) - will be handled with question creation
 						if (answerData.question_id && answerData.question_id.startsWith('temp_')) {
 							console.log('Skipping answer for new question - will be created with question');
 							return;
 						}
 
-						// Group new answers by their question ID
-						const questionId = answerData.question_id || answerData.questionId;
+						// Find the question ID for this answer
+						let questionId = answerData.question_id || answerData.questionId;
+
+						// For library_replace, we need to find the question ID from the current questions
+						if (!questionId && answerData.action === 'library_replace') {
+							if (state.currentQuestions && state.currentQuestions.questions) {
+								for (let question of state.currentQuestions.questions) {
+									if (question.answers) {
+										const foundAnswer = question.answers.find(ans => ans.ids.id === answerId);
+										if (foundAnswer) {
+											questionId = question.ids.id;
+											break;
+										}
+									}
+								}
+							}
+						}
+
 						if (questionId && !questionId.startsWith('temp_')) {
 							if (!answersGroupedByQuestion[questionId]) {
 								answersGroupedByQuestion[questionId] = [];
 							}
 							answersGroupedByQuestion[questionId].push({ answerId, answerData });
-							console.log('Grouped answer for bulk add:', answerId, 'to question:', questionId);
+							console.log('Grouped answer for bulk API:', answerId, 'action:', answerData.action, 'to question:', questionId);
 						}
 					} else {
 						// Individual operations (update, delete, library_add, etc.)
@@ -7432,26 +7466,56 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Prepare answers array for bulk API
 					const answersArray = answersForQuestion.map(({ answerId, answerData }) => {
-						// Find the current answer in questions to get actual UI values
-						let currentAnswer = null;
-						if (state.currentQuestions && state.currentQuestions.questions) {
-							for (let question of state.currentQuestions.questions) {
-								if (question.answers) {
-									currentAnswer = question.answers.find(ans => ans.ids.id === answerId);
-									if (currentAnswer) break;
+						// Handle library answers differently - use library ID instead of creating new answer
+						if (answerData.action === 'library_replace') {
+							console.log('Adding library answer with ID:', answerData.libraryAnswerId);
+
+							// Find the current answer to get sort_order
+							let currentAnswer = null;
+							if (state.currentQuestions && state.currentQuestions.questions) {
+								for (let question of state.currentQuestions.questions) {
+									if (question.answers) {
+										currentAnswer = question.answers.find(ans => ans.ids.id === answerId);
+										if (currentAnswer) break;
+									}
 								}
 							}
-						}
 
-						return {
-							label: currentAnswer ? currentAnswer.label : answerData.label,
-							tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
-							alternative_wording: answerData.alternative_wording || '',
-							secondary_input_type: currentAnswer ? currentAnswer.secondary_input_type : answerData.secondary_input_type,
-							mutually_exclusive: currentAnswer ? (currentAnswer.mutually_exclusive || false) : (answerData.mutually_exclusive || false),
-							custom_attributes: answerData.custom_attributes || {},
-							required: answerData.required || false
-						};
+							return {
+								library_id: answerData.libraryAnswerId, // Use library ID for library answers
+								sort_order: currentAnswer ? currentAnswer.sort_order : 0, // Required field
+								label: answerData.label,
+								tooltip: answerData.tooltip || '',
+								alternative_wording: answerData.alternative_wording || '',
+								secondary_input_type: answerData.secondary_input_type,
+								mutually_exclusive: answerData.mutually_exclusive || false,
+								custom_attributes: answerData.custom_attributes || {},
+								required: answerData.required || false
+							};
+						} else {
+							// Handle regular new answers
+							// Find the current answer in questions to get actual UI values
+							let currentAnswer = null;
+							if (state.currentQuestions && state.currentQuestions.questions) {
+								for (let question of state.currentQuestions.questions) {
+									if (question.answers) {
+										currentAnswer = question.answers.find(ans => ans.ids.id === answerId);
+										if (currentAnswer) break;
+									}
+								}
+							}
+
+							return {
+								label: currentAnswer ? currentAnswer.label : answerData.label,
+								sort_order: currentAnswer ? currentAnswer.sort_order : 0, // Required field
+								tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
+								alternative_wording: answerData.alternative_wording || '',
+								secondary_input_type: currentAnswer ? currentAnswer.secondary_input_type : answerData.secondary_input_type,
+								mutually_exclusive: currentAnswer ? (currentAnswer.mutually_exclusive || false) : (answerData.mutually_exclusive || false),
+								custom_attributes: answerData.custom_attributes || {},
+								required: answerData.required || false
+							};
+						}
 					});
 
 					// Call bulk ADD_ANSWERS_TO_QUESTION API
@@ -7950,11 +8014,11 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('Question updated successfully:', action.payload);
-			
+
 			// Store the current section to re-select after refresh
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
-			
+
 			// Clear ALL changes since we're doing a full refresh
 			updateState({
 				sectionChanges: {},
@@ -7967,16 +8031,16 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-			
+
 			// Set pending reselection data
 			updateState({
 				pendingReselectionSection: currentSection
 			});
-			
+
 			// Trigger data refresh with proper reselection
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessment.ids.id,
-				assessmentTitle: state.currentAssessment.title
+				assessmentId: state.currentAssessmentId,
+				assessmentTitle: state.currentAssessment?.title || 'Assessment'
 			});
 		},
 
@@ -8285,12 +8349,18 @@ createCustomElement('cadal-careiq-builder', {
 			const newAnswerIds = action.payload;
 			console.log('New Answer IDs received:', newAnswerIds);
 
+			// Safe message handling
+			let successMessage = 'Answer(s) added to question successfully!';
+			if (newAnswerIds && Array.isArray(newAnswerIds)) {
+				successMessage = `${newAnswerIds.length} answer(s) added to question successfully!`;
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: `${newAnswerIds.length} answer(s) added to question successfully!`,
+						message: successMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
