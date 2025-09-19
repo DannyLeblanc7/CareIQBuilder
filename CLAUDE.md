@@ -25,29 +25,90 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
   }
   ```
 
-### HTTP Effect Body Pattern (CRITICAL!)
-**Client vs Server Data Access Pattern**
+### CRITICAL: Complete Data Flow Pattern (Component → ServiceNow → CareIQ)
+**The MOST IMPORTANT pattern to understand for avoiding "Missing required fields" errors**
 
-- **Client-side**: NEVER use data wrapper - send fields directly in JSON root
-  ```javascript
-  const requestBody = JSON.stringify({
-      sort_order: sectionData.sort_order,
-      gt_id: sectionData.gt_id,
-      label: sectionData.label,
-      // ... other fields directly in root - NO DATA WRAPPER!
-  });
-  ```
+#### Full Data Flow:
+1. **Component Action** → Creates request payload
+2. **HTTP Effect** → Sends to ServiceNow API
+3. **ServiceNow API** → Processes and forwards to CareIQ platform
+4. **CareIQ Platform** → Returns response
+5. **ServiceNow API** → Returns response to component
+6. **Component** → Processes response
 
-- **Server-side**: ALWAYS use `request.body.data` - ServiceNow HTTP framework wraps it
-  ```javascript
-  // CORRECT - ServiceNow wraps client data in .data property
-  var requestData = request.body.data;
-  
-  // WRONG - Don't access directly
-  var requestData = request.body; // DON'T DO THIS!
-  ```
+#### Critical Pattern Rules:
 
-**Pattern**: Client sends `{field: value}` → ServiceNow receives as `{data: {field: value}}` → Access with `request.body.data`
+**STEP 1 - Component to ServiceNow API (HTTP Effect Body):**
+```javascript
+// Component dispatch - NEVER use data wrapper
+const requestBody = JSON.stringify({
+    answerId: answerId,           // Direct fields in root
+    guidelineId: guidelineId,     // NO data: {} wrapper!
+    // ... other fields directly in root
+});
+
+dispatch('MAKE_API_REQUEST', {requestBody});
+```
+
+**STEP 2 - ServiceNow API receives and processes:**
+```javascript
+// ServiceNow API - ALWAYS use request.body.data
+var requestData = request.body.data;  // ServiceNow wraps in .data
+
+// Validate fields are in requestData
+if (!requestData.answerId || !requestData.guidelineId) {
+    // Missing required fields error
+}
+```
+
+**STEP 3 - ServiceNow to CareIQ platform (varies by API):**
+```javascript
+// Most APIs: Direct field pattern (NO data wrapper)
+var careiqPayload = {
+    answerId: requestData.answerId,
+    guidelineId: requestData.guidelineId
+    // Direct fields - check existing working APIs!
+};
+
+// Some newer APIs: Data wrapper pattern
+var careiqPayload = {
+    data: {
+        answerId: requestData.answerId,
+        guidelineId: requestData.guidelineId
+    }
+};
+```
+
+#### The "Missing required fields" Error Explained:
+This error occurs when Step 1 (component) uses wrong pattern. Common mistakes:
+
+❌ **WRONG - Using data wrapper in component:**
+```javascript
+const requestBody = JSON.stringify({
+    data: {  // THIS CAUSES THE ERROR!
+        answerId: answerId,
+        guidelineId: guidelineId
+    }
+});
+// Result: ServiceNow receives {data: {data: {fields}}}
+// Server accesses request.body.data.data.answerId (undefined!)
+```
+
+✅ **CORRECT - Direct fields in component:**
+```javascript
+const requestBody = JSON.stringify({
+    answerId: answerId,        // Direct in root
+    guidelineId: guidelineId   // ServiceNow will wrap in .data
+});
+// Result: ServiceNow receives {data: {answerId, guidelineId}}
+// Server accesses request.body.data.answerId (works!)
+```
+
+#### Pattern Summary:
+- **Component**: Direct fields `{field: value}`
+- **ServiceNow receives**: Wrapped `{data: {field: value}}`
+- **ServiceNow accesses**: `request.body.data.field`
+- **To CareIQ**: Check existing APIs for pattern (usually direct fields)
 
 ### CareIQ Services Script Include Pattern
 **CRITICAL**: When calling CareIQ Services Script Include from Scripted REST APIs:

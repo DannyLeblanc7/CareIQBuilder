@@ -4143,7 +4143,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'REORDER_ANSWERS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId, sourceIndex, targetIndex} = action.payload;
 			
 			console.log('Reordering answers:', {questionId, sourceIndex, targetIndex});
@@ -4173,11 +4173,34 @@ createCustomElement('cadal-careiq-builder', {
 				...questions[questionIndex],
 				answers: updatedAnswers
 			};
-			
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: questions
+				}
+			});
+
+			// Auto-save only the affected answers with individual UPDATE_ANSWER_API calls
+			console.log('Answer reorder completed - making individual update calls');
+			updatedAnswers.forEach(answer => {
+				// Only update real answers (not temp ones)
+				if (!answer.ids.id.startsWith('temp_')) {
+					console.log('Updating answer sort_order:', answer.ids.id, 'to:', answer.sort_order);
+					dispatch('UPDATE_ANSWER_API', {
+						answerData: {
+							answerId: answer.ids.id,
+							sort_order: answer.sort_order,
+							// Include other required fields
+							label: answer.label,
+							tooltip: answer.tooltip || '',
+							alternative_wording: answer.alternative_wording || 'string',
+							required: answer.required || false,
+							custom_attributes: answer.custom_attributes || {},
+							secondary_input_type: answer.secondary_input_type,
+							mutually_exclusive: answer.mutually_exclusive || false
+						}
+					});
 				}
 			});
 		},
@@ -4274,6 +4297,15 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
+				},
+				// Track question change for save
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						action: 'update',
+						questionId: questionId,
+						type: newType
+					}
 				}
 			});
 		},
@@ -4299,6 +4331,15 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
+				},
+				// Track question change for save
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						action: 'update',
+						questionId: questionId,
+						label: newLabel
+					}
 				}
 			});
 		},
@@ -4324,6 +4365,15 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
+				},
+				// Track question change for save
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						action: 'update',
+						questionId: questionId,
+						voice: newVoice
+					}
 				}
 			});
 		},
@@ -4349,6 +4399,15 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
+				},
+				// Track question change for save
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						action: 'update',
+						questionId: questionId,
+						required: required
+					}
 				}
 			});
 		},
@@ -4791,37 +4850,24 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 
-			// console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
+			console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
 			console.log('Guideline relationship added successfully');
+			console.log('Response payload:', action.payload);
 
-			// Store current section for reselection after refresh
-			const currentSection = state.selectedSection;
-
-			// Clear all change tracking arrays and reset UI state for fresh start
+			// Clear relationship changes and show success message
 			updateState({
 				relationshipChanges: {},
-				sectionChanges: {},
-				pendingReselectionSection: currentSection,
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'success',
-						message: `Successfully added guideline relationship! Refreshing data...`,
+						message: `Guideline relationship saved successfully!`,
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
-
-			// Refresh complete assessment structure following Save and Refresh Pattern
-			if (state.currentAssessmentId) {
-				console.log('Refreshing complete assessment data after guideline relationship add');
-				dispatch('FETCH_ASSESSMENT_DETAILS', {
-					assessmentId: state.currentAssessmentId
-				});
-			}
 		},
 
 		'ADD_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
@@ -6111,24 +6157,24 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CONFIRM_ADD_RELATIONSHIP': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {answerId} = action.payload;
-			
+
 			console.log('=== CONFIRM_ADD_RELATIONSHIP ACTION TRIGGERED ===');
 			console.log('Action payload:', action.payload);
 			console.log('Answer ID:', answerId);
 			console.log('Current state.selectedRelationshipQuestion:', state.selectedRelationshipQuestion);
-			
+
 			// Get the selected question/guideline details
 			const selectedItem = state.selectedRelationshipQuestion;
 			const relationshipType = state.selectedRelationshipType;
-			
+
 			if (!selectedItem || !relationshipType) {
 				console.error('No relationship item or type selected to confirm');
 				updateState({
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'error',
 							message: 'Error: No relationship selected to confirm',
@@ -6138,7 +6184,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 				return;
 			}
-			
+
 			console.log('Selected item details:', selectedItem);
 			console.log('Relationship type:', relationshipType);
 			console.log('=== DEBUGGING SELECTED ITEM PROPERTIES ===');
@@ -6156,6 +6202,27 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('Generated relationship key:', relationshipKey);
 			console.log('Using targetId:', targetId, 'for relationshipType:', relationshipType);
+
+			// AUTO-SAVE: For guidelines, immediately dispatch the save action instead of queuing
+			if (relationshipType === 'guideline') {
+				console.log('Dispatching ADD_GUIDELINE_RELATIONSHIP for immediate save');
+				dispatch('ADD_GUIDELINE_RELATIONSHIP', {
+					answerId: answerId,
+					guidelineId: targetId,
+					guidelineName: selectedItem.label
+				});
+
+				// Clear the relationship UI
+				updateState({
+					addingRelationship: null,
+					selectedRelationshipType: null,
+					relationshipTypeaheadText: '',
+					relationshipTypeaheadResults: [],
+					selectedRelationshipQuestion: null
+				});
+
+				return; // Exit early for guidelines - ADD_GUIDELINE_RELATIONSHIP handles the rest
+			}
 			console.log('Adding relationship change with data:', {
 				action: 'add',
 				answerId: answerId,
@@ -6196,11 +6263,8 @@ createCustomElement('cadal-careiq-builder', {
 						})
 					};
 				});
-			} else if (relationshipType === 'guideline') {
-				// Handle guidelines - these don't modify the question structure but are stored separately
-				console.log('Guideline relationship added to local state');
 			}
-			
+
 			console.log('=== UPDATED QUESTIONS STRUCTURE ===');
 			updatedQuestions.forEach((q, qIndex) => {
 				q.answers?.forEach((a, aIndex) => {
@@ -6240,7 +6304,7 @@ createCustomElement('cadal-careiq-builder', {
 					
 					{
 						type: 'success',
-						message: `${relationshipType === 'question' ? 'Triggered question' : 'Guideline relationship'} "${selectedItem.label}" queued for save. Click "Save Changes" to apply.`,
+						message: `Triggered question "${selectedItem.label}" queued for save. Click "Save Changes" to apply.`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -6393,24 +6457,39 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ADD_GUIDELINE_RELATIONSHIP': (coeffects) => {
-			const {action, state, updateState} = coeffects;
+			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
 
 			console.log('=== ADD_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Adding guideline to change tracking:', guidelineId, 'to answer:', answerId);
+			console.log('Auto-saving guideline relationship immediately:', guidelineId, 'to answer:', answerId);
 
-			// ONLY update change tracking - API call happens during SAVE_ALL_CHANGES
-			updateState({
-				relationshipChanges: {
-					...state.relationshipChanges,
-					[`${answerId}_${guidelineId}`]: {
-						action: 'add',
-						answerId: answerId,
-						targetId: guidelineId,
-						targetLabel: guidelineName,
-						relationshipType: 'guideline'
-					}
+			// AUTO-SAVE: Immediately call API like sections do
+			const requestBody = JSON.stringify({
+				data: {
+					answerId: answerId,
+					guidelineId: guidelineId
 				}
+			});
+
+			dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					answerId: answerId,
+					guidelineId: guidelineId,
+					guidelineName: guidelineName
+				}
+			});
+
+			// Show system message about auto-save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving guideline relationship to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -7213,11 +7292,20 @@ createCustomElement('cadal-careiq-builder', {
 					editingTooltip: null,
 					editingTooltipText: null,
 					editingTooltipQuestionId: null,
-					editingTooltipAnswerId: null
+					editingTooltipAnswerId: null,
+					// Track question change for save
+					questionChanges: {
+						...state.questionChanges,
+						[questionId]: {
+							action: 'update',
+							questionId: questionId,
+							tooltip: newTooltip
+						}
+					}
 				});
 			} else if (answerId) {
 				console.log('Saving tooltip for answer:', answerId, 'New tooltip:', newTooltip);
-				
+
 				// Update the answer in the current questions data and mark question as unsaved
 				const updatedQuestions = {
 					...state.currentQuestions,
@@ -7241,7 +7329,16 @@ createCustomElement('cadal-careiq-builder', {
 					editingTooltip: null,
 					editingTooltipText: null,
 					editingTooltipQuestionId: null,
-					editingTooltipAnswerId: null
+					editingTooltipAnswerId: null,
+					// Track answer change for save
+					answerChanges: {
+						...state.answerChanges,
+						[answerId]: {
+							action: 'update',
+							answerId: answerId,
+							tooltip: newTooltip
+						}
+					}
 				});
 			}
 		},
@@ -7282,7 +7379,16 @@ createCustomElement('cadal-careiq-builder', {
 			};
 
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				// Track answer change for save
+				answerChanges: {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'update',
+						answerId: answerId,
+						label: newLabel
+					}
+				}
 			});
 		},
 
@@ -7357,7 +7463,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'SAVE_ALL_CHANGES': (coeffects) => {
+		'SAVE_ALL_CHANGES': async (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 
 			// console.log('=== SAVE_ALL_CHANGES HANDLER TRIGGERED ===');
@@ -7367,11 +7473,25 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Answer changes:', state.answerChanges); // Keep for delete debugging
 			// console.log('Relationship changes:', state.relationshipChanges);
 
-			// CRITICAL: Capture changes to save, then IMMEDIATELY clear tracking to prevent duplicates
-			const sectionChanges = Object.keys(state.sectionChanges || {});
-			const questionChanges = Object.keys(state.questionChanges || {});
-			const answerChanges = Object.keys(state.answerChanges || {});
-			const relationshipChanges = Object.keys(state.relationshipChanges || {});
+			// CRITICAL: Capture COMPLETE change data, then IMMEDIATELY clear tracking to prevent duplicates
+			const sectionChangesData = {...(state.sectionChanges || {})};
+			const questionChangesData = {...(state.questionChanges || {})};
+			const answerChangesData = {...(state.answerChanges || {})};
+			const relationshipChangesData = {...(state.relationshipChanges || {})};
+
+			const sectionChanges = Object.keys(sectionChangesData);
+			const questionChanges = Object.keys(questionChangesData);
+			const answerChanges = Object.keys(answerChangesData);
+			const relationshipChanges = Object.keys(relationshipChangesData);
+
+			// DEBUG: Log what we captured
+			console.log('=== CAPTURED CHANGES FOR SAVE ===');
+			console.log('Section changes:', sectionChanges.length, sectionChanges);
+			console.log('Question changes:', questionChanges.length, questionChanges);
+			console.log('Answer changes:', answerChanges.length, answerChanges);
+			console.log('Relationship changes:', relationshipChanges.length, relationshipChanges);
+			console.log('Answer changes data:', answerChangesData);
+			console.log('================================');
 
 			// IMMEDIATELY clear change tracking to prevent duplicate calls
 			updateState({
@@ -7395,7 +7515,7 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionChanges.length > 0) {
 				const duplicateQuestions = [];
 				questionChanges.forEach(questionId => {
-					const questionData = state.questionChanges[questionId];
+					const questionData = questionChangesData[questionId];
 					if (questionData.action === 'add') {
 						// Check if this question already exists in the current section
 						const existingQuestions = [];
@@ -7437,7 +7557,7 @@ createCustomElement('cadal-careiq-builder', {
 			if (answerChanges.length > 0) {
 				const duplicateAnswers = [];
 				answerChanges.forEach(answerId => {
-					const answerData = state.answerChanges[answerId];
+					const answerData = answerChangesData[answerId];
 					if (answerData.action === 'add' || answerData.action === 'library_replace') {
 						// Find which question this answer belongs to
 						let targetQuestion = null;
@@ -7508,7 +7628,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Save section changes first
 			if (sectionChanges.length > 0) {
 				sectionChanges.forEach(sectionId => {
-					const sectionData = state.sectionChanges[sectionId];
+					const sectionData = sectionChangesData[sectionId];
 					console.log('Saving section:', sectionId, sectionData);
 					
 					// Handle deleted sections with DELETE API
@@ -7535,7 +7655,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Save question changes
 			if (questionChanges.length > 0) {
 				questionChanges.forEach(questionId => {
-					const questionData = state.questionChanges[questionId];
+					const questionData = questionChangesData[questionId];
 					console.log('Saving question:', questionId, questionData);
 
 					// Handle new questions with ADD API
@@ -7660,6 +7780,90 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 			
+			// Save answer changes - First check for exact library matches
+			if (answerChanges.length > 0) {
+				console.log('=== CHECKING ANSWERS FOR EXACT LIBRARY MATCHES ===');
+				console.log('Answer changes to check:', answerChanges);
+				console.log('Answer changes data:', answerChangesData);
+
+				// Check each answer against library for exact matches
+				for (let answerId of answerChanges) {
+					const answerData = answerChangesData[answerId];
+					if (answerData && answerData.label && answerData.label.trim()) {
+						console.log('Checking answer for library match:', answerData.label);
+						console.log('Making typeahead API call for:', answerData.label.trim());
+
+						// Make synchronous call to typeahead API to check for exact match
+						try {
+							const typeaheadResponse = await fetch('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json'
+								},
+								body: JSON.stringify({
+									searchText: answerData.label.trim()
+								})
+							});
+
+							if (typeaheadResponse.ok) {
+								const typeaheadData = await typeaheadResponse.json();
+								console.log('Typeahead response for', answerData.label, ':', typeaheadData);
+
+								if (typeaheadData.results && typeaheadData.results.length > 0) {
+									console.log('Found', typeaheadData.results.length, 'typeahead results');
+									console.log('Typeahead results:', typeaheadData.results);
+
+									// Check for exact match (case insensitive)
+									const exactMatch = typeaheadData.results.find(result => {
+										if (!result || !result.name) {
+											console.log('Skipping result with missing name:', result);
+											return false;
+										}
+										console.log('Comparing:', result.name.toLowerCase().trim(), 'vs', answerData.label.toLowerCase().trim());
+										return result.name.toLowerCase().trim() === answerData.label.toLowerCase().trim();
+									});
+
+									console.log('Exact match result:', exactMatch);
+
+									if (exactMatch) {
+										console.log('Found exact library match for:', answerData.label, 'Library ID:', exactMatch.id);
+
+										// Update the answer to use library reference
+										const updatedAnswerData = {
+											...answerData,
+											action: 'library_replace',
+											libraryAnswerId: exactMatch.id,
+											originalLibraryData: exactMatch
+										};
+										answerChangesData[answerId] = updatedAnswerData;
+
+										console.log('Updated answer data to library reference:', updatedAnswerData);
+
+										// Add system message about using library answer
+										updateState({
+											systemMessages: [
+												...(state.systemMessages || []),
+												{
+													type: 'info',
+													message: `Found existing library answer for "${answerData.label}", using library version`,
+													timestamp: new Date().toISOString()
+												}
+											]
+										});
+									}
+								}
+							}
+						} catch (error) {
+							console.warn('Error checking answer against library:', error);
+							// Continue with normal processing if typeahead fails
+						}
+					}
+				}
+
+				console.log('=== LIBRARY CHECK COMPLETE, PROCESSING SAVES ===');
+				console.log('Final answer changes data after library check:', answerChangesData);
+			}
+
 			// Save answer changes - Group by question and action type
 			if (answerChanges.length > 0) {
 				// Group answers by question ID and action type
@@ -7667,7 +7871,7 @@ createCustomElement('cadal-careiq-builder', {
 				const individualAnswers = [];
 
 				answerChanges.forEach(answerId => {
-					const answerData = state.answerChanges[answerId];
+					const answerData = answerChangesData[answerId];
 					console.log('Processing answer change:', answerId, answerData);
 
 					if (answerData.action === 'add' || answerData.action === 'library_replace') {
@@ -7834,7 +8038,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Save relationship changes
 			if (relationshipChanges.length > 0) {
 				relationshipChanges.forEach(relationshipKey => {
-					const relationshipData = state.relationshipChanges[relationshipKey];
+					const relationshipData = relationshipChangesData[relationshipKey];
 					console.log('Saving relationship:', relationshipKey, relationshipData);
 					
 					if (relationshipData.action === 'add' && relationshipData.relationshipType === 'question') {
@@ -8596,19 +8800,25 @@ createCustomElement('cadal-careiq-builder', {
 			const newAnswerIds = action.payload;
 			console.log('New Answer IDs received:', newAnswerIds);
 
-			// Safe message handling
-			let successMessage = 'Answer(s) added to question successfully!';
-			if (newAnswerIds && Array.isArray(newAnswerIds)) {
-				successMessage = `${newAnswerIds.length} answer(s) added to question successfully!`;
+			// Handle different response types - success vs duplicate/warning
+			let message = 'Answer(s) added to question successfully!';
+			let messageType = 'success';
+
+			if (action.payload && action.payload.detail) {
+				// Backend returned a detail message (usually duplicate warning)
+				message = action.payload.detail;
+				messageType = message.toLowerCase().includes('duplicate') ? 'warning' : 'info';
+			} else if (newAnswerIds && Array.isArray(newAnswerIds)) {
+				message = `${newAnswerIds.length} answer(s) added to question successfully!`;
 			}
 
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
+
 					{
-						type: 'success',
-						message: successMessage,
+						type: messageType,
+						message: message,
 						timestamp: new Date().toISOString()
 					}
 				]
