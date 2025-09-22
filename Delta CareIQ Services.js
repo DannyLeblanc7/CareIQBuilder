@@ -1,6 +1,34 @@
 // Delta to add to CareIQ Services.js
 // Add this method to the CareIQServices.prototype object
 
+// BUILDER - SECTION OPERATIONS
+
+builderGetSections: function(assessmentId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the builder sections endpoint
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(assessmentId));
+        var r = this._createRESTMessage('Get Builder Sections', endpoint);
+
+        // Set method to GET
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetBuilderSections');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetBuilderSections - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+// BUILDER - SECTION OPERATIONS
+
 builderGetSectionQuestions: function(gtId, sectionId) {
     try {
         var config = this._getConfig();
@@ -406,6 +434,43 @@ builderLibraryAnswerDetails: function(answerId) {
         return response.getBody();
     } catch (e) {
         this._logError('GetLibraryAnswerDetails - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+builderGetGuidelineTemplates: function(useCase, offset, limit, contentSource, latestVersionOnly, searchValue) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the builder guideline templates endpoint with query parameters
+        var endpoint = this._buildEndpoint('/builder/guideline-template?use_case=' + encodeURIComponent(useCase) +
+                                          '&offset=' + encodeURIComponent(offset) +
+                                          '&limit=' + encodeURIComponent(limit) +
+                                          '&content_source=' + encodeURIComponent(contentSource));
+
+        // Add optional parameters if provided
+        if (latestVersionOnly) {
+            endpoint += '&latest_version_only=' + encodeURIComponent(latestVersionOnly);
+        }
+
+        if (searchValue) {
+            endpoint += '&search_value=' + encodeURIComponent(searchValue);
+        }
+
+        var r = this._createRESTMessage('Get Builder Guideline Templates', endpoint);
+
+        // Set method to GET
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetBuilderGuidelineTemplates');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetBuilderGuidelineTemplates - Error: ' + e);
         return '{"error": "' + e.message + '"}';
     }
 },

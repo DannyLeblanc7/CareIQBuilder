@@ -3215,10 +3215,8 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			// Automatically fetch assessments after token success
-			console.log('About to dispatch FETCH_ASSESSMENTS with config and token');
+			console.log('About to dispatch FETCH_ASSESSMENTS');
 			dispatch('FETCH_ASSESSMENTS', {
-				config: state.careiqConfig,
-				accessToken: token,
 				offset: 0,
 				limit: 200,
 				latestVersionOnly: true
@@ -3310,17 +3308,13 @@ createCustomElement('cadal-careiq-builder', {
 
 		'FETCH_ASSESSMENTS': (coeffects) => {
 			const {action, dispatch, updateState} = coeffects;
-			const {config, accessToken, offset, limit, latestVersionOnly, searchValue} = action.payload;
-			
+			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
+
 			console.log('FETCH_ASSESSMENTS handler called');
-			
+
 			updateState({assessmentsLoading: true});
-			
+
 			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
 				useCase: 'CM',
 				offset: offset,
 				limit: limit,
@@ -3328,13 +3322,13 @@ createCustomElement('cadal-careiq-builder', {
 				latestVersionOnly: latestVersionOnly,
 				searchValue: searchValue
 			});
-			
+
 			console.log('Assessments request body:', requestBody);
-			
+
 			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_ASSESSMENTS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-templates', {
+		'MAKE_ASSESSMENTS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-assessments', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -3546,8 +3540,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			dispatch('FETCH_ASSESSMENTS', {
-				config: state.careiqConfig,
-				accessToken: state.accessToken,
 				offset: 0,
 				limit: 200,
 				latestVersionOnly: false,
@@ -3755,10 +3747,6 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Fetching assessment details for:', assessmentTitle);
 			
 			const requestBody = JSON.stringify({
-				app: state.careiqConfig.app,
-				region: state.careiqConfig.region,
-				version: state.careiqConfig.version,
-				accessToken: state.accessToken,
 				assessmentId: assessmentId
 			});
 			
@@ -4942,53 +4930,51 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			
-			// console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Original action data:', action.meta);
-			
-			// Get original data from meta (passed through HTTP effect)
-			const {answerId, questionId, questionLabel} = action.meta || {};
-			
-			console.log('Branch question added successfully:', questionId, 'to answer:', answerId);
-			
-			// Follow CLAUDE.md refresh pattern - store current section for reselection
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-			
-			// Clear all change tracking arrays and reset UI state for fresh start
+
+			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
+			console.log('Question relationship added successfully');
+			console.log('Response payload:', action.payload);
+			console.log('Action meta:', action.meta);
+
+			// Get the answer ID using the same fallback pattern as guidelines
+			let answerId = null;
+			try {
+				// The answerId should be in the original request that triggered this success
+				if (action.meta && action.meta.answerId) {
+					answerId = action.meta.answerId;
+					console.log('Got answerId from action.meta:', answerId);
+				} else {
+					// Fallback: look for the currently opened relationship panel
+					const openPanels = Object.keys(state.answerRelationships || {});
+					if (openPanels.length > 0) {
+						answerId = openPanels[0]; // Use the first open panel
+						console.log('Got answerId from open relationship panel:', answerId);
+					}
+				}
+			} catch (e) {
+				console.error('Error extracting answerId:', e);
+			}
+
+			// Clear relationship changes and show success message
 			updateState({
 				relationshipChanges: {},
-				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'success',
-						message: `Successfully added triggered question "${questionLabel}" to answer relationship! Refreshing data...`,
+						message: `Question relationship saved successfully! Auto-refreshing now...`,
 						timestamp: new Date().toISOString()
 					}
-				],
-				// Store pending reselection data - both ID and label needed
-				pendingReselectionSection: currentSection,
-				pendingReselectionSectionLabel: currentSectionLabel,
-				// Reset UI state - edit mode on, relationships off, collapsed
-				builderMode: true,
-				showRelationships: false,
-				answerRelationships: {}, // Clear all expanded relationship data
-				relationshipsLoading: {},
-				// Clear any active relationship editing
-				addingRelationship: null,
-				selectedRelationshipType: null,
-				relationshipTypeaheadText: '',
-				relationshipTypeaheadResults: [],
-				selectedRelationshipQuestion: null
+				]
 			});
-			
-			// Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessmentId
-			});
+
+			// Immediate auto-refresh since backend has already committed (same as guidelines)
+			if (answerId) {
+				console.log('=== AUTO-REFRESH: Immediately refreshing for answerId:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
 		},
 
 		'ADD_BRANCH_QUESTION_ERROR': (coeffects) => {
@@ -6269,6 +6255,27 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				return; // Exit early for guidelines - ADD_GUIDELINE_RELATIONSHIP handles the rest
+			}
+
+			// AUTO-SAVE: For questions, immediately dispatch the save action instead of queuing
+			if (relationshipType === 'question') {
+				console.log('Dispatching ADD_BRANCH_QUESTION for immediate save');
+				dispatch('ADD_BRANCH_QUESTION', {
+					answerId: answerId,
+					questionId: targetId,
+					questionLabel: selectedItem.label
+				});
+
+				// Clear the relationship UI
+				updateState({
+					addingRelationship: null,
+					selectedRelationshipType: null,
+					relationshipTypeaheadText: '',
+					relationshipTypeaheadResults: [],
+					selectedRelationshipQuestion: null
+				});
+
+				return; // Exit early for questions - ADD_BRANCH_QUESTION handles the rest
 			}
 			console.log('Adding relationship change with data:', {
 				action: 'add',
