@@ -1689,33 +1689,33 @@ const view = (state, {updateState, dispatch}) => {
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
-																						<button 
+																						<button
 																							className="load-relationships-btn"
 																							on={{
 																								click: (e) => {
 																									e.stopPropagation();
-																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																									dispatch('OPEN_RELATIONSHIP_MODAL', {
 																										answerId: answer.ids.id
 																									});
 																								}
 																							}}
 																						>
 																							{(() => {
-																								if (!answer.counts) return 'Add Relationships';
-																								
+																								if (!answer.counts) return 'Manage Relationships';
+
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
-																									{ key: 'problems', label: 'P' }, 
+																									{ key: 'problems', label: 'P' },
 																									{ key: 'triggered_questions', label: 'Q' },
 																									{ key: 'evidence', label: 'E' },
 																									{ key: 'barriers', label: 'B' }
 																								];
-																								
+
 																								const displayCounts = labels
 																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
 																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
-																									
-																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Add Relationships';
+
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
 																							})()}
 																						</button>
 																					) : state.relationshipsLoading[answer.ids.id] ? (
@@ -1744,6 +1744,19 @@ const view = (state, {updateState, dispatch}) => {
 																							}}
 																						>
 																							🔄
+																						</button>
+																						<button
+																							className="edit-relationships-btn"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('OPEN_RELATIONSHIP_MODAL', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							✏️ Edit
 																						</button>
 																						<button
 																							className="close-relationships-btn"
@@ -2478,33 +2491,33 @@ const view = (state, {updateState, dispatch}) => {
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
-																						<button 
+																						<button
 																							className="load-relationships-btn"
 																							on={{
 																								click: (e) => {
 																									e.stopPropagation();
-																									dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+																									dispatch('OPEN_RELATIONSHIP_MODAL', {
 																										answerId: answer.ids.id
 																									});
 																								}
 																							}}
 																						>
 																							{(() => {
-																								if (!answer.counts) return 'Add Relationships';
-																								
+																								if (!answer.counts) return 'Manage Relationships';
+
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
-																									{ key: 'problems', label: 'P' }, 
+																									{ key: 'problems', label: 'P' },
 																									{ key: 'triggered_questions', label: 'Q' },
 																									{ key: 'evidence', label: 'E' },
 																									{ key: 'barriers', label: 'B' }
 																								];
-																								
+
 																								const displayCounts = labels
 																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
 																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
-																									
-																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Add Relationships';
+
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
 																							})()}
 																						</button>
 																					) : state.relationshipsLoading[answer.ids.id] ? (
@@ -2533,6 +2546,19 @@ const view = (state, {updateState, dispatch}) => {
 																							}}
 																						>
 																							🔄
+																						</button>
+																						<button
+																							className="edit-relationships-btn"
+																							on={{
+																								click: (e) => {
+																									e.stopPropagation();
+																									dispatch('OPEN_RELATIONSHIP_MODAL', {
+																										answerId: answer.ids.id
+																									});
+																								}
+																							}}
+																						>
+																							✏️ Edit
 																						</button>
 																						<button
 																							className="close-relationships-btn"
@@ -3415,6 +3441,501 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
+			{/* Relationship Modal */}
+			{state.relationshipModalOpen && (
+				<div className="relationship-modal">
+					<div className="modal-overlay" on={{
+						click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')
+					}}>
+						<div className="modal-content" on={{
+							click: (e) => e.stopPropagation(),
+							keydown: (e) => {
+								if (e.key === 'Escape') {
+									dispatch('CLOSE_RELATIONSHIP_MODAL');
+								}
+							}
+						}}>
+							<div className="modal-header">
+								<div className="modal-title-section">
+									<h3>Manage Answer Relationships</h3>
+									{(() => {
+										const answerId = state.relationshipModalAnswerId;
+										if (!answerId || !state.currentQuestions?.questions) return null;
+
+										// Find the question and answer
+										const question = state.currentQuestions.questions.find(q =>
+											q.answers && q.answers.some(a => a.ids.id === answerId)
+										);
+										if (!question) return null;
+
+										const answer = question.answers.find(a => a.ids.id === answerId);
+										if (!answer) return null;
+
+										return (
+											<div className="relationship-context">
+												<div className="context-question">Question: <strong>{question.label}</strong></div>
+												<div className="context-answer">Answer: <strong>{answer.label}</strong></div>
+											</div>
+										);
+									})()}
+								</div>
+								<button
+									className="modal-close-btn"
+									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
+								>
+									✗
+								</button>
+							</div>
+
+							<div className="modal-tabs">
+								<div
+									className={`tab ${state.relationshipModalActiveTab === 'guidelines' ? 'active' : ''}`}
+									on={{
+										click: () => dispatch('SET_RELATIONSHIP_TAB', {tab: 'guidelines'})
+									}}
+								>
+									📋 Guidelines {(() => {
+										const answerId = state.relationshipModalAnswerId;
+										const relationships = state.answerRelationships[answerId];
+										if (relationships && relationships.guidelines && relationships.guidelines.length > 0) {
+											return `(${relationships.guidelines.length})`;
+										}
+										return '';
+									})()}
+								</div>
+								<div
+									className={`tab ${state.relationshipModalActiveTab === 'questions' ? 'active' : ''}`}
+									on={{
+										click: () => dispatch('SET_RELATIONSHIP_TAB', {tab: 'questions'})
+									}}
+								>
+									❓ Questions {(() => {
+										const answerId = state.relationshipModalAnswerId;
+										const relationships = state.answerRelationships[answerId];
+										if (relationships && relationships.triggered_questions && relationships.triggered_questions.length > 0) {
+											return `(${relationships.triggered_questions.length})`;
+										}
+										return '';
+									})()}
+								</div>
+								<div
+									className={`tab ${state.relationshipModalActiveTab === 'problems' ? 'active' : ''}`}
+									on={{
+										click: () => dispatch('SET_RELATIONSHIP_TAB', {tab: 'problems'})
+									}}
+								>
+									⚠️ Problems {(() => {
+										const answerId = state.relationshipModalAnswerId;
+										const relationships = state.answerRelationships[answerId];
+										if (relationships && relationships.problems && relationships.problems.length > 0) {
+											return `(${relationships.problems.length})`;
+										}
+										return '';
+									})()}
+								</div>
+								<div
+									className={`tab ${state.relationshipModalActiveTab === 'barriers' ? 'active' : ''}`}
+									on={{
+										click: () => dispatch('SET_RELATIONSHIP_TAB', {tab: 'barriers'})
+									}}
+								>
+									🚧 Barriers {(() => {
+										const answerId = state.relationshipModalAnswerId;
+										const relationships = state.answerRelationships[answerId];
+										if (relationships && relationships.barriers && relationships.barriers.length > 0) {
+											return `(${relationships.barriers.length})`;
+										}
+										return '';
+									})()}
+								</div>
+							</div>
+
+							<div className="modal-body">
+								{/* Guidelines Tab */}
+								{state.relationshipModalActiveTab === 'guidelines' && (
+									<div className="tab-content">
+										<h4>Guidelines</h4>
+
+										{/* Existing Guidelines */}
+										{(() => {
+											const answerId = state.relationshipModalAnswerId;
+											const relationships = state.answerRelationships[answerId];
+											if (relationships && relationships.guidelines && relationships.guidelines.length > 0) {
+												return (
+													<div className="existing-relationships">
+														{relationships.guidelines.map((guideline, index) => (
+															<div key={index} className="relationship-item">
+																<span className="relationship-label">{guideline.label}</span>
+																<button
+																	className="remove-relationship-btn"
+																	on={{
+																		click: () => dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
+																			answerId: answerId,
+																			guidelineId: guideline.id
+																		})
+																	}}
+																>
+																	✗
+																</button>
+															</div>
+														))}
+													</div>
+												);
+											}
+											return <p>No guidelines linked to this answer.</p>;
+										})()}
+
+										{/* Add New Guideline */}
+										<div className="add-relationship">
+											<input
+												type="text"
+												placeholder="Search for guidelines..."
+												value={state.relationshipTypeaheadText}
+												on={{
+													input: (e) => {
+														const value = e.target.value;
+														updateState({relationshipTypeaheadText: value});
+
+														dispatch('GUIDELINE_TYPEAHEAD_INPUT', {
+															text: value,
+															answerId: state.relationshipModalAnswerId
+														});
+													},
+													keydown: (e) => {
+														if (e.key === 'Escape') {
+															dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+														}
+													},
+													blur: () => {
+														setTimeout(() => {
+															dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+														}, 150);
+													}
+												}}
+											/>
+
+											{state.relationshipTypeaheadResults.length > 0 && (
+												<div className="typeahead-dropdown">
+													{state.relationshipTypeaheadResults.map((guideline, index) => (
+														<div
+															key={guideline.id}
+															className="typeahead-item"
+															on={{
+																click: () => {
+																	dispatch('ADD_GUIDELINE_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		guideline: guideline
+																	});
+																	dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+																}
+															}}
+														>
+															{guideline.label}
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+
+								{/* Questions Tab */}
+								{state.relationshipModalActiveTab === 'questions' && (
+									<div className="tab-content">
+										<h4>Questions</h4>
+
+										{/* Existing Questions */}
+										{(() => {
+											const answerId = state.relationshipModalAnswerId;
+											const relationships = state.answerRelationships[answerId];
+											if (relationships && relationships.triggered_questions && relationships.triggered_questions.length > 0) {
+												return (
+													<div className="existing-relationships">
+														{relationships.triggered_questions.map((question, index) => (
+															<div key={index} className="relationship-item">
+																<span className="relationship-label">{question.label}</span>
+																<button
+																	className="remove-relationship-btn"
+																	on={{
+																		click: () => dispatch('REMOVE_QUESTION_RELATIONSHIP', {
+																			answerId: answerId,
+																			questionId: question.id
+																		})
+																	}}
+																>
+																	✗
+																</button>
+															</div>
+														))}
+													</div>
+												);
+											}
+											return <p>No questions linked to this answer.</p>;
+										})()}
+
+										{/* Add New Question */}
+										<div className="add-relationship">
+											<input
+												type="text"
+												placeholder="Search for questions..."
+												value={state.relationshipTypeaheadText}
+												on={{
+													input: (e) => {
+														const value = e.target.value;
+														updateState({relationshipTypeaheadText: value});
+
+														if (value.length >= 3) {
+															dispatch('QUESTION_TYPEAHEAD_INPUT_CHANGE', {
+																searchText: value
+															});
+														} else {
+															updateState({relationshipTypeaheadResults: []});
+														}
+													},
+													keydown: (e) => {
+														if (e.key === 'Escape') {
+															dispatch('QUESTION_TYPEAHEAD_HIDE');
+														}
+													},
+													blur: () => {
+														setTimeout(() => {
+															dispatch('QUESTION_TYPEAHEAD_HIDE');
+														}, 150);
+													}
+												}}
+											/>
+
+											{state.relationshipTypeaheadResults.length > 0 && (
+												<div className="typeahead-dropdown">
+													{state.relationshipTypeaheadResults.map((question, index) => (
+														<div
+															key={question.id}
+															className="typeahead-item"
+															on={{
+																click: () => {
+																	dispatch('ADD_QUESTION_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		question: question
+																	});
+																	dispatch('QUESTION_TYPEAHEAD_HIDE');
+																}
+															}}
+														>
+															{question.label}
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+
+								{/* Problems Tab */}
+								{state.relationshipModalActiveTab === 'problems' && (
+									<div className="tab-content">
+										<h4>Problems</h4>
+
+										{/* Existing Problems */}
+										{(() => {
+											const answerId = state.relationshipModalAnswerId;
+											const relationships = state.answerRelationships[answerId];
+											if (relationships && relationships.problems && relationships.problems.length > 0) {
+												return (
+													<div className="existing-relationships">
+														{relationships.problems.map((problem, index) => (
+															<div key={index} className="relationship-item">
+																<span className="relationship-label">{problem.label}</span>
+																<button
+																	className="remove-relationship-btn"
+																	on={{
+																		click: () => dispatch('REMOVE_PROBLEM_RELATIONSHIP', {
+																			answerId: answerId,
+																			problemId: problem.id
+																		})
+																	}}
+																>
+																	✗
+																</button>
+															</div>
+														))}
+													</div>
+												);
+											}
+											return <p>No problems linked to this answer.</p>;
+										})()}
+
+										{/* Add New Problem */}
+										<div className="add-relationship">
+											<input
+												type="text"
+												placeholder="Search for problems..."
+												value={state.relationshipTypeaheadText}
+												on={{
+													input: (e) => {
+														const value = e.target.value;
+														updateState({relationshipTypeaheadText: value});
+
+														if (value.length >= 3) {
+															// Use generic typeahead for problems
+															dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																searchText: value,
+																type: 'problems'
+															});
+														} else {
+															updateState({relationshipTypeaheadResults: []});
+														}
+													},
+													keydown: (e) => {
+														if (e.key === 'Escape') {
+															updateState({relationshipTypeaheadResults: []});
+														}
+													},
+													blur: () => {
+														setTimeout(() => {
+															updateState({relationshipTypeaheadResults: []});
+														}, 150);
+													}
+												}}
+											/>
+
+											{state.relationshipTypeaheadResults.length > 0 && (
+												<div className="typeahead-dropdown">
+													{state.relationshipTypeaheadResults.map((problem, index) => (
+														<div
+															key={problem.id}
+															className="typeahead-item"
+															on={{
+																click: () => {
+																	dispatch('ADD_PROBLEM_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		problem: problem
+																	});
+																	updateState({relationshipTypeaheadResults: []});
+																}
+															}}
+														>
+															{problem.label}
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+
+								{/* Barriers Tab */}
+								{state.relationshipModalActiveTab === 'barriers' && (
+									<div className="tab-content">
+										<h4>Barriers</h4>
+
+										{/* Existing Barriers */}
+										{(() => {
+											const answerId = state.relationshipModalAnswerId;
+											const relationships = state.answerRelationships[answerId];
+											if (relationships && relationships.barriers && relationships.barriers.length > 0) {
+												return (
+													<div className="existing-relationships">
+														{relationships.barriers.map((barrier, index) => (
+															<div key={index} className="relationship-item">
+																<span className="relationship-label">{barrier.label}</span>
+																<button
+																	className="remove-relationship-btn"
+																	on={{
+																		click: () => dispatch('REMOVE_BARRIER_RELATIONSHIP', {
+																			answerId: answerId,
+																			barrierId: barrier.id
+																		})
+																	}}
+																>
+																	✗
+																</button>
+															</div>
+														))}
+													</div>
+												);
+											}
+											return <p>No barriers linked to this answer.</p>;
+										})()}
+
+										{/* Add New Barrier */}
+										<div className="add-relationship">
+											<input
+												type="text"
+												placeholder="Search for barriers..."
+												value={state.relationshipTypeaheadText}
+												on={{
+													input: (e) => {
+														const value = e.target.value;
+														updateState({relationshipTypeaheadText: value});
+
+														if (value.length >= 3) {
+															// Use generic typeahead for barriers
+															dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																searchText: value,
+																type: 'barriers'
+															});
+														} else {
+															updateState({relationshipTypeaheadResults: []});
+														}
+													},
+													keydown: (e) => {
+														if (e.key === 'Escape') {
+															updateState({relationshipTypeaheadResults: []});
+														}
+													},
+													blur: () => {
+														setTimeout(() => {
+															updateState({relationshipTypeaheadResults: []});
+														}, 150);
+													}
+												}}
+											/>
+
+											{state.relationshipTypeaheadResults.length > 0 && (
+												<div className="typeahead-dropdown">
+													{state.relationshipTypeaheadResults.map((barrier, index) => (
+														<div
+															key={barrier.id}
+															className="typeahead-item"
+															on={{
+																click: () => {
+																	dispatch('ADD_BARRIER_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		barrier: barrier
+																	});
+																	updateState({relationshipTypeaheadResults: []});
+																}
+															}}
+														>
+															{barrier.label}
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Modal Footer with Save/Cancel buttons */}
+							<div className="modal-footer">
+								<button
+									className="modal-cancel-btn"
+									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
+								>
+									Cancel
+								</button>
+								<button
+									className="modal-save-btn"
+									on={{click: () => dispatch('SAVE_RELATIONSHIP_CHANGES')}}
+								>
+									Save Changes
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
@@ -3548,7 +4069,12 @@ createCustomElement('cadal-careiq-builder', {
 		editingAnswerId: null,
 		currentAnswerSearchQuestionId: null,
 		libraryAnswerLoading: null,
-		pendingLibraryAnswerReplacementId: null
+		pendingLibraryAnswerReplacementId: null,
+
+		// Relationship Modal state
+		relationshipModalOpen: false,              // Controls modal visibility
+		relationshipModalAnswerId: null,           // Which answer is being edited
+		relationshipModalActiveTab: 'guidelines'   // Current active tab
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -10657,6 +11183,88 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				sectionTypeaheadSelectedIndex: newIndex
 			});
+		},
+
+		// Relationship Modal Actions
+		'OPEN_RELATIONSHIP_MODAL': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {answerId} = action.payload;
+
+			console.log('Opening relationship modal for answer:', answerId);
+
+			updateState({
+				relationshipModalOpen: true,
+				relationshipModalAnswerId: answerId,
+				relationshipModalActiveTab: 'guidelines',
+				// Clear any existing typeahead state to prevent contamination
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false
+			});
+
+			// Auto-load relationships if they don't exist yet
+			if (answerId && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
+				console.log('Relationships not loaded yet, loading them now...');
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			} else {
+				console.log('Modal opened, relationships already available');
+			}
+		},
+
+		'CLOSE_RELATIONSHIP_MODAL': (coeffects) => {
+			const {updateState} = coeffects;
+
+			console.log('Closing relationship modal');
+
+			updateState({
+				relationshipModalOpen: false,
+				relationshipModalAnswerId: null,
+				relationshipModalActiveTab: 'guidelines',
+				// Clear typeahead state
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false
+			});
+		},
+
+		'SET_RELATIONSHIP_TAB': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {tab} = action.payload;
+
+			console.log('Setting relationship modal tab to:', tab);
+
+			updateState({
+				relationshipModalActiveTab: tab,
+				// Clear typeahead state when switching tabs to prevent contamination
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false
+			});
+		},
+
+		'RELATIONSHIP_TYPEAHEAD_HIDE': (coeffects) => {
+			const {updateState} = coeffects;
+
+			console.log('Hiding relationship typeahead');
+
+			updateState({
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false
+			});
+		},
+
+		'SAVE_RELATIONSHIP_CHANGES': (coeffects) => {
+			const {dispatch} = coeffects;
+
+			console.log('Saving relationship changes');
+
+			// For now, just close the modal. In the future, this would save changes to backend
+			dispatch('CLOSE_RELATIONSHIP_MODAL');
+
+			// TODO: Implement actual save logic to backend when needed
 		},
 
 	},

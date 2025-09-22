@@ -3520,8 +3520,299 @@
   font-size: 0.875rem;
   cursor: pointer;
   font-weight: bold;
-  
+
   &:hover {
     background-color: #dc2626;
+  }
+}
+
+/* Relationship Modal Styles */
+.relationship-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .modal-content {
+    background: white;
+    margin: 50px auto;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80%;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+
+    .modal-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+
+      .modal-title-section {
+        flex: 1;
+
+        h3 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .relationship-context {
+          font-size: 0.875rem;
+          color: #6b7280;
+
+          .context-question, .context-answer {
+            margin: 0.25rem 0;
+
+            strong {
+              color: #374151;
+              font-weight: 500;
+            }
+          }
+        }
+      }
+
+      .modal-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 0;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+
+        &:hover {
+          background-color: #f3f4f6;
+          color: #374151;
+        }
+      }
+    }
+
+    .modal-tabs {
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+
+      .tab {
+        padding: 12px 20px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+        color: #6b7280;
+        transition: all 0.2s;
+
+        &:hover {
+          color: #374151;
+          background-color: #f9fafb;
+        }
+
+        &.active {
+          border-bottom-color: #0073e6;
+          color: #0073e6;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+
+      .tab-content {
+        h4 {
+          margin: 0 0 1rem 0;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .existing-relationships {
+          margin-bottom: 1.5rem;
+
+          .relationship-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+
+            .relationship-label {
+              flex: 1;
+              font-weight: 500;
+              color: #374151;
+            }
+
+            .remove-relationship-btn {
+              background: #ef4444;
+              color: white;
+              border: none;
+              padding: 0.25rem 0.5rem;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 0.875rem;
+
+              &:hover {
+                background: #dc2626;
+              }
+            }
+          }
+        }
+
+        .add-relationship {
+          position: relative;
+
+          input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+
+            &:focus {
+              outline: none;
+              border-color: #0073e6;
+              box-shadow: 0 0 0 2px rgba(0, 115, 230, 0.1);
+            }
+          }
+
+          .typeahead-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10002;
+            max-height: 200px;
+            overflow-y: auto;
+
+            .typeahead-item {
+              padding: 0.75rem;
+              cursor: pointer;
+              border-bottom: 1px solid #f3f4f6;
+
+              &:hover {
+                background-color: #f9fafb;
+              }
+
+              &:last-child {
+                border-bottom: none;
+              }
+            }
+          }
+        }
+
+        p {
+          color: #6b7280;
+          margin: 1rem 0;
+          font-style: italic;
+        }
+      }
+    }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      background-color: #f9fafb;
+
+      .modal-cancel-btn {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.875rem;
+
+        &:hover {
+          background: #4b5563;
+        }
+      }
+
+      .modal-save-btn {
+        background: #0073e6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+
+        &:hover {
+          background: #005cc5;
+        }
+      }
+    }
+  }
+}
+
+.edit-relationships-btn {
+  background: #0073e6;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+
+  &:hover {
+    background: #005cc5;
+  }
+}
+
+.relationship-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.open-modal-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+
+  &:hover {
+    background: #059669;
   }
 }
