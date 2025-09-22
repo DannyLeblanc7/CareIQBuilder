@@ -434,7 +434,7 @@ const view = (state, {updateState, dispatch}) => {
 								>
 									👁️ Preview Mode
 								</button>,
-								<button 
+								<button
 									key="edit-relationships-btn"
 									className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
@@ -3444,9 +3444,7 @@ const view = (state, {updateState, dispatch}) => {
 			{/* Relationship Modal */}
 			{state.relationshipModalOpen && (
 				<div className="relationship-modal">
-					<div className="modal-overlay" on={{
-						click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')
-					}}>
+					<div className="modal-overlay">
 						<div className="modal-content" on={{
 							click: (e) => e.stopPropagation(),
 							keydown: (e) => {
@@ -3497,9 +3495,21 @@ const view = (state, {updateState, dispatch}) => {
 									📋 Guidelines {(() => {
 										const answerId = state.relationshipModalAnswerId;
 										const relationships = state.answerRelationships[answerId];
+
+										// First try loaded relationship data
 										if (relationships && relationships.guidelines && relationships.guidelines.length > 0) {
 											return `(${relationships.guidelines.length})`;
 										}
+
+										// Fallback to badge counts from answer.counts
+										const answer = state.currentQuestions?.questions?.find(q =>
+											q.answers?.some(a => a.ids.id === answerId)
+										)?.answers?.find(a => a.ids.id === answerId);
+
+										if (answer?.counts?.triggered_guidelines > 0) {
+											return `(${answer.counts.triggered_guidelines})`;
+										}
+
 										return '';
 									})()}
 								</div>
@@ -3512,9 +3522,21 @@ const view = (state, {updateState, dispatch}) => {
 									❓ Questions {(() => {
 										const answerId = state.relationshipModalAnswerId;
 										const relationships = state.answerRelationships[answerId];
+
+										// First try loaded relationship data
 										if (relationships && relationships.triggered_questions && relationships.triggered_questions.length > 0) {
 											return `(${relationships.triggered_questions.length})`;
 										}
+
+										// Fallback to badge counts from answer.counts
+										const answer = state.currentQuestions?.questions?.find(q =>
+											q.answers?.some(a => a.ids.id === answerId)
+										)?.answers?.find(a => a.ids.id === answerId);
+
+										if (answer?.counts?.triggered_questions > 0) {
+											return `(${answer.counts.triggered_questions})`;
+										}
+
 										return '';
 									})()}
 								</div>
@@ -3527,9 +3549,21 @@ const view = (state, {updateState, dispatch}) => {
 									⚠️ Problems {(() => {
 										const answerId = state.relationshipModalAnswerId;
 										const relationships = state.answerRelationships[answerId];
+
+										// First try loaded relationship data
 										if (relationships && relationships.problems && relationships.problems.length > 0) {
 											return `(${relationships.problems.length})`;
 										}
+
+										// Fallback to badge counts from answer.counts
+										const answer = state.currentQuestions?.questions?.find(q =>
+											q.answers?.some(a => a.ids.id === answerId)
+										)?.answers?.find(a => a.ids.id === answerId);
+
+										if (answer?.counts?.problems > 0) {
+											return `(${answer.counts.problems})`;
+										}
+
 										return '';
 									})()}
 								</div>
@@ -3542,9 +3576,21 @@ const view = (state, {updateState, dispatch}) => {
 									🚧 Barriers {(() => {
 										const answerId = state.relationshipModalAnswerId;
 										const relationships = state.answerRelationships[answerId];
+
+										// First try loaded relationship data
 										if (relationships && relationships.barriers && relationships.barriers.length > 0) {
 											return `(${relationships.barriers.length})`;
 										}
+
+										// Fallback to badge counts from answer.counts
+										const answer = state.currentQuestions?.questions?.find(q =>
+											q.answers?.some(a => a.ids.id === answerId)
+										)?.answers?.find(a => a.ids.id === answerId);
+
+										if (answer?.counts?.barriers > 0) {
+											return `(${answer.counts.barriers})`;
+										}
+
 										return '';
 									})()}
 								</div>
@@ -3560,10 +3606,11 @@ const view = (state, {updateState, dispatch}) => {
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
 											const relationships = state.answerRelationships[answerId];
-											if (relationships && relationships.guidelines && relationships.guidelines.length > 0) {
+
+											if (relationships && relationships.guidelines && relationships.guidelines.guidelines && relationships.guidelines.guidelines.length > 0) {
 												return (
 													<div className="existing-relationships">
-														{relationships.guidelines.map((guideline, index) => (
+														{relationships.guidelines.guidelines.map((guideline, index) => (
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{guideline.label}</span>
 																<button
@@ -3582,37 +3629,91 @@ const view = (state, {updateState, dispatch}) => {
 													</div>
 												);
 											}
+											// Check badge counts before showing "no guidelines"
+											const answer = state.currentQuestions?.questions?.find(q =>
+												q.answers?.some(a => a.ids.id === answerId)
+											)?.answers?.find(a => a.ids.id === answerId);
+
+											if (answer?.counts?.triggered_guidelines > 0) {
+												return <p>Guidelines exist but relationship data is loading...</p>;
+											}
 											return <p>No guidelines linked to this answer.</p>;
 										})()}
 
 										{/* Add New Guideline */}
 										<div className="add-relationship">
-											<input
-												type="text"
-												placeholder="Search for guidelines..."
-												value={state.relationshipTypeaheadText}
-												on={{
-													input: (e) => {
-														const value = e.target.value;
-														updateState({relationshipTypeaheadText: value});
+											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+												<input
+													type="text"
+													placeholder="Search for guidelines..."
+													value={state.relationshipTypeaheadText}
+													style={{flex: 1}}
+													on={{
+														input: (e) => {
+															const value = e.target.value;
+															updateState({relationshipTypeaheadText: value});
 
-														dispatch('GUIDELINE_TYPEAHEAD_INPUT', {
-															text: value,
-															answerId: state.relationshipModalAnswerId
-														});
-													},
-													keydown: (e) => {
-														if (e.key === 'Escape') {
-															dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+															dispatch('GUIDELINE_TYPEAHEAD_INPUT', {
+																text: value,
+																answerId: state.relationshipModalAnswerId
+															});
+														},
+														keydown: (e) => {
+															if (e.key === 'Escape') {
+																dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+															}
+														},
+														blur: () => {
+															setTimeout(() => {
+																dispatch('GUIDELINE_TYPEAHEAD_HIDE');
+															}, 150);
 														}
-													},
-													blur: () => {
-														setTimeout(() => {
-															dispatch('GUIDELINE_TYPEAHEAD_HIDE');
-														}, 150);
-													}
-												}}
-											/>
+													}}
+												/>
+
+												{state.selectedGuideline && (
+													<div className="section-edit-buttons" style={{display: 'flex', gap: '4px'}}>
+														<button
+															className="section-edit-save-btn"
+															style={{fontSize: '1.4em'}}
+															on={{
+																click: () => {
+																	dispatch('ADD_GUIDELINE_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		guidelineId: state.selectedGuideline.master_id || state.selectedGuideline.id,
+																		guidelineName: state.selectedGuideline.label || state.selectedGuideline.name
+																	});
+
+																	// Clear the selection after saving
+																	updateState({
+																		selectedGuideline: null,
+																		relationshipTypeaheadText: ''
+																	});
+																}
+															}}
+															title="Save guideline relationship"
+														>
+															✓
+														</button>
+														<button
+															className="section-edit-cancel-btn"
+															style={{fontSize: '1.4em'}}
+															on={{
+																click: () => {
+																	// Clear the selection without saving
+																	updateState({
+																		selectedGuideline: null,
+																		relationshipTypeaheadText: ''
+																	});
+																}
+															}}
+															title="Cancel"
+														>
+															✗
+														</button>
+													</div>
+												)}
+											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
 												<div className="typeahead-dropdown">
@@ -3622,15 +3723,16 @@ const view = (state, {updateState, dispatch}) => {
 															className="typeahead-item"
 															on={{
 																click: () => {
-																	dispatch('ADD_GUIDELINE_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		guideline: guideline
+																	// Just populate the input and store the selected guideline
+																	updateState({
+																		relationshipTypeaheadText: guideline.label || guideline.name,
+																		selectedGuideline: guideline,
+																		relationshipTypeaheadResults: [] // Hide dropdown
 																	});
-																	dispatch('GUIDELINE_TYPEAHEAD_HIDE');
 																}
 															}}
 														>
-															{guideline.label}
+															{guideline.label || guideline.name}
 														</div>
 													))}
 												</div>
@@ -3669,6 +3771,14 @@ const view = (state, {updateState, dispatch}) => {
 														))}
 													</div>
 												);
+											}
+											// Check badge counts before showing "no questions"
+											const answer = state.currentQuestions?.questions?.find(q =>
+												q.answers?.some(a => a.ids.id === answerId)
+											)?.answers?.find(a => a.ids.id === answerId);
+
+											if (answer?.counts?.triggered_questions > 0) {
+												return <p>Questions exist but relationship data is loading...</p>;
 											}
 											return <p>No questions linked to this answer.</p>;
 										})()}
@@ -3760,6 +3870,14 @@ const view = (state, {updateState, dispatch}) => {
 														))}
 													</div>
 												);
+											}
+											// Check badge counts before showing "no problems"
+											const answer = state.currentQuestions?.questions?.find(q =>
+												q.answers?.some(a => a.ids.id === answerId)
+											)?.answers?.find(a => a.ids.id === answerId);
+
+											if (answer?.counts?.problems > 0) {
+												return <p>Problems exist but relationship data is loading...</p>;
 											}
 											return <p>No problems linked to this answer.</p>;
 										})()}
@@ -3854,6 +3972,14 @@ const view = (state, {updateState, dispatch}) => {
 													</div>
 												);
 											}
+											// Check badge counts before showing "no barriers"
+											const answer = state.currentQuestions?.questions?.find(q =>
+												q.answers?.some(a => a.ids.id === answerId)
+											)?.answers?.find(a => a.ids.id === answerId);
+
+											if (answer?.counts?.barriers > 0) {
+												return <p>Barriers exist but relationship data is loading...</p>;
+											}
 											return <p>No barriers linked to this answer.</p>;
 										})()}
 
@@ -3917,19 +4043,13 @@ const view = (state, {updateState, dispatch}) => {
 								)}
 							</div>
 
-							{/* Modal Footer with Save/Cancel buttons */}
+							{/* Modal Footer with Close button */}
 							<div className="modal-footer">
 								<button
-									className="modal-cancel-btn"
+									className="modal-close-btn"
 									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
 								>
-									Cancel
-								</button>
-								<button
-									className="modal-save-btn"
-									on={{click: () => dispatch('SAVE_RELATIONSHIP_CHANGES')}}
-								>
-									Save Changes
+									Close
 								</button>
 							</div>
 						</div>
@@ -6092,7 +6212,7 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 			
-			// Build request body for simplified API call
+			// Build request body for simplified API call - NO data wrapper
 			const requestBody = JSON.stringify({
 				answerId: answerId
 			});
@@ -6121,6 +6241,10 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Response keys:', Object.keys(action.payload || {}));
 			console.log('Action meta:', action.meta);
 			console.log('Guidelines in response:', action.payload?.guidelines);
+			console.log('=== DEBUGGING MISSING GUIDELINE ===');
+			console.log('Expected to see newly added guideline in guidelines array');
+			console.log('Guidelines array length:', action.payload?.guidelines?.guidelines?.length || 0);
+			console.log('Full guidelines structure:', JSON.stringify(action.payload?.guidelines, null, 2));
 			
 			// The answerId should be in the response, let's use that
 			const answerId = action.payload?.id;
@@ -6151,7 +6275,9 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				answerRelationships: updatedRelationships,
 				relationshipsLoading: updatedLoading,
-				visibleQuestions: visibleQuestions
+				visibleQuestions: visibleQuestions,
+				// Clear relationship changes after successful refresh - relationships now loaded from server
+				relationshipChanges: {}
 			});
 		},
 
@@ -6230,9 +6356,8 @@ createCustomElement('cadal-careiq-builder', {
 				console.error('Error extracting answerId:', e);
 			}
 
-			// Clear relationship changes and show success message
+			// Show success message - don't clear relationshipChanges until refresh completes
 			updateState({
-				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -6608,26 +6733,32 @@ createCustomElement('cadal-careiq-builder', {
 		'GUIDELINE_TYPEAHEAD_INPUT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {text, answerId} = action.payload;
-			
-			console.log('=== GUIDELINE_TYPEAHEAD_INPUT ===');
+
+			console.log('=== GUIDELINE_TYPEAHEAD_INPUT DEBUG ===');
 			console.log('Search text:', text);
 			console.log('Answer ID:', answerId);
-			console.log('Text length:', text.length);
-			
+			console.log('Text length:', text ? text.length : 'text is null/undefined');
+			console.log('Full action payload:', action.payload);
+			console.log('Action type:', action.type);
+
 			updateState({
 				relationshipTypeaheadText: text,
 				selectedRelationshipQuestion: null // Clear any selected guideline
 			});
-			
+
 			// Only search after 3 characters
-			if (text.length >= 3) {
-				console.log('Triggering guideline search for:', text);
-				
+			if (text && text.length >= 3) {
+				console.log('=== TRIGGERING GUIDELINE SEARCH ===');
+				console.log('Search text passed to SEARCH_GUIDELINES:', text);
+				console.log('Answer ID passed to SEARCH_GUIDELINES:', answerId);
+
 				dispatch('SEARCH_GUIDELINES', {
 					searchText: text,
 					answerId: answerId
 				});
 			} else {
+				console.log('=== NOT SEARCHING ===');
+				console.log('Reason: text length is', text ? text.length : 'text is null/undefined');
 				updateState({
 					relationshipTypeaheadResults: []
 				});
@@ -6636,20 +6767,36 @@ createCustomElement('cadal-careiq-builder', {
 		'SEARCH_GUIDELINES': (coeffects) => {
 			const {action, dispatch, updateState} = coeffects;
 			const {searchText, answerId} = action.payload;
-			
-			console.log('=== SEARCH_GUIDELINES ===');
+
+			console.log('=== SEARCH_GUIDELINES DEBUG ===');
 			console.log('Searching for:', searchText);
 			console.log('Answer ID in SEARCH_GUIDELINES:', answerId);
-			
+			console.log('Action payload:', action.payload);
+
 			const requestBody = JSON.stringify({
 				searchText: searchText
 			});
-			
+
+			console.log('=== REQUEST BODY BEING SENT ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+			console.log('Request body keys:', Object.keys(JSON.parse(requestBody)));
+			console.log('searchText value:', JSON.parse(requestBody).searchText);
+			console.log('searchText type:', typeof JSON.parse(requestBody).searchText);
+			console.log('searchText length:', JSON.parse(requestBody).searchText ? JSON.parse(requestBody).searchText.length : 'undefined');
+
 			updateState({
 				relationshipTypeaheadLoading: true,
 				currentGuidelineSearchAnswerId: answerId // Store answerId in state
 			});
-			
+
+			console.log('=== DISPATCHING HTTP REQUEST ===');
+			console.log('About to dispatch MAKE_GUIDELINE_SEARCH_REQUEST');
+			console.log('Meta object:', {
+				searchText: searchText,
+				answerId: answerId
+			});
+
 			dispatch('MAKE_GUIDELINE_SEARCH_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -7206,12 +7353,15 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GUIDELINE_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
-			console.log('=== GUIDELINE_SEARCH_SUCCESS ===');
-			console.log('Response:', action.payload);
+
+			console.log('=== GUIDELINE_SEARCH_SUCCESS DEBUG ===');
+			console.log('SUCCESS HANDLER CALLED!');
+			console.log('Response payload:', action.payload);
+			console.log('Response payload type:', typeof action.payload);
+			console.log('Response payload keys:', action.payload ? Object.keys(action.payload) : 'payload is null');
 			console.log('Full action object:', action);
 			console.log('Action meta:', action.meta);
-			console.log('Action payload meta:', action.payload.meta);
+			console.log('Action payload meta:', action.payload ? action.payload.meta : 'no payload meta');
 			
 			const results = action.payload.results || [];
 			// Try different ways to access the answerId, including from state
@@ -7278,7 +7428,18 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			console.log('Filtered guidelines:', filteredResults.length);
-			
+			console.log('=== FINAL FILTERED RESULTS FOR UI ===');
+			filteredResults.forEach((guideline, index) => {
+				console.log(`Guideline ${index + 1}:`, {
+					id: guideline.id,
+					name: guideline.name,
+					label: guideline.label,
+					title: guideline.title,
+					allKeys: Object.keys(guideline),
+					fullObject: guideline
+				});
+			});
+
 			updateState({
 				relationshipTypeaheadResults: filteredResults,
 				relationshipTypeaheadLoading: false
@@ -7325,8 +7486,15 @@ createCustomElement('cadal-careiq-builder', {
 		},
 		'GUIDELINE_SEARCH_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
-			console.error('GUIDELINE_SEARCH_ERROR:', action.payload);
+
+			console.log('=== GUIDELINE_SEARCH_ERROR DEBUG ===');
+			console.log('ERROR HANDLER CALLED!');
+			console.error('Error payload:', action.payload);
+			console.error('Error payload type:', typeof action.payload);
+			console.error('Error payload keys:', action.payload ? Object.keys(action.payload) : 'payload is null');
+			console.error('Full error action:', action);
+			console.error('Error status:', action.payload ? action.payload.status : 'no status');
+			console.error('Error message:', action.payload ? action.payload.data : 'no data');
 			
 			updateState({
 				relationshipTypeaheadResults: [],
@@ -7863,12 +8031,27 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('=== ADD_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
 			console.log('Auto-saving guideline relationship immediately:', guidelineId, 'to answer:', answerId);
+			console.log('Full payload:', action.payload);
+			console.log('answerID type:', typeof answerId, 'value:', answerId);
+			console.log('guidelineId type:', typeof guidelineId, 'value:', guidelineId);
+			console.log('guidelineName type:', typeof guidelineName, 'value:', guidelineName);
 
 			// AUTO-SAVE: Immediately call API like sections do
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				guidelineId: guidelineId
 			});
+
+			console.log('=== REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+			console.log('Request body keys:', Object.keys(JSON.parse(requestBody)));
+			console.log('=== POSTMAN COMPARISON ===');
+			console.log('Postman used answerId: a8d8c56f-c1b3-483f-b473-57cca992b652');
+			console.log('Postman used guidelineId: d965087e-f596-492b-97c1-68eeb82970dc');
+			console.log('Frontend sending answerId:', answerId);
+			console.log('Frontend sending guidelineId:', guidelineId);
+			console.log('IDs MATCH Postman?', answerId === 'a8d8c56f-c1b3-483f-b473-57cca992b652' && guidelineId === 'd965087e-f596-492b-97c1-68eeb82970dc');
 
 			dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody,
