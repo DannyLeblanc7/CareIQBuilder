@@ -494,10 +494,155 @@ const view = (state, {updateState, dispatch}) => {
 											.map(section => (
 											<div key={section.id} className="section-item">
 												<div className="section-header">
-													<span className="section-label">{section.label}</span>
-													<span className="section-info">
-														({section.questions_quantity || 0} questions)
-													</span>
+													<div
+														className={`section-item draggable ${state.selectedSection === section.id ? 'selected' : ''} ${state.dragOverSection === section.id ? 'drag-over' : ''}`}
+														ondblclick={(e) => {
+															if (state.builderMode && state.currentAssessment?.status === 'draft') {
+																e.stopPropagation();
+																e.preventDefault();
+																dispatch('EDIT_SECTION_NAME', {
+																	sectionId: section.id,
+																	sectionLabel: section.label
+																});
+															}
+														}}
+													>
+														{state.editingSectionId === section.id ? (
+															<div className="section-name-edit-container">
+																<div className="typeahead-container">
+																	<input
+																		type="text"
+																		className="section-name-edit-input"
+																		value={state.editingSectionName !== null ? state.editingSectionName : section.label}
+																		oninput={(e) => {
+																			dispatch('UPDATE_SECTION_NAME', {
+																				sectionName: e.target.value
+																			});
+																			dispatch('SECTION_TYPEAHEAD_INPUT_CHANGE', {
+																				searchText: e.target.value
+																			});
+																		}}
+																		onkeydown={(e) => {
+																			if (e.key === 'Enter') {
+																				if (state.sectionTypeaheadVisible && state.sectionTypeaheadSelectedIndex >= 0) {
+																					e.preventDefault();
+																					dispatch('SECTION_TYPEAHEAD_KEYBOARD', { key: 'Enter' });
+																				} else {
+																					dispatch('SAVE_SECTION_NAME', {
+																						sectionId: section.id,
+																						sectionLabel: state.editingSectionName !== null ? state.editingSectionName : section.label
+																					});
+																				}
+																			} else if (e.key === 'Escape') {
+																				if (state.sectionTypeaheadVisible) {
+																					dispatch('SECTION_TYPEAHEAD_HIDE');
+																				} else {
+																					dispatch('CANCEL_SECTION_EDIT');
+																				}
+																			} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+																				e.preventDefault();
+																				dispatch('SECTION_TYPEAHEAD_KEYBOARD', { key: e.key });
+																			}
+																		}}
+																		onblur={(e) => {
+																			// Hide typeahead after a short delay to allow selection
+																			setTimeout(() => {
+																				dispatch('SECTION_TYPEAHEAD_HIDE');
+																			}, 150);
+																		}}
+																		autoFocus
+																	/>
+
+																	{/* Section Typeahead Results */}
+																	{state.sectionTypeaheadVisible && (
+																		<div className="typeahead-dropdown section-typeahead-dropdown">
+																			{state.sectionTypeaheadResults && state.sectionTypeaheadResults.length > 0 ? (
+																				state.sectionTypeaheadResults
+																					.slice(0, 10)
+																					.map((result, index) => (
+																						<div
+																							key={result.id}
+																							className={`typeahead-item ${index === state.sectionTypeaheadSelectedIndex ? 'selected' : ''}`}
+																							onclick={() => dispatch('SECTION_TYPEAHEAD_SELECT', {selectedSection: result})}
+																						>
+																							<div className="typeahead-item-main">
+																								<span className="typeahead-item-label">{result.label}</span>
+																								<span className="typeahead-item-type">📚 LIBRARY</span>
+																							</div>
+																						</div>
+																					))
+																			) : (
+																				<div className="typeahead-no-results">No matching sections found</div>
+																			)}
+																		</div>
+																	)}
+																</div>
+																<div className="section-edit-buttons">
+																	<button
+																		className="section-edit-save-btn"
+																		onclick={() => dispatch('SAVE_SECTION_NAME', {
+																			sectionId: section.id,
+																			sectionLabel: state.editingSectionName !== null ? state.editingSectionName : section.label
+																		})}
+																		ondblclick={(e) => {
+																			e.stopPropagation();
+																			e.preventDefault();
+																		}}
+																		title="Save changes"
+																	>
+																		✓
+																	</button>
+																	<button
+																		className="section-edit-cancel-btn"
+																		onclick={() => dispatch('CANCEL_SECTION_EDIT')}
+																		ondblclick={(e) => {
+																			e.stopPropagation();
+																			e.preventDefault();
+																		}}
+																		title="Cancel changes"
+																	>
+																		✗
+																	</button>
+																</div>
+															</div>
+														) : (
+															<div className="section-display" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+																{state.editingSectionId !== section.id && (
+																	<span className="section-label" style={{fontWeight: 'bold'}}>
+																		{section.label || 'Untitled Parent Section'}
+																	</span>
+																)}
+
+																<span className="section-info" style={{color: '#666', fontSize: '12px'}}>
+																	({(section.subsections || []).length} subsections)
+																</span>
+
+																{state.builderMode && state.currentAssessment?.status === 'draft' && state.editingSectionId !== section.id && (
+																	<button
+																		className="add-child-section-btn"
+																		onclick={() => dispatch('ADD_CHILD_SECTION', {parentSectionId: section.id})}
+																		title="Add child section"
+																		style={{
+																			marginLeft: 'auto',
+																			backgroundColor: '#28a745',
+																			color: 'white',
+																			border: 'none',
+																			borderRadius: '3px',
+																			width: '20px',
+																			height: '20px',
+																			fontSize: '12px',
+																			cursor: 'pointer',
+																			display: 'flex',
+																			alignItems: 'center',
+																			justifyContent: 'center'
+																		}}
+																	>
+																		+
+																	</button>
+																)}
+															</div>
+														)}
+													</div>
 												</div>
 												
 												{section.subsections && section.subsections.length > 0 && (
@@ -2925,6 +3070,318 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
+			{/* New Assessment Modal */}
+			{state.newAssessmentModalOpen && (
+				<div className="modal-overlay" style={{
+					position: 'fixed',
+					top: '0',
+					left: '0',
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0,0,0,0.5)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: '1000'
+				}}>
+					<div className="modal-content" style={{
+						backgroundColor: 'white',
+						padding: '20px',
+						borderRadius: '8px',
+						width: '600px',
+						maxWidth: '90vw',
+						maxHeight: '90vh',
+						overflow: 'auto',
+						boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+					}}>
+						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
+							Create New Assessment
+						</h3>
+
+						<div className="new-assessment-form" style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+							{/* Use Case (hardcoded) */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Use Case
+								</label>
+								<input
+									type="text"
+									value="Case Management"
+									disabled
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										backgroundColor: '#f5f5f5'
+									}}
+								/>
+							</div>
+
+							{/* Guideline Name */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Guideline - Name *
+								</label>
+								<input
+									type="text"
+									value={state.newAssessmentForm.guidelineName}
+									oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'guidelineName', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								/>
+							</div>
+
+							{/* Use Case Category */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Use Case Category
+								</label>
+								<select
+									value={state.newAssessmentForm.useCaseCategory}
+									onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'useCaseCategory', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								>
+									<option value="Care Management">Care Management</option>
+									<option value="Transition of Care">Transition of Care</option>
+									<option value="Disease Management">Disease Management</option>
+								</select>
+							</div>
+
+							{/* Type */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Type
+								</label>
+								<select
+									value={state.newAssessmentForm.type}
+									onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'type', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								>
+									<option value="Assessment Only">Assessment Only</option>
+									<option value="Care Planning">Care Planning</option>
+									<option value="Care Plan Only">Care Plan Only</option>
+								</select>
+							</div>
+
+							{/* Content Source */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Content Source
+								</label>
+								<input
+									type="text"
+									value={state.newAssessmentForm.contentSource}
+									oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'contentSource', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								/>
+							</div>
+
+							{/* Code/Policy Number */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Code/Policy Number
+								</label>
+								<input
+									type="text"
+									value={state.newAssessmentForm.codePolicyNumber}
+									oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'codePolicyNumber', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								/>
+							</div>
+
+							{/* Date Fields Row */}
+							<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+								{/* Effective Date */}
+								<div className="form-field">
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+										Effective Date
+									</label>
+									<input
+										type="date"
+										value={state.newAssessmentForm.effectiveDate}
+										oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'effectiveDate', value: e.target.value})}
+										style={{
+											width: '100%',
+											padding: '8px',
+											border: '1px solid #ddd',
+											borderRadius: '4px',
+											boxSizing: 'border-box'
+										}}
+									/>
+								</div>
+
+								{/* End Date */}
+								<div className="form-field">
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+										End Date
+									</label>
+									<input
+										type="date"
+										value={state.newAssessmentForm.endDate}
+										oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'endDate', value: e.target.value})}
+										style={{
+											width: '100%',
+											padding: '8px',
+											border: '1px solid #ddd',
+											borderRadius: '4px',
+											boxSizing: 'border-box'
+										}}
+									/>
+								</div>
+							</div>
+
+							{/* Review Date Fields Row */}
+							<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+								{/* Review Date */}
+								<div className="form-field">
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+										Review Date
+									</label>
+									<input
+										type="date"
+										value={state.newAssessmentForm.reviewDate}
+										oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'reviewDate', value: e.target.value})}
+										style={{
+											width: '100%',
+											padding: '8px',
+											border: '1px solid #ddd',
+											borderRadius: '4px',
+											boxSizing: 'border-box'
+										}}
+									/>
+								</div>
+
+								{/* Next Review Date */}
+								<div className="form-field">
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+										Next Review Date
+									</label>
+									<input
+										type="date"
+										value={state.newAssessmentForm.nextReviewDate}
+										oninput={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'nextReviewDate', value: e.target.value})}
+										style={{
+											width: '100%',
+											padding: '8px',
+											border: '1px solid #ddd',
+											borderRadius: '4px',
+											boxSizing: 'border-box'
+										}}
+									/>
+								</div>
+							</div>
+
+							{/* Response Logging */}
+							<div className="form-field">
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									Response Logging
+								</label>
+								<select
+									value={state.newAssessmentForm.responseLogging}
+									onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'responseLogging', value: e.target.value})}
+									style={{
+										width: '100%',
+										padding: '8px',
+										border: '1px solid #ddd',
+										borderRadius: '4px',
+										boxSizing: 'border-box'
+									}}
+								>
+									<option value="Use Org Default">Use Org Default</option>
+									<option value="Disabled">Disabled</option>
+									<option value="Auto-save, Draft and Submit">Auto-save, Draft and Submit</option>
+									<option value="Save as Draft and Submit">Save as Draft and Submit</option>
+									<option value="Submit only">Submit only</option>
+								</select>
+							</div>
+
+							{/* Allow MCG Content */}
+							<div className="form-field">
+								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold'}}>
+									<input
+										type="checkbox"
+										checked={state.newAssessmentForm.allowMcgContent}
+										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'allowMcgContent', value: e.target.checked})}
+									/>
+									Allow MCG Content
+								</label>
+							</div>
+						</div>
+
+						{/* Modal Buttons */}
+						<div className="modal-buttons" style={{
+							marginTop: '25px',
+							display: 'flex',
+							gap: '10px',
+							justifyContent: 'flex-end'
+						}}>
+							<button
+								className="modal-save-btn"
+								style={{
+									backgroundColor: '#28a745',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: 'bold'
+								}}
+								onclick={() => dispatch('SAVE_NEW_ASSESSMENT')}
+							>
+								✓ Create Assessment
+							</button>
+							<button
+								className="modal-cancel-btn"
+								style={{
+									backgroundColor: '#6c757d',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px'
+								}}
+								onclick={() => dispatch('CANCEL_NEW_ASSESSMENT')}
+							>
+								✗ Cancel
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
 	);
@@ -3000,6 +3457,21 @@ createCustomElement('cadal-careiq-builder', {
 		modalItemId: null,
 		modalText: '',
 		modalOriginalText: '',
+		// New Assessment Modal state
+		newAssessmentModalOpen: false,
+		newAssessmentForm: {
+			guidelineName: '',
+			useCaseCategory: 'Care Management',
+			type: 'Assessment Only',
+			contentSource: '',
+			codePolicyNumber: '',
+			effectiveDate: '',
+			endDate: '',
+			reviewDate: '',
+			nextReviewDate: '',
+			responseLogging: 'Use Org Default',
+			allowMcgContent: false
+		},
 		// Section editing state
 		editingSectionId: null,
 		editingSectionName: null,
@@ -3415,8 +3887,54 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CREATE_NEW_ASSESSMENT': (coeffects) => {
+			const {updateState} = coeffects;
 			console.log('Create new assessment clicked');
-			// TODO: Implement new assessment creation
+			updateState({
+				newAssessmentModalOpen: true,
+				// Reset form to defaults
+				newAssessmentForm: {
+					guidelineName: '',
+					useCaseCategory: 'Care Management',
+					type: 'Assessment Only',
+					contentSource: '',
+					codePolicyNumber: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: 'Use Org Default',
+					allowMcgContent: false
+				}
+			});
+		},
+
+		'UPDATE_NEW_ASSESSMENT_FIELD': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {fieldName, value} = action.payload;
+
+			updateState({
+				newAssessmentForm: {
+					...state.newAssessmentForm,
+					[fieldName]: value
+				}
+			});
+		},
+
+		'CANCEL_NEW_ASSESSMENT': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				newAssessmentModalOpen: false
+			});
+		},
+
+		'SAVE_NEW_ASSESSMENT': (coeffects) => {
+			const {updateState, state} = coeffects;
+			console.log('Save new assessment:', state.newAssessmentForm);
+			// TODO: Call API endpoint to create assessment
+			// For now, just close modal
+			updateState({
+				newAssessmentModalOpen: false
+			});
 		},
 
 		'GOTO_NEXT_PAGE': (coeffects) => {
@@ -6669,39 +7187,91 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_SECTION': (coeffects) => {
 			const {updateState, state} = coeffects;
-			
-			console.log('ADD_SECTION action triggered - adding locally');
-			
-			// Get the parent section (first section)
-			const parentSection = state.currentAssessment.sections?.[0];
+
+			console.log('ADD_SECTION action triggered - creating parent section');
+
+			// Get existing sections for sort_order calculation
+			const existingSections = state.currentAssessment.sections || [];
+
+			// Calculate next sort_order among parent sections
+			const parentSortOrders = existingSections.map(s => s.sort_order || 0);
+			const maxParentSortOrder = parentSortOrders.length > 0 ? Math.max(...parentSortOrders) : 0;
+			const nextSortOrder = maxParentSortOrder + 1;
+
+			// Create a new parent section object with temporary ID
+			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+			const newSection = {
+				id: newSectionId,
+				label: '',
+				sort_order: nextSortOrder,
+				subsections: [],
+				tooltip: '',
+				alternative_wording: '',
+				required: false,
+				custom_attributes: {},
+				isNew: true // Mark as new for save operation
+			};
+
+			// Add as new parent section
+			const updatedSections = [...existingSections, newSection];
+
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
+				selectedSection: newSection,
+				editingSectionId: newSectionId, // Auto-edit the new section
+				editingSectionName: '', // Start with empty name for editing
+				// Track this as a new addition for backend saving
+				sectionChanges: {
+					...state.sectionChanges,
+					[newSectionId]: {
+						action: 'add',
+						...newSection,
+						parent_section_id: null, // Parent section has no parent
+						gt_id: state.currentAssessmentId,
+						library_id: null
+					}
+				}
+			});
+		},
+
+		'ADD_CHILD_SECTION': (coeffects) => {
+			const {updateState, state, action} = coeffects;
+			const {parentSectionId} = action.payload;
+
+			console.log('ADD_CHILD_SECTION action triggered for parent:', parentSectionId);
+
+			// Find the parent section
+			const existingSections = state.currentAssessment.sections || [];
+			const parentSection = existingSections.find(s => s.id === parentSectionId);
+
 			if (!parentSection) {
-				console.error('No parent section found');
 				updateState({
 					systemMessages: [
-					...(state.systemMessages || []),
-						
+						...(state.systemMessages || []),
 						{
 							type: 'error',
-							message: 'No parent section found to add subsection to',
+							message: 'Parent section not found',
 							timestamp: new Date().toISOString()
 						}
 					]
 				});
 				return;
 			}
-			
-			// Calculate next sort_order to place new section at the end
+
+			// Calculate next sort_order within the parent section
 			const existingSubsections = parentSection.subsections || [];
 			console.log('Existing subsections for sort_order calculation:', existingSubsections.map(s => ({ label: s.label, sort_order: s.sort_order })));
 
-			// Get all existing sort_order values, defaulting to 0 for null/undefined, and find the max
 			const sortOrders = existingSubsections.map(s => s.sort_order || 0);
 			const maxSortOrder = sortOrders.length > 0 ? Math.max(...sortOrders) : 0;
 			const nextSortOrder = maxSortOrder + 1;
 
 			console.log('Calculated next sort_order:', nextSortOrder, 'from existing:', sortOrders);
-			
-			// Create a new section object with temporary ID
+
+			// Create new child section
 			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 			const newSection = {
 				id: newSectionId,
@@ -6714,46 +7284,36 @@ createCustomElement('cadal-careiq-builder', {
 				custom_attributes: {},
 				isNew: true // Mark as new for save operation
 			};
-			
-			// Add to the parent section's subsections locally
-			const updatedSections = [...state.currentAssessment.sections];
-			const parentSectionIndex = updatedSections.findIndex(s => s.id === parentSection.id);
+
+			// Add to the parent section's subsections
+			const updatedSections = [...existingSections];
+			const parentSectionIndex = updatedSections.findIndex(s => s.id === parentSectionId);
 			if (parentSectionIndex !== -1) {
 				updatedSections[parentSectionIndex] = {
 					...updatedSections[parentSectionIndex],
 					subsections: [...(updatedSections[parentSectionIndex].subsections || []), newSection]
 				};
 			}
-			
-			// Track the new section in sectionChanges for save operation
-			const newSectionChanges = {
-				...state.sectionChanges,
-				[newSectionId]: {
-					...newSection,
-					parent_section_id: parentSection.id,
-					gt_id: state.currentAssessmentId,
-					library_id: null,
-					action: 'add' // Track that this needs to be added to backend
-				}
-			};
-			
+
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
 					sections: updatedSections
 				},
-				sectionChanges: newSectionChanges,
+				selectedSection: newSection,
 				editingSectionId: newSectionId, // Auto-edit the new section
 				editingSectionName: '', // Start with empty name for editing
-				systemMessages: [
-					...(state.systemMessages || []),
-					
-					{
-						type: 'success',
-						message: 'Section added locally - click Save to persist changes',
-						timestamp: new Date().toISOString()
+				// Track this as a new addition for backend saving
+				sectionChanges: {
+					...state.sectionChanges,
+					[newSectionId]: {
+						action: 'add',
+						...newSection,
+						parent_section_id: parentSectionId,
+						gt_id: state.currentAssessmentId,
+						library_id: null
 					}
-				]
+				}
 			});
 		},
 
@@ -6855,15 +7415,23 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('Section checkmark clicked - auto-saving all changes!');
 
-			// Update the section label in the assessment
-			const updatedSections = state.currentAssessment.sections.map(section => ({
-				...section,
-				subsections: section.subsections?.map(subsection =>
-					subsection.id === sectionId
-						? {...subsection, label: sectionLabel}
-						: subsection
-				) || []
-			}));
+			// Update the section label in the assessment (handles both parent and child sections)
+			const updatedSections = state.currentAssessment.sections.map(section => {
+				// Check if this is a parent section being updated
+				if (section.id === sectionId) {
+					return {...section, label: sectionLabel};
+				}
+
+				// Otherwise, check subsections for child section updates
+				return {
+					...section,
+					subsections: section.subsections?.map(subsection =>
+						subsection.id === sectionId
+							? {...subsection, label: sectionLabel}
+							: subsection
+					) || []
+				};
+			});
 
 			updateState({
 				currentAssessment: {
@@ -6980,12 +7548,30 @@ createCustomElement('cadal-careiq-builder', {
 			if (sectionId.startsWith('temp_')) {
 				// New section - find the actual section data to get the correct sort_order
 				let actualSection = null;
+				let isParentSection = false;
+				let parentSectionId = null;
+
+				// First check if it's a parent section
 				for (const section of state.currentAssessment.sections) {
-					if (section.subsections) {
-						const foundSubsection = section.subsections.find(sub => sub.id === sectionId);
-						if (foundSubsection) {
-							actualSection = foundSubsection;
-							break;
+					if (section.id === sectionId) {
+						actualSection = section;
+						isParentSection = true;
+						parentSectionId = null; // Parent sections have no parent
+						break;
+					}
+				}
+
+				// If not found as parent section, check subsections
+				if (!actualSection) {
+					for (const section of state.currentAssessment.sections) {
+						if (section.subsections) {
+							const foundSubsection = section.subsections.find(sub => sub.id === sectionId);
+							if (foundSubsection) {
+								actualSection = foundSubsection;
+								isParentSection = false;
+								parentSectionId = section.id; // Use the parent section's ID
+								break;
+							}
 						}
 					}
 				}
@@ -6995,12 +7581,19 @@ createCustomElement('cadal-careiq-builder', {
 					return;
 				}
 
-				console.log('Found actual section data with sort_order:', actualSection.sort_order);
+				console.log('Found section data:', {
+					id: actualSection.id,
+					label: actualSection.label,
+					sort_order: actualSection.sort_order,
+					isParentSection: isParentSection,
+					parentSectionId: parentSectionId
+				});
 
 				const sectionData = {
 					label: sectionLabel,
 					guideline_template_id: state.currentAssessmentId,
-					sort_order: actualSection.sort_order  // Use the actual sort_order from the section
+					sort_order: actualSection.sort_order,  // Use the actual sort_order from the section
+					parent_section_id: parentSectionId
 				};
 
 				if (libraryId) {
@@ -7079,10 +7672,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('Calling add section API with data:', sectionData);
 
+			// Get config and access token like other APIs
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+
 			// Send fields directly - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
+				app: config.app,
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
 				gt_id: state.currentAssessmentId,
-				parent_section_id: state.currentAssessment?.sections?.[0]?.id, // Use first parent section
+				parent_section_id: sectionData.parent_section_id, // Use the correct parent_section_id from sectionData
 				label: sectionData.label,
 				sort_order: sectionData.sort_order,
 				library_id: sectionData.library_id
@@ -7677,12 +8278,15 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 			
-			// Save section changes first
+			// Save section changes in dependency order: parents first, then children
 			if (sectionChanges.length > 0) {
+				// Separate parent sections from child sections
+				const parentSections = [];
+				const childSections = [];
+
 				sectionChanges.forEach(sectionId => {
 					const sectionData = sectionChangesData[sectionId];
-					console.log('Saving section:', sectionId, sectionData);
-					
+
 					// Handle deleted sections with DELETE API
 					if (sectionData.deleted) {
 						console.log('Deleting section:', sectionId);
@@ -7694,7 +8298,26 @@ createCustomElement('cadal-careiq-builder', {
 						}
 						return;
 					}
-					
+
+					// Check if this is a parent or child section by finding it in the assessment structure
+					let isParentSection = false;
+					for (const section of state.currentAssessment.sections) {
+						if (section.id === sectionId) {
+							isParentSection = true;
+							break;
+						}
+					}
+
+					if (isParentSection) {
+						parentSections.push({sectionId, sectionData});
+					} else {
+						childSections.push({sectionId, sectionData});
+					}
+				});
+
+				// Save parent sections first
+				parentSections.forEach(({sectionId, sectionData}) => {
+					console.log('Saving parent section:', sectionId, sectionData);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -7702,6 +8325,14 @@ createCustomElement('cadal-careiq-builder', {
 						accessToken: state.accessToken
 					});
 				});
+
+				// Child sections will be saved after parent sections are done
+				// This will be handled by the parent section success handlers
+				if (childSections.length > 0) {
+					updateState({
+						pendingChildSections: childSections
+					});
+				}
 			}
 			
 			// Save question changes
@@ -7781,7 +8412,7 @@ createCustomElement('cadal-careiq-builder', {
 						console.log('Using 2-step process for library question');
 
 						// Use the standard 2-step API flow which now handles library answers correctly
-						const questionData = {
+						const libraryQuestionData = {
 							label: currentQuestion.label,
 							type: currentQuestion.type,
 							tooltip: currentQuestion.tooltip || '',
@@ -7798,7 +8429,7 @@ createCustomElement('cadal-careiq-builder', {
 						console.log('Library question using standard ADD_QUESTION_TO_SECTION_API flow');
 
 						dispatch('ADD_QUESTION_TO_SECTION_API', {
-							questionData: questionData,
+							questionData: libraryQuestionData,
 							sectionId: state.selectedSection,
 							pendingAnswers: questionAnswers // Raw answers - will be processed by API handler
 						});
@@ -9075,7 +9706,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
+
 					{
 						type: 'success',
 						message: 'Section updated successfully! No refresh needed.',
@@ -9083,6 +9714,27 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
+
+			// Check if there are pending child sections to save after parent sections are done
+			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
+				console.log('Processing pending child sections after update:', state.pendingChildSections.length);
+
+				// Save all pending child sections
+				state.pendingChildSections.forEach(({sectionId, sectionData}) => {
+					console.log('Saving child section:', sectionId, sectionData);
+					dispatch('SAVE_SECTION', {
+						sectionId: sectionId,
+						sectionData: sectionData,
+						config: state.careiqConfig,
+						accessToken: state.accessToken
+					});
+				});
+
+				// Clear pending child sections
+				updateState({
+					pendingChildSections: []
+				});
+			}
 
 			console.log('Section update confirmed by backend - no refresh needed (already updated locally)');
 		},
@@ -9139,7 +9791,7 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				systemMessages: [
 					...(state.systemMessages || []),
-					
+
 					{
 						type: 'success',
 						message: 'Section added successfully! No refresh needed.',
@@ -9147,6 +9799,27 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
+
+			// Check if there are pending child sections to save after parent sections are done
+			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
+				console.log('Processing pending child sections:', state.pendingChildSections.length);
+
+				// Save all pending child sections
+				state.pendingChildSections.forEach(({sectionId, sectionData}) => {
+					console.log('Saving child section:', sectionId, sectionData);
+					dispatch('SAVE_SECTION', {
+						sectionId: sectionId,
+						sectionData: sectionData,
+						config: state.careiqConfig,
+						accessToken: state.accessToken
+					});
+				});
+
+				// Clear pending child sections
+				updateState({
+					pendingChildSections: []
+				});
+			}
 		},
 
 		'ADD_SECTION_ERROR': (coeffects) => {

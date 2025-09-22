@@ -13,14 +13,19 @@
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
-        // Validate required fields
-        var requiredFields = ['region', 'version', 'accessToken', 'app', 'sort_order', 'gt_id', 'label', 'parent_section_id'];
+        // Validate required fields - parent_section_id can be null for parent sections
+        var requiredFields = ['region', 'version', 'accessToken', 'app', 'sort_order', 'gt_id', 'label'];
         var missingFields = [];
-        
+
         for (var i = 0; i < requiredFields.length; i++) {
             if (requestData[requiredFields[i]] === undefined || requestData[requiredFields[i]] === null || requestData[requiredFields[i]] === '') {
                 missingFields.push(requiredFields[i]);
             }
+        }
+
+        // parent_section_id is required to be present but can be null
+        if (requestData['parent_section_id'] === undefined) {
+            missingFields.push('parent_section_id');
         }
         
         if (missingFields.length > 0) {
