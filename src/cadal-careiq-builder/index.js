@@ -563,12 +563,9 @@ const view = (state, {updateState, dispatch}) => {
 																						<div
 																							key={result.id}
 																							className={`typeahead-item ${index === state.sectionTypeaheadSelectedIndex ? 'selected' : ''}`}
-																							onclick={() => dispatch('SECTION_TYPEAHEAD_SELECT', {selectedSection: result})}
+																							onclick={() => dispatch('SECTION_TYPEAHEAD_SELECT', {selectedItem: result})}
 																						>
-																							<div className="typeahead-item-main">
-																								<span className="typeahead-item-label">{result.label}</span>
-																								<span className="typeahead-item-type">📚 LIBRARY</span>
-																							</div>
+																							<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name || result.label}</div>
 																						</div>
 																					))
 																			) : (
@@ -638,6 +635,33 @@ const view = (state, {updateState, dispatch}) => {
 																		}}
 																	>
 																		+
+																	</button>
+																)}
+																{/* Show delete button only if parent section has no child sections */}
+																{state.builderMode && state.currentAssessment?.status === 'draft' && state.editingSectionId !== section.id && (section.subsections || []).length === 0 && (
+																	<button
+																		className="delete-parent-section-btn"
+																		onclick={(e) => {
+																			e.stopPropagation();
+																			dispatch('DELETE_SECTION', {sectionId: section.id, sectionName: section.label});
+																		}}
+																		title="Delete section"
+																		style={{
+																			backgroundColor: '#dc3545',
+																			color: 'white',
+																			border: 'none',
+																			borderRadius: '3px',
+																			width: '20px',
+																			height: '20px',
+																			fontSize: '10px',
+																			cursor: 'pointer',
+																			display: 'flex',
+																			alignItems: 'center',
+																			justifyContent: 'center',
+																			marginLeft: '4px'
+																		}}
+																	>
+																		🗑️
 																	</button>
 																)}
 															</div>
@@ -7599,7 +7623,12 @@ createCustomElement('cadal-careiq-builder', {
 		'EDIT_SECTION_NAME': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
+
+			console.log('=== EDIT_SECTION_NAME DEBUG ===');
+			console.log('Original Section ID:', sectionId);
+			console.log('Original Section Label:', sectionLabel);
+			console.log('Is temp ID?', sectionId.startsWith('temp_'));
+
 			updateState({
 				editingSectionId: sectionId,
 				editingSectionName: sectionLabel
@@ -7692,7 +7721,10 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
 
+			console.log('=== PROCEED_WITH_SECTION_SAVE DEBUG ===');
 			console.log('Section checkmark clicked - auto-saving all changes!');
+			console.log('Section ID at save time:', sectionId);
+			console.log('Is temp ID?', sectionId.startsWith('temp_'));
 
 			// Update the section label in the assessment (handles both parent and child sections)
 			const updatedSections = state.currentAssessment.sections.map(section => {
@@ -7818,13 +7850,34 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SAVE_SECTION_IMMEDIATELY': (coeffects) => {
-			const {action, dispatch, state} = coeffects;
+			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionId, sectionLabel, libraryId} = action.payload;
 
-			console.log('Auto-saving section immediately:', sectionLabel);
+			console.log('=== SAVE_SECTION_IMMEDIATELY DEBUG ===');
+			console.log('Section ID:', sectionId);
+			console.log('Section Label:', sectionLabel);
+			console.log('Library ID:', libraryId);
+			console.log('Is temp ID?', sectionId.startsWith('temp_'));
+
+			// Validate section label is not blank
+			if (!sectionLabel || sectionLabel.trim() === '') {
+				console.error('Cannot save section with blank label');
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Section name cannot be blank',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
 
 			// Determine if this is a new section (temp ID) or existing section
 			if (sectionId.startsWith('temp_')) {
+				console.log('🆕 Treating as NEW section - will use ADD_SECTION_API');
 				// New section - find the actual section data to get the correct sort_order
 				let actualSection = null;
 				let isParentSection = false;
@@ -7868,6 +7921,54 @@ createCustomElement('cadal-careiq-builder', {
 					parentSectionId: parentSectionId
 				});
 
+				// Check if parent section has temp ID - need to save parent first
+				if (parentSectionId && parentSectionId.startsWith('temp_')) {
+					console.log('Child section needs parent saved first. Parent ID:', parentSectionId);
+					console.log('Queuing child section save after parent save completes');
+
+					// Find the parent section data
+					const parentSection = state.currentAssessment.sections.find(s => s.id === parentSectionId);
+					if (!parentSection) {
+						updateState({
+							systemMessages: [
+								...(state.systemMessages || []),
+								{
+									type: 'error',
+									message: 'Parent section not found - cannot save child section',
+									timestamp: new Date().toISOString()
+								}
+							]
+						});
+						return;
+					}
+
+					// Store the child section save request to execute after parent save
+					updateState({
+						pendingChildSectionSave: {
+							sectionId: sectionId,
+							sectionLabel: sectionLabel,
+							libraryId: libraryId
+						},
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: 'Saving parent section first, then child section...',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Save the parent section first
+					console.log('Saving parent section first:', parentSection.label);
+					dispatch('SAVE_SECTION_IMMEDIATELY', {
+						sectionId: parentSectionId,
+						sectionLabel: parentSection.label,
+						libraryId: null // Parent sections typically don't have library IDs when being auto-saved
+					});
+					return;
+				}
+
 				const sectionData = {
 					label: sectionLabel,
 					guideline_template_id: state.currentAssessmentId,
@@ -7883,6 +7984,7 @@ createCustomElement('cadal-careiq-builder', {
 					sectionData: sectionData
 				});
 			} else {
+				console.log('🔄 Treating as EXISTING section - will use UPDATE_SECTION_API');
 				// Existing section - use UPDATE API
 				const sectionData = {
 					sectionId: sectionId,
@@ -7906,12 +8008,26 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Deleting section:', sectionName);
 			
 			if (confirm(`Are you sure you want to delete section "${sectionName}"?`)) {
-				// Remove the section from all parent sections
-				const updatedSections = state.currentAssessment.sections.map(section => ({
-					...section,
-					subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
-				}));
-				
+				let updatedSections;
+				let isParentSection = false;
+
+				// Check if this is a parent section (top level)
+				const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
+
+				if (parentSectionToDelete) {
+					// This is a parent section - remove it completely from the sections array
+					isParentSection = true;
+					console.log('Deleting parent section:', sectionName);
+					updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
+				} else {
+					// This is a child section - remove it from parent sections' subsections
+					console.log('Deleting child section:', sectionName);
+					updatedSections = state.currentAssessment.sections.map(section => ({
+						...section,
+						subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
+					}));
+				}
+
 				updateState({
 					currentAssessment: {
 						...state.currentAssessment,
@@ -10038,7 +10154,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ADD_SECTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			console.log('Add section success:', action.payload);
 
 			// The response contains the new section ID: { "id": "uuid" }
@@ -10076,8 +10192,24 @@ createCustomElement('cadal-careiq-builder', {
 						message: 'Section added successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				// Clear the pending child section save since parent is now saved
+				pendingChildSectionSave: null
 			});
+
+			// Check if there's a pending child section save and save it now that parent has real UUID
+			const pendingChildSave = state.pendingChildSectionSave;
+			if (pendingChildSave) {
+				console.log('Parent section saved successfully. Now saving pending child section:', pendingChildSave);
+				// Save the child section now that the parent has a real UUID
+				setTimeout(() => {
+					dispatch('SAVE_SECTION_IMMEDIATELY', {
+						sectionId: pendingChildSave.sectionId,
+						sectionLabel: pendingChildSave.sectionLabel,
+						libraryId: pendingChildSave.libraryId
+					});
+				}, 100); // Small delay to ensure state updates are processed
+			}
 
 			// Check if there are pending child sections to save after parent sections are done
 			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
@@ -10104,13 +10236,24 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_SECTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			console.error('Add section error:', action.payload);
-			
-			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add section';
-			
+
+			let errorMessage = 'Failed to add section';
+
+			// Check for detailed validation errors (like UUID parsing errors)
+			if (action.payload?.detail && Array.isArray(action.payload.detail)) {
+				const detailMessages = action.payload.detail.map(detail => detail.msg || detail.message).filter(Boolean);
+				if (detailMessages.length > 0) {
+					errorMessage = detailMessages.join('; ');
+				}
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
 					{
 						type: 'error',
 						message: `Error adding section: ${errorMessage}`,
