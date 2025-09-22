@@ -474,3 +474,57 @@ builderGetGuidelineTemplates: function(useCase, offset, limit, contentSource, la
         return '{"error": "' + e.message + '"}';
     }
 },
+
+builderCreateAssessment: function(assessmentData) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the builder create assessment endpoint
+        var endpoint = this._buildEndpoint('/builder/guideline-template');
+        var r = this._createRESTMessage('Create Assessment', endpoint);
+
+        // Set method to POST
+        r.setHttpMethod('POST');
+
+        // Build request body for the CareIQ API
+        var requestBody = {
+            title: assessmentData.title,
+            use_case: assessmentData.use_case,
+            content_source: assessmentData.content_source,
+            version_name: assessmentData.version_name || '',
+            external_id: assessmentData.external_id || '',
+            custom_attributes: assessmentData.custom_attributes || {},
+            tags: assessmentData.tags || [],
+            effective_date: assessmentData.effective_date,
+            end_date: assessmentData.end_date,
+            review_date: assessmentData.review_date,
+            next_review_date: assessmentData.next_review_date,
+            tooltip: assessmentData.tooltip || '',
+            alternative_wording: assessmentData.alternative_wording || '',
+            available: assessmentData.available || false,
+            policy_number: assessmentData.policy_number || '',
+            use_case_category_id: assessmentData.use_case_category_id,
+            quality_measures: assessmentData.quality_measures || {},
+            settings: assessmentData.settings || {
+                store_responses: "use_default"
+            },
+            usage: assessmentData.usage || 'Care Planning',
+            mcg_content_enabled: assessmentData.mcg_content_enabled || false,
+            select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
+            multi_tenant_default: assessmentData.multi_tenant_default || false
+        };
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'CreateAssessment');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('CreateAssessment - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

@@ -3101,7 +3101,7 @@ const view = (state, {updateState, dispatch}) => {
 						<div className="new-assessment-form" style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
 							{/* Use Case (hardcoded) */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Use Case
 								</label>
 								<input
@@ -3120,7 +3120,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Guideline Name */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Guideline - Name *
 								</label>
 								<input
@@ -3139,7 +3139,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Use Case Category */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Use Case Category
 								</label>
 								<select
@@ -3153,15 +3153,25 @@ const view = (state, {updateState, dispatch}) => {
 										boxSizing: 'border-box'
 									}}
 								>
-									<option value="Care Management">Care Management</option>
-									<option value="Transition of Care">Transition of Care</option>
-									<option value="Disease Management">Disease Management</option>
+									{state.useCaseCategories && state.useCaseCategories.length > 0 ? (
+										state.useCaseCategories.map(category => (
+											<option
+												key={category.id}
+												value={category.name}
+												selected={state.newAssessmentForm.useCaseCategory === category.name}
+											>
+												{category.name}
+											</option>
+										))
+									) : (
+										<option value="">Loading categories...</option>
+									)}
 								</select>
 							</div>
 
 							{/* Type */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Type
 								</label>
 								<select
@@ -3183,7 +3193,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Content Source */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Content Source
 								</label>
 								<input
@@ -3202,7 +3212,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Code/Policy Number */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Code/Policy Number
 								</label>
 								<input
@@ -3223,7 +3233,7 @@ const view = (state, {updateState, dispatch}) => {
 							<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
 								{/* Effective Date */}
 								<div className="form-field">
-									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 										Effective Date
 									</label>
 									<input
@@ -3242,7 +3252,7 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* End Date */}
 								<div className="form-field">
-									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 										End Date
 									</label>
 									<input
@@ -3264,7 +3274,7 @@ const view = (state, {updateState, dispatch}) => {
 							<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
 								{/* Review Date */}
 								<div className="form-field">
-									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 										Review Date
 									</label>
 									<input
@@ -3283,7 +3293,7 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Next Review Date */}
 								<div className="form-field">
-									<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+									<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 										Next Review Date
 									</label>
 									<input
@@ -3303,7 +3313,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Response Logging */}
 							<div className="form-field">
-								<label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold'}}>
+								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
 									Response Logging
 								</label>
 								<select
@@ -3327,7 +3337,7 @@ const view = (state, {updateState, dispatch}) => {
 
 							{/* Allow MCG Content */}
 							<div className="form-field">
-								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold'}}>
+								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500'}}>
 									<input
 										type="checkbox"
 										checked={state.newAssessmentForm.allowMcgContent}
@@ -3355,7 +3365,7 @@ const view = (state, {updateState, dispatch}) => {
 									borderRadius: '4px',
 									cursor: 'pointer',
 									fontSize: '14px',
-									fontWeight: 'bold'
+									fontWeight: '500'
 								}}
 								onclick={() => dispatch('SAVE_NEW_ASSESSMENT')}
 							>
@@ -3461,7 +3471,7 @@ createCustomElement('cadal-careiq-builder', {
 		newAssessmentModalOpen: false,
 		newAssessmentForm: {
 			guidelineName: '',
-			useCaseCategory: 'Care Management',
+			useCaseCategory: 'Chronic Care', // Use actual category from API
 			type: 'Assessment Only',
 			contentSource: '',
 			codePolicyNumber: '',
@@ -3753,6 +3763,14 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Categories found:', categories);
 			console.log('Categories type:', typeof categories);
 			console.log('Categories length:', Array.isArray(categories) ? categories.length : 'not array');
+
+			// Log each category for UUID debugging
+			if (Array.isArray(categories)) {
+				categories.forEach((category, index) => {
+					console.log(`Category ${index}:`, category);
+					console.log(`Category ${index} keys:`, Object.keys(category || {}));
+				});
+			}
 			
 			updateState({
 				useCaseCategories: categories || [],
@@ -3894,7 +3912,7 @@ createCustomElement('cadal-careiq-builder', {
 				// Reset form to defaults
 				newAssessmentForm: {
 					guidelineName: '',
-					useCaseCategory: 'Care Management',
+					useCaseCategory: 'Chronic Care', // Use actual category from API
 					type: 'Assessment Only',
 					contentSource: '',
 					codePolicyNumber: '',
@@ -3928,12 +3946,272 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SAVE_NEW_ASSESSMENT': (coeffects) => {
-			const {updateState, state} = coeffects;
+			const {updateState, state, dispatch} = coeffects;
 			console.log('Save new assessment:', state.newAssessmentForm);
-			// TODO: Call API endpoint to create assessment
-			// For now, just close modal
+
+			// Validate required fields
+			const form = state.newAssessmentForm;
+			if (!form.guidelineName || !form.useCaseCategory) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Set loading state
 			updateState({
-				newAssessmentModalOpen: false
+				newAssessmentForm: {
+					...form,
+					isCreating: true
+				},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: 'Creating new assessment...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Dispatch the create assessment API call
+			dispatch('CREATE_ASSESSMENT_API', {
+				assessmentData: form
+			});
+		},
+
+		'CREATE_ASSESSMENT_API': (coeffects) => {
+			const {action, dispatch, state} = coeffects;
+			const {assessmentData} = action.payload;
+
+			console.log('=== CREATE_ASSESSMENT_API DEBUG ===');
+			console.log('Creating assessment with form data:', assessmentData);
+			console.log('Current config:', state.careiqConfig);
+			console.log('Current access token available:', !!state.accessToken);
+			console.log('Available use case categories:', state.useCaseCategories);
+
+			// Get config and access token
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+
+			// CRITICAL: Map the display name to UUID
+			let useCaseCategoryId = assessmentData.useCaseCategory;
+
+			console.log('=== UUID MAPPING DEBUG ===');
+			console.log('Looking for category:', assessmentData.useCaseCategory);
+			console.log('Categories available:', state.useCaseCategories);
+
+			// Find the category UUID from loaded categories
+			if (state.useCaseCategories && Array.isArray(state.useCaseCategories)) {
+				console.log('Searching through categories...');
+				state.useCaseCategories.forEach((cat, index) => {
+					console.log(`Category ${index}:`, cat);
+					console.log(`  - name: "${cat.name}"`, cat.name === assessmentData.useCaseCategory);
+					console.log(`  - label: "${cat.label}"`, cat.label === assessmentData.useCaseCategory);
+					console.log(`  - display_name: "${cat.display_name}"`, cat.display_name === assessmentData.useCaseCategory);
+					console.log(`  - id: "${cat.id}"`);
+					console.log(`  - uuid: "${cat.uuid}"`);
+				});
+
+				const matchingCategory = state.useCaseCategories.find(cat =>
+					cat.name === assessmentData.useCaseCategory ||
+					cat.label === assessmentData.useCaseCategory ||
+					cat.display_name === assessmentData.useCaseCategory
+				);
+
+				if (matchingCategory) {
+					const oldId = useCaseCategoryId;
+					useCaseCategoryId = matchingCategory.id || matchingCategory.uuid;
+					console.log('✅ Successfully mapped category:', oldId, '→', useCaseCategoryId);
+					console.log('Using category:', matchingCategory);
+				} else {
+					console.error('❌ Could not find UUID for category:', assessmentData.useCaseCategory);
+					console.error('Available category names:', state.useCaseCategories.map(cat => cat.name || cat.label || cat.display_name));
+
+					// CRITICAL: Don't send invalid category name - use first available category as fallback
+					const fallbackCategory = state.useCaseCategories[0];
+					if (fallbackCategory) {
+						useCaseCategoryId = fallbackCategory.id || fallbackCategory.uuid;
+						console.warn('🔄 Using fallback category:', fallbackCategory.name, '→', useCaseCategoryId);
+					}
+				}
+			} else {
+				console.error('CRITICAL: No use case categories loaded for UUID lookup');
+			}
+
+			// Build request body - ServiceNow wraps in data automatically
+			// CRITICAL: Send fields directly, ServiceNow HTTP framework adds data wrapper
+			const requestBody = JSON.stringify({
+				app: config.app,
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				title: assessmentData.guidelineName, // Map guidelineName to title
+				use_case: 'CM', // Fixed value as per your example
+				content_source: 'Organization', // Fixed value as per your example
+				version_name: assessmentData.guidelineName + ' - v1', // Auto-append v1 to the title
+				external_id: assessmentData.external_id || '',
+				custom_attributes: assessmentData.custom_attributes || {},
+				tags: assessmentData.tags || [],
+				effective_date: assessmentData.effectiveDate,
+				end_date: assessmentData.endDate,
+				review_date: assessmentData.reviewDate,
+				next_review_date: assessmentData.nextReviewDate,
+				tooltip: assessmentData.tooltip || '',
+				alternative_wording: assessmentData.alternative_wording || '',
+				available: assessmentData.available || false,
+				policy_number: assessmentData.codePolicyNumber || '',
+				use_case_category_id: useCaseCategoryId, // Use mapped UUID instead of display name
+				quality_measures: assessmentData.quality_measures || {},
+				settings: assessmentData.settings || {
+					store_responses: "use_default"
+				},
+				usage: assessmentData.usage || 'Care Planning',
+				mcg_content_enabled: assessmentData.allowMcgContent || false,
+				select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
+				multi_tenant_default: assessmentData.multi_tenant_default || false
+			});
+
+			console.log('Create assessment request body (ServiceNow will wrap in data):', requestBody);
+			console.log('Parsed request body fields:', JSON.parse(requestBody));
+			dispatch('MAKE_CREATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_CREATE_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-assessment', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'CREATE_ASSESSMENT_SUCCESS',
+			errorActionType: 'CREATE_ASSESSMENT_ERROR'
+		}),
+
+		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('=== CREATE_ASSESSMENT_SUCCESS DEBUG ===');
+			console.log('Full action payload:', action.payload);
+			console.log('Response data:', action.payload?.data);
+			console.log('Response type:', typeof action.payload);
+			console.log('Detail array:', action.payload?.detail);
+			console.log('Detail array length:', action.payload?.detail?.length);
+			console.log('First detail item:', action.payload?.detail?.[0]);
+
+			// Try to extract the assessment ID from various possible locations
+			let newAssessmentId = action.payload?.id || action.payload?.data?.id;
+
+			// Check if the ID is in the detail array
+			if (!newAssessmentId && action.payload?.detail?.[0]) {
+				const firstDetail = action.payload.detail[0];
+				console.log('Checking first detail for ID:', firstDetail);
+				newAssessmentId = firstDetail?.id || firstDetail;
+			}
+
+			const assessmentTitle = state.newAssessmentForm.guidelineName;
+
+			console.log('Extracted assessment ID:', newAssessmentId);
+			console.log('Assessment title:', assessmentTitle);
+
+			// Check if we have a valid ID
+			if (!newAssessmentId) {
+				console.error('CRITICAL: No assessment ID found in response');
+				console.error('Cannot proceed to open assessment builder without ID');
+				updateState({
+					newAssessmentForm: {
+						...state.newAssessmentForm,
+						isCreating: false
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Assessment created but ID not found in response. Check server logs.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			updateState({
+				// Close the modal and reset form
+				newAssessmentModalOpen: false,
+				newAssessmentForm: {
+					guidelineName: '',
+					useCaseCategory: 'Chronic Care', // Use actual category from API
+					type: 'Assessment Only',
+					contentSource: '',
+					codePolicyNumber: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: 'Use Org Default',
+					allowMcgContent: false,
+					isCreating: false
+				},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Assessment "${assessmentTitle}" created successfully! Opening builder...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Open the newly created assessment in builder mode (same as any other assessment)
+			console.log('Opening newly created assessment:', newAssessmentId);
+			dispatch('OPEN_ASSESSMENT_BUILDER', {
+				assessmentId: newAssessmentId,
+				assessmentTitle: assessmentTitle
+			});
+		},
+
+		'CREATE_ASSESSMENT_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('=== CREATE_ASSESSMENT_ERROR DEBUG ===');
+			console.error('Full action payload:', action.payload);
+			console.error('Error data:', action.payload?.data);
+			console.error('Error status:', action.payload?.status);
+			console.error('Error response:', action.payload?.response);
+			console.error('Raw error message:', action.payload?.message);
+			console.error('Complete error object:', JSON.stringify(action.payload, null, 2));
+
+			// Extract error message from various possible locations
+			let errorMessage = 'Failed to create assessment';
+			if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.response) {
+				errorMessage = action.payload.response;
+			}
+
+			console.error('Final error message to display:', errorMessage);
+
+			updateState({
+				newAssessmentForm: {
+					...state.newAssessmentForm,
+					isCreating: false
+				},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -4267,8 +4545,9 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				assessmentId: assessmentId
 			});
-			
+
 			console.log('Assessment details request body:', requestBody);
+			console.log('Assessment ID being sent:', assessmentId);
 			
 			dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody: requestBody});
 		},

@@ -16,6 +16,13 @@
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
+        // Debug: Check if requestData is undefined or null
+        if (!requestData) {
+            gs.error('CRITICAL: requestData is ' + (requestData === null ? 'null' : 'undefined'));
+            gs.error('request.body type: ' + typeof request.body);
+            gs.error('request.body contents: ' + JSON.stringify(request.body));
+        }
+
         // Validate required fields - only assessmentId needed now
         var requiredFields = ['assessmentId'];
         var missingFields = [];
