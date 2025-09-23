@@ -753,3 +753,38 @@ getProblemGoals: function(guidelineTemplateId, problemId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+addGoalToProblem: function(problemId, goalText, goalId, answerId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/goal');
+        var r = this._createRESTMessage('Add Goal to Problem', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request payload
+        var payload = {
+            problemId: problemId,
+            label: goalText,  // CareIQ API expects 'label' field for goal text
+            answerId: answerId
+        };
+
+        // If goalId is provided, it's linking an existing goal, otherwise creating new
+        if (goalId && goalId !== null) {
+            payload.goalId = goalId;  // Link existing goal
+        }
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'AddGoalToProblem');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddGoalToProblem - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

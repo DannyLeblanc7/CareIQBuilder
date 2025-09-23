@@ -4129,23 +4129,147 @@ const view = (state, {updateState, dispatch}) => {
 																		<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
 																			Add New Goal
 																		</div>
-																		<div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-																			<input
-																				type="text"
-																				placeholder="Search for goals or type to create new..."
-																				style={{
-																					flex: 1,
-																					fontSize: '14px',
-																					padding: '10px 12px',
-																					border: '1px solid #d1d5db',
-																					borderRadius: '6px',
-																					backgroundColor: '#ffffff',
-																					outline: 'none',
-																					transition: 'border-color 0.2s'
-																				}}
-																				onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-																				onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
-																			/>
+																		<div style={{display: 'flex', alignItems: 'center', gap: '12px', position: 'relative'}}>
+																			<div style={{flex: 1, position: 'relative'}}>
+																				<input
+																					type="text"
+																					placeholder="Search for goals or type to create new..."
+																					value={state.goalTypeaheadText[problem.id] || ''}
+																					style={{
+																						width: '100%',
+																						fontSize: '14px',
+																						padding: '10px 12px',
+																						border: '1px solid #d1d5db',
+																						borderRadius: '6px',
+																						backgroundColor: '#ffffff',
+																						outline: 'none',
+																						transition: 'border-color 0.2s'
+																					}}
+																					on={{
+																						input: (e) => {
+																							const value = e.target.value;
+																							updateState({
+																								goalTypeaheadText: {
+																									...state.goalTypeaheadText,
+																									[problem.id]: value
+																								}
+																							});
+
+																							// Trigger search if 3+ characters
+																							if (value.length >= 3) {
+																								dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																									searchText: value,
+																									type: 'goal',
+																									problemId: problem.id  // Pass problemId for context
+																								});
+																							} else {
+																								updateState({
+																									goalTypeaheadResults: {
+																										...state.goalTypeaheadResults,
+																										[problem.id]: []
+																									}
+																								});
+																							}
+																						},
+																						focus: (e) => e.target.style.borderColor = '#3b82f6',
+																						blur: (e) => {
+																							e.target.style.borderColor = '#d1d5db';
+																							// Hide dropdown after delay
+																							setTimeout(() => {
+																								updateState({
+																									goalTypeaheadResults: {
+																										...state.goalTypeaheadResults,
+																										[problem.id]: []
+																									}
+																								});
+																							}, 150);
+																						},
+																						keydown: (e) => {
+																							if (e.key === 'Escape') {
+																								updateState({
+																									goalTypeaheadText: {
+																										...state.goalTypeaheadText,
+																										[problem.id]: ''
+																									},
+																									goalTypeaheadResults: {
+																										...state.goalTypeaheadResults,
+																										[problem.id]: []
+																									},
+																									selectedGoalData: {
+																										...state.selectedGoalData,
+																										[problem.id]: null
+																									}
+																								});
+																							}
+																						}
+																					}}
+																				/>
+
+																				{/* Typeahead dropdown */}
+																				{(state.goalTypeaheadResults[problem.id] && state.goalTypeaheadResults[problem.id].length > 0) && (
+																					<div style={{
+																						position: 'absolute',
+																						top: '100%',
+																						left: 0,
+																						right: 0,
+																						backgroundColor: '#ffffff',
+																						border: '1px solid #d1d5db',
+																						borderRadius: '6px',
+																						boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+																						zIndex: 1000,
+																						maxHeight: '200px',
+																						overflowY: 'auto'
+																					}}>
+																						{state.goalTypeaheadResults[problem.id].map((goal, goalIdx) => (
+																							<div
+																								key={goalIdx}
+																								style={{
+																									padding: '8px 12px',
+																									cursor: 'pointer',
+																									fontSize: '14px',
+																									borderBottom: goalIdx < state.goalTypeaheadResults[problem.id].length - 1 ? '1px solid #e5e7eb' : 'none'
+																								}}
+																								on={{
+																									click: () => {
+																										updateState({
+																											goalTypeaheadText: {
+																												...state.goalTypeaheadText,
+																												[problem.id]: goal.label || goal.name
+																											},
+																											goalTypeaheadResults: {
+																												...state.goalTypeaheadResults,
+																												[problem.id]: []
+																											},
+																											selectedGoalData: {
+																												...state.selectedGoalData,
+																												[problem.id]: goal
+																											}
+																										});
+																									},
+																									mouseenter: (e) => e.target.style.backgroundColor = '#f3f4f6',
+																									mouseleave: (e) => e.target.style.backgroundColor = '#ffffff'
+																								}}
+																							>
+																								{goal.label || goal.name}
+																							</div>
+																						))}
+																					</div>
+																				)}
+
+																				{/* Loading indicator */}
+																				{state.goalTypeaheadLoading[problem.id] && (
+																					<div style={{
+																						position: 'absolute',
+																						right: '12px',
+																						top: '50%',
+																						transform: 'translateY(-50%)',
+																						fontSize: '12px',
+																						color: '#6b7280'
+																					}}>
+																						Loading...
+																					</div>
+																				)}
+																			</div>
 																			<button
 																				className="confirm-relationship-btn"
 																				style={{
@@ -4159,6 +4283,22 @@ const view = (state, {updateState, dispatch}) => {
 																					fontWeight: '500'
 																				}}
 																				title="Save goal"
+																				onclick={(e) => {
+																					e.stopPropagation();
+																					const goalText = state.goalTypeaheadText[problem.id];
+																					const selectedGoal = state.selectedGoalData[problem.id];
+
+																					if (!goalText || goalText.trim().length === 0) {
+																						return; // Don't save empty goals
+																					}
+
+																					dispatch('SAVE_GOAL_TO_PROBLEM', {
+																						problemId: problem.id,
+																						goalText: goalText.trim(),
+																						selectedGoal: selectedGoal, // null if new goal, object if existing
+																						answerId: state.relationshipModalAnswerId
+																					});
+																				}}
 																			>
 																				✓
 																			</button>
@@ -4175,6 +4315,24 @@ const view = (state, {updateState, dispatch}) => {
 																					fontWeight: '500'
 																				}}
 																				title="Cancel"
+																				onclick={(e) => {
+																					e.stopPropagation();
+																					// Clear goal input and selection
+																					updateState({
+																						goalTypeaheadText: {
+																							...state.goalTypeaheadText,
+																							[problem.id]: ''
+																						},
+																						goalTypeaheadResults: {
+																							...state.goalTypeaheadResults,
+																							[problem.id]: []
+																						},
+																						selectedGoalData: {
+																							...state.selectedGoalData,
+																							[problem.id]: null
+																						}
+																					});
+																				}}
 																			>
 																				✕
 																			</button>
@@ -6999,6 +7157,17 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'LOAD_PROBLEM_GOALS_ERROR',
 			metaParam: 'meta'
 		}),
+
+		'MAKE_ADD_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-goal', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_GOAL_SUCCESS',
+			errorActionType: 'ADD_GOAL_ERROR',
+			metaParam: 'meta'
+		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			
@@ -8050,6 +8219,107 @@ createCustomElement('cadal-careiq-builder', {
 			console.log(`Loaded ${goalsData.length} goals for problem:`, problemId);
 		},
 
+		'SAVE_GOAL_TO_PROBLEM': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {problemId, goalText, selectedGoal, answerId} = action.payload;
+
+			console.log('=== SAVE_GOAL_TO_PROBLEM ===');
+			console.log('Problem ID:', problemId);
+			console.log('Goal text:', goalText);
+			console.log('Selected goal:', selectedGoal);
+			console.log('Answer ID:', answerId);
+
+			// Show saving message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: selectedGoal ? `Linking existing goal "${goalText}" to problem...` : `Creating new goal "${goalText}"...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Clear input immediately for better UX
+			updateState({
+				goalTypeaheadText: {
+					...state.goalTypeaheadText,
+					[problemId]: ''
+				},
+				goalTypeaheadResults: {
+					...state.goalTypeaheadResults,
+					[problemId]: []
+				},
+				selectedGoalData: {
+					...state.selectedGoalData,
+					[problemId]: null
+				}
+			});
+
+			// Prepare request body for goal creation/linking
+			const requestBody = JSON.stringify({
+				problemId: problemId,
+				goalText: goalText,
+				goalId: selectedGoal ? selectedGoal.id : null, // null means create new
+				answerId: answerId
+			});
+
+			dispatch('MAKE_ADD_GOAL_REQUEST', {
+				requestBody: requestBody,
+				meta: {problemId: problemId}
+			});
+		},
+
+		'ADD_GOAL_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const problemId = action.meta?.problemId;
+
+			console.log('=== ADD_GOAL_SUCCESS ===');
+			console.log('Problem ID:', problemId);
+			console.log('Response:', action.payload);
+
+			// Show success message
+			let successMessage = 'Goal saved successfully!';
+			if (action.payload && action.payload.detail) {
+				successMessage = action.payload.detail;
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: successMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Reload goals for this problem to show the new goal
+			if (problemId) {
+				dispatch('LOAD_PROBLEM_GOALS', {problemId: problemId});
+			}
+		},
+
+		'ADD_GOAL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('=== ADD_GOAL_ERROR ===');
+			console.error('Error:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to save goal: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'LOAD_PROBLEM_GOALS_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
@@ -8077,27 +8347,62 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			const {searchText, type} = action.payload;
+			const {searchText, type, problemId} = action.payload;
 
 			console.log('=== GENERIC_TYPEAHEAD_SEARCH ===');
 			console.log('Search text:', searchText);
 			console.log('Content type:', type);
+			console.log('Problem ID:', problemId);
 
 			if (!searchText || searchText.length < 3) {
-				updateState({relationshipTypeaheadResults: []});
+				if (type === 'goal' && problemId) {
+					// Clear goal typeahead results for specific problem
+					updateState({
+						goalTypeaheadResults: {
+							...state.goalTypeaheadResults,
+							[problemId]: []
+						}
+					});
+				} else {
+					updateState({relationshipTypeaheadResults: []});
+				}
 				return;
+			}
+
+			// Store context in state for SUCCESS handler to use
+			if (type === 'goal' && problemId) {
+				updateState({
+					goalTypeaheadLoading: {
+						...state.goalTypeaheadLoading,
+						[problemId]: true
+					},
+					// Store current goal search context
+					currentGoalSearchContext: {
+						contentType: type,
+						problemId: problemId,
+						searchText: searchText
+					}
+				});
+			} else {
+				updateState({
+					relationshipTypeaheadLoading: true,
+					// Clear goal search context
+					currentGoalSearchContext: null
+				});
 			}
 
 			const requestBody = JSON.stringify({
 				searchText: searchText,
-				contentType: type
+				contentType: type,
+				...(problemId && {problemId: problemId})
 			});
 
 			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
 				requestBody: requestBody,
 				meta: {
 					searchText: searchText,
-					contentType: type
+					contentType: type,
+					problemId: problemId
 				}
 			});
 		},
@@ -8118,14 +8423,42 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('=== GENERIC_TYPEAHEAD_SUCCESS ===');
 			console.log('Response payload:', action.payload);
+			console.log('Meta information:', action.meta);
 
 			const results = action.payload?.results || [];
+
+			// Use stored context from state instead of meta
+			const goalSearchContext = state.currentGoalSearchContext;
+			console.log('Stored goal search context:', goalSearchContext);
+
 			console.log('Found results:', results.length);
 
-			updateState({
-				relationshipTypeaheadResults: results,
-				relationshipTypeaheadLoading: false
-			});
+			// Route results to correct state based on stored context
+			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
+				const problemId = goalSearchContext.problemId;
+				console.log('Routing to goal typeahead for problem:', problemId);
+
+				// Update goal typeahead state for specific problem
+				updateState({
+					goalTypeaheadResults: {
+						...state.goalTypeaheadResults,
+						[problemId]: results
+					},
+					goalTypeaheadLoading: {
+						...state.goalTypeaheadLoading,
+						[problemId]: false
+					},
+					// Clear context after use
+					currentGoalSearchContext: null
+				});
+			} else {
+				console.log('Routing to relationship typeahead');
+				// Default to relationship typeahead
+				updateState({
+					relationshipTypeaheadResults: results,
+					relationshipTypeaheadLoading: false
+				});
+			}
 		},
 
 		'GENERIC_TYPEAHEAD_ERROR': (coeffects) => {
@@ -8134,18 +8467,46 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('=== GENERIC_TYPEAHEAD_ERROR ===');
 			console.error('Error payload:', action.payload);
 
-			updateState({
-				relationshipTypeaheadResults: [],
-				relationshipTypeaheadLoading: false,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to search ${action.meta?.contentType || 'content'}: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
+			// Use stored context from state instead of meta
+			const goalSearchContext = state.currentGoalSearchContext;
+
+			// Handle goal-specific error states
+			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
+				const problemId = goalSearchContext.problemId;
+				updateState({
+					goalTypeaheadResults: {
+						...state.goalTypeaheadResults,
+						[problemId]: []
+					},
+					goalTypeaheadLoading: {
+						...state.goalTypeaheadLoading,
+						[problemId]: false
+					},
+					// Clear context after use
+					currentGoalSearchContext: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to search goals: ${action.payload?.error || 'Unknown error'}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			} else {
+				updateState({
+					relationshipTypeaheadResults: [],
+					relationshipTypeaheadLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to search content: ${action.payload?.error || 'Unknown error'}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
 		},
 
 'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
@@ -13039,7 +13400,13 @@ createCustomElement('cadal-careiq-builder', {
 				expandedProblems: {},
 				// Initialize goals state tracking
 				problemGoals: {},      // Store goals data by problemId
-				goalsLoading: {}       // Track loading state by problemId
+				goalsLoading: {},       // Track loading state by problemId
+				// Goal typeahead state
+				goalTypeaheadText: {},      // Track input text per problemId
+				goalTypeaheadResults: {},   // Track results per problemId
+				goalTypeaheadLoading: {},   // Track loading per problemId
+				selectedGoalData: {},       // Track selected goal per problemId
+				currentGoalSearchContext: null  // Store current goal search context
 			});
 
 			// Auto-load relationships if they don't exist yet
