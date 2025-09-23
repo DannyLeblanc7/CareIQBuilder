@@ -877,6 +877,74 @@ Delta CareIQ Services - Consolidated.js (SINGLE SOURCE OF TRUTH)
 
 **This pattern eliminates confusion and ensures all Script Include additions are tracked in one place.**
 
+## PGI (Problem-Goal-Intervention) Relationship System
+
+### Hierarchy Structure
+**Answer** → **Problem(s)** → **Goal(s)** → **Intervention(s)**
+
+- **1-to-Many**: Each answer can have multiple problems
+- **1-to-Many**: Each problem can have multiple goals
+- **1-to-Many**: Each goal can have multiple interventions
+
+### Implementation Plan
+
+#### Phase 1: Problem Creation
+1. **Generic typeahead** with `problem` parameter
+2. **Add Problem API**: Create new problem under answer
+3. **Problem UI**: Collapsed display in relationship modal
+4. **Check/X pattern**: User types → typeahead → select/create → ✓ save → refresh
+
+#### Phase 2: Goal Creation
+1. **Generic typeahead** with `goal` parameter
+2. **Add Goal API**: Create new goal under specific problem
+3. **Goal UI**: Expandable under problems
+4. **Check/X pattern**: Same as problems but tied to problem ID
+
+#### Phase 3: Intervention Creation
+1. **Generic typeahead** with `intervention` parameter
+2. **Add Intervention API**: Create new intervention under specific goal
+3. **Intervention UI**: Expandable under goals
+4. **Check/X pattern**: Same pattern tied to goal ID
+
+### API Endpoints (TBD)
+- **Problems**: Separate creation endpoint
+- **Goals**: Separate creation endpoint (requires problem ID)
+- **Interventions**: Separate creation endpoint (requires goal ID)
+
+### Bundle System
+- **Bundles**: Pre-existing problem/goal/intervention combinations
+- **Bundle lookup**: After creating problem, use master_id to check for existing bundles
+- **Bundle selection**: Separate UI option for users to select complete bundles
+- **Bundle creation**: Different process from individual PGI creation
+
+### UI Display Pattern
+```
+Problem 1 [▼] [✗]
+├─ Goal 1.1 [▼] [✗]
+│  ├─ Intervention 1.1.1 [✗]
+│  └─ Intervention 1.1.2 [✗]
+└─ Goal 1.2 [▼] [✗]
+   ├─ Intervention 1.2.1 [✗]
+   └─ Intervention 1.2.2 [✗]
+```
+
+### Save Strategy
+- **Problems**: Save first, then allow goal creation
+- **Goals**: Save first, then allow intervention creation
+- **Incremental**: Each level saved before proceeding to next
+- **Check/X pattern**: ✓ confirms and saves, ✗ cancels
+
+### Data Flow
+1. **Problem Creation** → Save to backend → Refresh modal
+2. **Goal Creation** → Requires saved problem ID → Save to backend → Refresh
+3. **Intervention Creation** → Requires saved goal ID → Save to backend → Refresh
+
+### Deletion Pattern
+- **Problems**: Delete cascades to goals and interventions
+- **Goals**: Delete cascades to interventions only
+- **Interventions**: Delete individual only
+- **Confirmation**: Required for cascade deletes
+
 # CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER copy backup files over current files.

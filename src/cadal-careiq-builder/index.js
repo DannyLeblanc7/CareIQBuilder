@@ -3551,8 +3551,8 @@ const view = (state, {updateState, dispatch}) => {
 										const relationships = state.answerRelationships[answerId];
 
 										// First try loaded relationship data
-										if (relationships && relationships.problems && relationships.problems.length > 0) {
-											return `(${relationships.problems.length})`;
+										if (relationships && relationships.problems && relationships.problems.problems && relationships.problems.problems.length > 0) {
+											return `(${relationships.problems.problems.length})`;
 										}
 
 										// Fallback to badge counts from answer.counts
@@ -3910,12 +3910,12 @@ const view = (state, {updateState, dispatch}) => {
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
 											const relationships = state.answerRelationships[answerId];
-											if (relationships && relationships.problems && relationships.problems.length > 0) {
+											if (relationships && relationships.problems && relationships.problems.problems && relationships.problems.problems.length > 0) {
 												return (
 													<div className="existing-relationships">
-														{relationships.problems.map((problem, index) => (
+														{relationships.problems.problems.map((problem, index) => (
 															<div key={index} className="relationship-item">
-																<span className="relationship-label">{problem.label}</span>
+																<span className="relationship-label">{problem.label || problem.name}</span>
 																<button
 																	className="remove-relationship-btn"
 																	on={{
@@ -3945,37 +3945,84 @@ const view = (state, {updateState, dispatch}) => {
 
 										{/* Add New Problem */}
 										<div className="add-relationship">
-											<input
-												type="text"
-												placeholder="Search for problems..."
-												value={state.relationshipTypeaheadText}
-												on={{
-													input: (e) => {
-														const value = e.target.value;
-														updateState({relationshipTypeaheadText: value});
+											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+												<input
+													type="text"
+													placeholder="Search for problems or type to create new..."
+													value={state.relationshipTypeaheadText}
+													style={{flex: 1}}
+													on={{
+														input: (e) => {
+															const value = e.target.value;
+															updateState({relationshipTypeaheadText: value});
 
-														if (value.length >= 3) {
-															// Use generic typeahead for problems
-															dispatch('GENERIC_TYPEAHEAD_SEARCH', {
-																searchText: value,
-																type: 'problems'
+															if (value.length >= 3) {
+																// Use generic typeahead for problems
+																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																	searchText: value,
+																	type: 'problem'
+																});
+															} else {
+																updateState({relationshipTypeaheadResults: []});
+															}
+														},
+														keydown: (e) => {
+															if (e.key === 'Escape') {
+																updateState({relationshipTypeaheadResults: [], relationshipTypeaheadText: '', selectedProblemData: null});
+															}
+														},
+														blur: () => {
+															setTimeout(() => {
+																updateState({relationshipTypeaheadResults: []});
+															}, 150);
+														}
+													}}
+												/>
+
+												{/* Check/X buttons - always visible */}
+												<button
+													className="confirm-relationship-btn"
+													onclick={() => {
+														const problemText = state.relationshipTypeaheadText;
+														if (!problemText || problemText.trim() === '') {
+															// Show error or do nothing for empty problems
+															return;
+														}
+
+														if (state.selectedProblemData) {
+															// Adding existing problem
+															dispatch('ADD_PROBLEM_RELATIONSHIP', {
+																answerId: state.relationshipModalAnswerId,
+																problemId: state.selectedProblemData.id,
+																problemName: state.selectedProblemData.name || state.selectedProblemData.label,
+																problemMasterId: state.selectedProblemData.master_id
 															});
 														} else {
-															updateState({relationshipTypeaheadResults: []});
+															// Creating new problem
+															dispatch('CREATE_NEW_PROBLEM', {
+																answerId: state.relationshipModalAnswerId,
+																problemName: problemText
+															});
 														}
-													},
-													keydown: (e) => {
-														if (e.key === 'Escape') {
-															updateState({relationshipTypeaheadResults: []});
-														}
-													},
-													blur: () => {
-														setTimeout(() => {
-															updateState({relationshipTypeaheadResults: []});
-														}, 150);
-													}
-												}}
-											/>
+													}}
+													title="Add Problem"
+												>
+													✓
+												</button>
+												<button
+													className="cancel-relationship-btn"
+													onclick={() => {
+														updateState({
+															relationshipTypeaheadText: '',
+															relationshipTypeaheadResults: [],
+															selectedProblemData: null
+														});
+													}}
+													title="Cancel"
+												>
+													✕
+												</button>
+											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
 												<div className="typeahead-dropdown">
@@ -3985,15 +4032,15 @@ const view = (state, {updateState, dispatch}) => {
 															className="typeahead-item"
 															on={{
 																click: () => {
-																	dispatch('ADD_PROBLEM_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		problem: problem
+																	updateState({
+																		selectedProblemData: problem,
+																		relationshipTypeaheadText: problem.label || problem.name,
+																		relationshipTypeaheadResults: []
 																	});
-																	updateState({relationshipTypeaheadResults: []});
 																}
 															}}
 														>
-															{problem.label}
+															{problem.label || problem.name}
 														</div>
 													))}
 												</div>
