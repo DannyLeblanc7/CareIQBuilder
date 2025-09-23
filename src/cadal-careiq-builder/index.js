@@ -4011,12 +4011,12 @@ const view = (state, {updateState, dispatch}) => {
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
 											const relationships = state.answerRelationships[answerId];
-											if (relationships && relationships.barriers && relationships.barriers.length > 0) {
+											if (relationships && relationships.barriers && relationships.barriers.barriers && relationships.barriers.barriers.length > 0) {
 												return (
 													<div className="existing-relationships">
-														{relationships.barriers.map((barrier, index) => (
+														{relationships.barriers.barriers.map((barrier, index) => (
 															<div key={index} className="relationship-item">
-																<span className="relationship-label">{barrier.label}</span>
+																<span className="relationship-label">{barrier.label || barrier.name}</span>
 																<button
 																	className="remove-relationship-btn"
 																	on={{
@@ -4046,57 +4046,126 @@ const view = (state, {updateState, dispatch}) => {
 
 										{/* Add New Barrier */}
 										<div className="add-relationship">
-											<input
-												type="text"
-												placeholder="Search for barriers..."
-												value={state.relationshipTypeaheadText}
-												on={{
-													input: (e) => {
-														const value = e.target.value;
-														updateState({relationshipTypeaheadText: value});
+											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+												<input
+													type="text"
+													placeholder="Search for barriers or type to create new..."
+													value={state.relationshipTypeaheadText}
+													style={{flex: 1}}
+													on={{
+														input: (e) => {
+															const value = e.target.value;
+															updateState({relationshipTypeaheadText: value});
 
-														if (value.length >= 3) {
-															// Use generic typeahead for barriers
-															dispatch('GENERIC_TYPEAHEAD_SEARCH', {
-																searchText: value,
-																type: 'barriers'
+															if (value.length >= 3) {
+																// Use generic typeahead for barriers
+																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																	searchText: value,
+																	type: 'barrier'
+																});
+															} else {
+																updateState({relationshipTypeaheadResults: []});
+															}
+														},
+														keydown: (e) => {
+															if (e.key === 'Escape') {
+																updateState({relationshipTypeaheadResults: [], relationshipTypeaheadText: '', selectedBarrierData: null});
+															}
+														},
+														blur: () => {
+															setTimeout(() => {
+																updateState({relationshipTypeaheadResults: []});
+															}, 150);
+														}
+													}}
+												/>
+
+												{/* Check/X buttons - always visible */}
+												<button
+													className="confirm-relationship-btn"
+													onclick={() => {
+														const barrierText = state.relationshipTypeaheadText;
+														if (!barrierText || barrierText.trim() === '') {
+															// Show error or do nothing for empty barriers
+															return;
+														}
+
+														if (state.selectedBarrierData) {
+															// Adding existing barrier
+															dispatch('ADD_BARRIER_RELATIONSHIP', {
+																answerId: state.relationshipModalAnswerId,
+																barrierId: state.selectedBarrierData.id,
+																barrierName: state.selectedBarrierData.name || state.selectedBarrierData.label,
+																barrierMasterId: state.selectedBarrierData.master_id
 															});
 														} else {
-															updateState({relationshipTypeaheadResults: []});
+															// Creating new barrier
+															dispatch('CREATE_NEW_BARRIER', {
+																answerId: state.relationshipModalAnswerId,
+																barrierName: barrierText
+															});
 														}
-													},
-													keydown: (e) => {
-														if (e.key === 'Escape') {
-															updateState({relationshipTypeaheadResults: []});
-														}
-													},
-													blur: () => {
-														setTimeout(() => {
-															updateState({relationshipTypeaheadResults: []});
-														}, 150);
-													}
-												}}
-											/>
+													}}
+													title="Add Barrier"
+												>
+													✓
+												</button>
+												<button
+													className="cancel-relationship-btn"
+													onclick={() => {
+														updateState({
+															relationshipTypeaheadText: '',
+															relationshipTypeaheadResults: [],
+															selectedBarrierData: null
+														});
+													}}
+													title="Cancel"
+												>
+													✕
+												</button>
+											</div>
 
-											{state.relationshipTypeaheadResults.length > 0 && (
+											{/* Simple Dropdown - Direct Click */}
+											{state.relationshipTypeaheadResults?.length > 0 && (
 												<div className="typeahead-dropdown">
-													{state.relationshipTypeaheadResults.map((barrier, index) => (
-														<div
-															key={barrier.id}
-															className="typeahead-item"
-															on={{
-																click: () => {
-																	dispatch('ADD_BARRIER_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		barrier: barrier
-																	});
-																	updateState({relationshipTypeaheadResults: []});
-																}
-															}}
-														>
-															{barrier.label}
-														</div>
-													))}
+													{(() => {
+														const answerId = state.relationshipModalAnswerId;
+														const relationships = state.answerRelationships[answerId];
+														const existingBarrierIds = [];
+
+														// Get existing barrier IDs to filter out
+														if (relationships && relationships.barriers && relationships.barriers.barriers) {
+															relationships.barriers.barriers.forEach(barrier => {
+																if (barrier.id) existingBarrierIds.push(barrier.id);
+																if (barrier.master_id) existingBarrierIds.push(barrier.master_id);
+															});
+														}
+
+														// Filter out existing barriers
+														const filteredBarriers = state.relationshipTypeaheadResults.filter(barrier => {
+															return !existingBarrierIds.includes(barrier.id) &&
+																   !existingBarrierIds.includes(barrier.master_id);
+														});
+
+														return filteredBarriers.map((barrier, index) => (
+															<div
+																key={barrier.id || index}
+																className="typeahead-item"
+																on={{
+																	click: () => {
+																		// Fill input and store barrier data with master_id
+																		updateState({
+																			relationshipTypeaheadText: barrier.name || barrier.label,
+																			relationshipTypeaheadResults: [],
+																			selectedBarrierData: barrier
+																		});
+																	}
+																}}
+															>
+																{barrier.name || barrier.label}
+															</div>
+														));
+													})()}
 												</div>
 											)}
 										</div>
@@ -6556,6 +6625,27 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'DELETE_GUIDELINE_RELATIONSHIP_ERROR',
 			metaParam: 'meta'
 		}),
+
+		'MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-barrier-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_BARRIER_RELATIONSHIP_SUCCESS',
+			errorActionType: 'ADD_BARRIER_RELATIONSHIP_ERROR'
+		}),
+
+		'MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-barrier-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_BARRIER_RELATIONSHIP_SUCCESS',
+			errorActionType: 'DELETE_BARRIER_RELATIONSHIP_ERROR',
+			metaParam: 'meta'
+		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			
@@ -6693,6 +6783,180 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: `Failed to delete guideline relationship: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_BARRIER_RELATIONSHIP_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Check if the response contains an error (API can return 200 with error details)
+			if (action.payload?.detail && (
+				action.payload.detail.toLowerCase().includes('required') ||
+				action.payload.detail.toLowerCase().includes('should be provided') ||
+				action.payload.detail.toLowerCase().includes('error') ||
+				action.payload.detail.toLowerCase().includes('failed')
+			)) {
+				console.error('API returned error in success response:', action.payload.detail);
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to add barrier: ${action.payload.detail}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Get original data from response payload
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId, barrierName} = originalRequest;
+
+			console.log('Barrier relationship added successfully:', barrierName, 'to answer:', answerId);
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Successfully added barrier "${barrierName}"! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Clear typeahead state
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedBarrierData: null
+			});
+
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'ADD_BARRIER_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('ADD_BARRIER_RELATIONSHIP_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to add barrier relationship: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== DELETE_BARRIER_RELATIONSHIP_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Barrier relationship deleted successfully! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh the modal answer relationships to show updated data
+			if (state.relationshipModalAnswerId) {
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: state.relationshipModalAnswerId,
+					currentAssessmentId: state.currentAssessmentId,
+					sectionId: state.selectedSectionId,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'DELETE_BARRIER_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('DELETE_BARRIER_RELATIONSHIP_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to delete barrier relationship: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'REMOVE_BARRIER_RELATIONSHIP': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, barrierId} = action.payload;
+
+			console.log('=== REMOVE_BARRIER_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Deleting barrier:', barrierId, 'from answer:', answerId);
+			console.log('Full payload:', action.payload);
+
+			// Find barrier name for user feedback
+			const relationships = state.answerRelationships?.[answerId];
+			const barrier = relationships?.barriers?.barriers?.find(b => b.id === barrierId);
+			const barrierName = barrier?.label || barrier?.name || 'Unknown Barrier';
+
+			console.log('Found barrier name:', barrierName);
+
+			// AUTO-DELETE: Immediately call API
+			const requestBody = JSON.stringify({
+				barrierId: barrierId
+			});
+
+			console.log('=== DELETE BARRIER REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					answerId: answerId,
+					barrierId: barrierId,
+					barrierName: barrierName
+				}
+			});
+
+			// Show system message about auto-delete
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Deleting barrier relationship from backend...',
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -6940,7 +7204,81 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 		},
-		'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
+
+		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {searchText, type} = action.payload;
+
+			console.log('=== GENERIC_TYPEAHEAD_SEARCH ===');
+			console.log('Search text:', searchText);
+			console.log('Content type:', type);
+
+			if (!searchText || searchText.length < 3) {
+				updateState({relationshipTypeaheadResults: []});
+				return;
+			}
+
+			const requestBody = JSON.stringify({
+				searchText: searchText,
+				contentType: type
+			});
+
+			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					searchText: searchText,
+					contentType: type
+				}
+			});
+		},
+
+		'MAKE_GENERIC_TYPEAHEAD_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GENERIC_TYPEAHEAD_SUCCESS',
+			errorActionType: 'GENERIC_TYPEAHEAD_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'GENERIC_TYPEAHEAD_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== GENERIC_TYPEAHEAD_SUCCESS ===');
+			console.log('Response payload:', action.payload);
+
+			const results = action.payload?.results || [];
+			console.log('Found results:', results.length);
+
+			updateState({
+				relationshipTypeaheadResults: results,
+				relationshipTypeaheadLoading: false
+			});
+		},
+
+		'GENERIC_TYPEAHEAD_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== GENERIC_TYPEAHEAD_ERROR ===');
+			console.error('Error payload:', action.payload);
+
+			updateState({
+				relationshipTypeaheadResults: [],
+				relationshipTypeaheadLoading: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to search ${action.meta?.contentType || 'content'}: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -6951,7 +7289,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_QUESTION_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/question-typeahead', {
+'MAKE_QUESTION_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/question-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -7677,7 +8015,7 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 		},
-		'GUIDELINE_TYPEAHEAD_HIDE': (coeffects) => {
+'GUIDELINE_TYPEAHEAD_HIDE': (coeffects) => {
 			const {updateState} = coeffects;
 			updateState({
 				relationshipTypeaheadResults: [],
@@ -8330,6 +8668,91 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'info',
 						message: 'Saving guideline relationship to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_BARRIER_RELATIONSHIP': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, barrierId, barrierName, barrierMasterId} = action.payload;
+
+			console.log('=== ADD_BARRIER_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Auto-saving barrier relationship immediately:', barrierName, 'to answer:', answerId);
+			console.log('Full payload:', action.payload);
+			console.log('Using library barrier with ID:', barrierId);
+
+			// Calculate sort_order based on existing barriers
+			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
+			const sortOrder = existingBarriers.length + 1;
+
+			// AUTO-SAVE: Immediately call API
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				barrierName: barrierName,
+				barrierId: barrierId, // Will be used as library_id in backend if exists
+				sortOrder: sortOrder,
+				guidelineTemplateId: state.currentAssessmentId
+			});
+
+			console.log('=== BARRIER REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody
+			});
+
+			// Show system message about auto-save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving barrier relationship to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_NEW_BARRIER': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, barrierName} = action.payload;
+
+			console.log('=== CREATE_NEW_BARRIER ACTION TRIGGERED ===');
+			console.log('Creating new barrier:', barrierName, 'for answer:', answerId);
+			console.log('Full payload:', action.payload);
+
+			// Calculate sort_order based on existing barriers
+			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
+			const sortOrder = existingBarriers.length + 1;
+
+			// AUTO-SAVE: Immediately call API (no barrierId means new barrier)
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				barrierName: barrierName,
+				sortOrder: sortOrder,
+				guidelineTemplateId: state.currentAssessmentId
+				// No barrierId means create new barrier (no library_id in payload)
+			});
+
+			console.log('=== NEW BARRIER REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody
+			});
+
+			// Show system message about auto-save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Creating new barrier and saving to backend...',
 						timestamp: new Date().toISOString()
 					}
 				]

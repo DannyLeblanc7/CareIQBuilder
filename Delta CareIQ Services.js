@@ -570,3 +570,59 @@ deleteGuidelineRelationship: function(answerId, guidelineId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+addBarrierRelationship: function(answerId, barrierName, barrierId, sortOrder, guidelineTemplateId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/barrier');
+        var r = this._createRESTMessage('Add Barrier Relationship', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request body with CORRECT field names for CareIQ API
+        var requestBody = {
+            answer_id: answerId,
+            label: barrierName,
+            original_label: barrierName,
+            sort_order: sortOrder || 0,
+            guideline_template_id: guidelineTemplateId
+        };
+
+        // Only include library_id if we're adding an existing barrier from library
+        if (barrierId && barrierId !== null && barrierId !== '') {
+            requestBody.library_id = barrierId;
+        }
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'AddBarrierRelationship');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddBarrierRelationship - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+deleteBarrierRelationship: function(barrierId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/barrier/' + encodeURIComponent(barrierId));
+        var r = this._createRESTMessage('Delete Barrier Relationship', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteBarrierRelationship');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteBarrierRelationship - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

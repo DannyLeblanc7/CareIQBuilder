@@ -1084,7 +1084,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			}
 			
 			// Validate content type
-			var validTypes = ['section', 'question', 'answer','problem'];
+			var validTypes = ['section', 'question', 'answer','problem','barrier'];
 			if (validTypes.indexOf(contentType) === -1) {
 				return '{"error": "Invalid content type: ' + contentType + '"}';
 			}
@@ -1469,6 +1469,25 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			return response.getBody();
 		} catch (e) {
 			this._logError('CreateAssessment - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteGuidelineRelationship: function(answerId, guidelineId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId) + '/guideline-template/' + encodeURIComponent(guidelineId));
+			var r = this._createRESTMessage('DELETE Guideline Relationship', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteGuidelineRelationship');
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteGuidelineRelationship - Error: ' + e);
 			return '{"error": "' + e.message + '"}';
 		}
 	},
