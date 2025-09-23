@@ -150,6 +150,7 @@ currentGuidelineSearchAnswerId: null        // Clears cached answer ID
 - **Always increment the last digit** in package.json version when making changes
 - Current pattern: 0.0.xxx (increment xxx)
 - **CRITICAL: Update version after EVERY development cycle** - after completing any set of changes (even if just 1 change), always update package.json version before finishing
+- **TIMING: Increment version at the END of work, not the beginning** - Only increment after changes are completed and verified to work
 
 ### CareIQ API Integration
 - **Dynamic URL building** using client-provided parameters:

@@ -3478,7 +3478,7 @@ const view = (state, {updateState, dispatch}) => {
 									})()}
 								</div>
 								<button
-									className="modal-close-btn"
+									className="btn-cancel"
 									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
 								>
 									✗
@@ -3524,8 +3524,8 @@ const view = (state, {updateState, dispatch}) => {
 										const relationships = state.answerRelationships[answerId];
 
 										// First try loaded relationship data
-										if (relationships && relationships.triggered_questions && relationships.triggered_questions.length > 0) {
-											return `(${relationships.triggered_questions.length})`;
+										if (relationships && relationships.questions && relationships.questions.questions && relationships.questions.questions.length > 0) {
+											return `(${relationships.questions.questions.length})`;
 										}
 
 										// Fallback to badge counts from answer.counts
@@ -3750,10 +3750,10 @@ const view = (state, {updateState, dispatch}) => {
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
 											const relationships = state.answerRelationships[answerId];
-											if (relationships && relationships.triggered_questions && relationships.triggered_questions.length > 0) {
+											if (relationships && relationships.questions && relationships.questions.questions && relationships.questions.questions.length > 0) {
 												return (
 													<div className="existing-relationships">
-														{relationships.triggered_questions.map((question, index) => (
+														{relationships.questions.questions.map((question, index) => (
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{question.label}</span>
 																<button
@@ -3772,6 +3772,11 @@ const view = (state, {updateState, dispatch}) => {
 													</div>
 												);
 											}
+											// Check if relationships are still loading
+											if (state.relationshipsLoading[answerId]) {
+												return <p>Loading question relationships...</p>;
+											}
+
 											// Check badge counts before showing "no questions"
 											const answer = state.currentQuestions?.questions?.find(q =>
 												q.answers?.some(a => a.ids.id === answerId)
@@ -3785,55 +3790,109 @@ const view = (state, {updateState, dispatch}) => {
 
 										{/* Add New Question */}
 										<div className="add-relationship">
-											<input
-												type="text"
-												placeholder="Search for questions..."
-												value={state.relationshipTypeaheadText}
-												on={{
-													input: (e) => {
-														const value = e.target.value;
-														updateState({relationshipTypeaheadText: value});
+											<div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+												<input
+													type="text"
+													placeholder="Search for questions..."
+													value={state.relationshipTypeaheadText}
+													style={{flex: 1}}
+													on={{
+														input: (e) => {
+															const value = e.target.value;
+															updateState({relationshipTypeaheadText: value});
 
-														if (value.length >= 3) {
-															dispatch('QUESTION_TYPEAHEAD_INPUT_CHANGE', {
-																searchText: value
+															dispatch('QUESTION_TYPEAHEAD_INPUT', {
+																text: value,
+																answerId: state.relationshipModalAnswerId
 															});
-														} else {
-															updateState({relationshipTypeaheadResults: []});
+														},
+														keydown: (e) => {
+															if (e.key === 'Escape') {
+																dispatch('QUESTION_TYPEAHEAD_HIDE');
+															}
+														},
+														blur: () => {
+															setTimeout(() => {
+																dispatch('QUESTION_TYPEAHEAD_HIDE');
+															}, 150);
 														}
-													},
-													keydown: (e) => {
-														if (e.key === 'Escape') {
-															dispatch('QUESTION_TYPEAHEAD_HIDE');
-														}
-													},
-													blur: () => {
-														setTimeout(() => {
-															dispatch('QUESTION_TYPEAHEAD_HIDE');
-														}, 150);
-													}
-												}}
-											/>
+													}}
+												/>
+
+												{state.selectedQuestion && (
+													<div className="section-edit-buttons" style={{display: 'flex', gap: '4px'}}>
+														<button
+															className="section-edit-save-btn"
+															style={{fontSize: '1.4em'}}
+															on={{
+																click: () => {
+																	dispatch('ADD_QUESTION_RELATIONSHIP', {
+																		answerId: state.relationshipModalAnswerId,
+																		questionId: state.selectedQuestion.ids.id,
+																		questionLabel: state.selectedQuestion.label
+																	});
+
+																	// Clear the selection after saving
+																	updateState({
+																		selectedQuestion: null,
+																		relationshipTypeaheadText: ''
+																	});
+																}
+															}}
+															title="Save question relationship"
+														>
+															✓
+														</button>
+														<button
+															className="section-edit-cancel-btn"
+															style={{fontSize: '1.4em'}}
+															on={{
+																click: () => {
+																	// Clear the selection without saving
+																	updateState({
+																		selectedQuestion: null,
+																		relationshipTypeaheadText: ''
+																	});
+																}
+															}}
+															title="Cancel"
+														>
+															✗
+														</button>
+													</div>
+												)}
+											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
 												<div className="typeahead-dropdown">
 													{state.relationshipTypeaheadResults.map((question, index) => (
 														<div
-															key={question.id}
+															key={question.ids.id}
 															className="typeahead-item"
 															on={{
 																click: () => {
-																	dispatch('ADD_QUESTION_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		question: question
+																	// Just populate the input and store the selected question
+																	updateState({
+																		relationshipTypeaheadText: question.label,
+																		selectedQuestion: question,
+																		relationshipTypeaheadResults: [] // Hide dropdown
 																	});
-																	dispatch('QUESTION_TYPEAHEAD_HIDE');
 																}
 															}}
 														>
 															{question.label}
 														</div>
 													))}
+												</div>
+											)}
+
+											{state.relationshipTypeaheadText && state.relationshipTypeaheadText.length >= 3 &&
+											 state.relationshipTypeaheadResults.length === 0 &&
+											 !state.selectedQuestion && (
+												<div className="typeahead-dropdown">
+													<div className="typeahead-item no-results">
+														No matching questions found for "{state.relationshipTypeaheadText}"
+													</div>
 												</div>
 											)}
 										</div>
@@ -4046,7 +4105,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Modal Footer with Close button */}
 							<div className="modal-footer">
 								<button
-									className="modal-close-btn"
+									className="btn-cancel"
 									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
 								>
 									Close
@@ -4194,7 +4253,9 @@ createCustomElement('cadal-careiq-builder', {
 		// Relationship Modal state
 		relationshipModalOpen: false,              // Controls modal visibility
 		relationshipModalAnswerId: null,           // Which answer is being edited
-		relationshipModalActiveTab: 'guidelines'   // Current active tab
+		relationshipModalActiveTab: 'guidelines',  // Current active tab
+		selectedGuideline: null,                   // Selected guideline for check/x buttons
+		selectedQuestion: null                     // Selected question for check/x buttons
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -6870,15 +6931,51 @@ createCustomElement('cadal-careiq-builder', {
 			const results = action.payload.results || [];
 			console.log('Found questions:', results.length);
 
-			updateState({
-				questionTypeaheadResults: results,
-				questionTypeaheadLoading: false
-			});
+			// Check if this is for relationship modal or inline editing
+			if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
+				console.log('=== FILTERING RESULTS FOR RELATIONSHIP MODAL ===');
 
-			console.log('After QUESTION_SEARCH_SUCCESS - State check:');
-			console.log('questionTypeaheadVisible:', state.questionTypeaheadVisible);
-			console.log('editingQuestionId:', state.editingQuestionId);
-			console.log('Results length:', results.length);
+				// Filter out the current question (the one this answer belongs to)
+				const answerId = state.relationshipModalAnswerId;
+				const currentQuestionId = state.currentQuestions?.questions?.find(q =>
+					q.answers?.some(a => a.ids.id === answerId)
+				)?.ids?.id;
+
+				// Also filter out questions that already have relationships with this answer
+				const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
+
+				const filteredResults = results.filter(question => {
+					// Don't show the current question
+					if (question.id === currentQuestionId) {
+						console.log('Filtering out current question:', question.label);
+						return false;
+					}
+					// Don't show already related questions
+					if (existingQuestionIds.includes(question.id)) {
+						console.log('Filtering out existing relationship:', question.label);
+						return false;
+					}
+					return true;
+				});
+
+				console.log(`Filtered questions: ${filteredResults.length} out of ${results.length}`);
+
+				updateState({
+					relationshipTypeaheadResults: filteredResults,
+					relationshipTypeaheadLoading: false
+				});
+			} else {
+				// Inline editing context - use existing logic
+				updateState({
+					questionTypeaheadResults: results,
+					questionTypeaheadLoading: false
+				});
+
+				console.log('After QUESTION_SEARCH_SUCCESS - State check:');
+				console.log('questionTypeaheadVisible:', state.questionTypeaheadVisible);
+				console.log('editingQuestionId:', state.editingQuestionId);
+				console.log('Results length:', results.length);
+			}
 		},
 
 		'QUESTION_SEARCH_ERROR': (coeffects) => {
@@ -7521,29 +7618,91 @@ createCustomElement('cadal-careiq-builder', {
 
 		'QUESTION_TYPEAHEAD_INPUT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			const {text, sectionId} = action.payload;
+			const {text, sectionId, answerId} = action.payload;
 
-			console.log('=== QUESTION_TYPEAHEAD_INPUT ===');
+			console.log('=== QUESTION_TYPEAHEAD_INPUT DEBUG ===');
 			console.log('Search text:', text);
 			console.log('Section ID:', sectionId);
-			console.log('Text length:', text.length);
+			console.log('Answer ID:', answerId);
+			console.log('Text length:', text ? text.length : 'text is null/undefined');
+			console.log('Context: ', answerId ? 'Relationship Modal' : 'Inline Editing');
 
-			updateState({
-				questionTypeaheadText: text,
-				currentQuestionSearchSectionId: sectionId
-			});
-
-			// Only search after 3 characters
-			if (text.length >= 3) {
-				console.log('Triggering question search for:', text);
-				dispatch('SEARCH_QUESTIONS', {
-					searchText: text,
-					sectionId: sectionId
-				});
-			} else {
+			if (answerId) {
+				// Relationship modal context
 				updateState({
-					questionTypeaheadResults: []
+					relationshipTypeaheadText: text,
+					selectedQuestion: null // Clear any selected question
 				});
+
+				// Only search after 3 characters
+				if (text && text.length >= 3) {
+					console.log('=== FILTERING LOCAL QUESTIONS FOR RELATIONSHIP MODAL ===');
+					console.log('Search text:', text);
+					console.log('Answer ID:', answerId);
+
+					// Get current section questions
+					const allQuestions = state.currentQuestions?.questions || [];
+					console.log('All questions in current section:', allQuestions.length);
+
+					// Find the current question (the one this answer belongs to)
+					const currentQuestion = allQuestions.find(q =>
+						q.answers?.some(a => a.ids.id === answerId)
+					);
+					const currentQuestionId = currentQuestion?.ids?.id;
+					console.log('Current question ID to exclude:', currentQuestionId);
+
+					// Get existing triggered questions for this answer
+					const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
+					console.log('Existing triggered question IDs to exclude:', existingQuestionIds);
+
+					// Filter questions: match search text, exclude current question, exclude existing relationships
+					const filteredQuestions = allQuestions.filter(question => {
+						// Must contain search text (case insensitive)
+						const matchesSearch = question.label?.toLowerCase().includes(text.toLowerCase());
+
+						// Exclude current question
+						const isCurrentQuestion = question.ids.id === currentQuestionId;
+
+						// Exclude existing triggered questions
+						const isExistingTriggered = existingQuestionIds.includes(question.ids.id);
+
+						console.log(`Question "${question.label}": matches="${matchesSearch}", current="${isCurrentQuestion}", existing="${isExistingTriggered}"`);
+
+						return matchesSearch && !isCurrentQuestion && !isExistingTriggered;
+					});
+
+					console.log(`Filtered questions: ${filteredQuestions.length} out of ${allQuestions.length}`);
+
+					updateState({
+						relationshipTypeaheadResults: filteredQuestions,
+						relationshipTypeaheadLoading: false
+					});
+				} else {
+					console.log('=== NOT SEARCHING ===');
+					console.log('Reason: text length is', text ? text.length : 'text is null/undefined');
+					updateState({
+						relationshipTypeaheadResults: []
+					});
+				}
+			} else {
+				// Inline editing context - use existing logic
+				updateState({
+					questionTypeaheadText: text,
+					currentQuestionSearchSectionId: sectionId
+				});
+
+				// Only search after 3 characters
+				if (text && text.length >= 3) {
+					console.log('Triggering question search for inline editing:', text);
+					dispatch('SEARCH_QUESTIONS', {
+						searchText: text,
+						sectionId: sectionId
+					});
+				} else {
+					updateState({
+						questionTypeaheadResults: []
+					});
+				}
 			}
 		},
 
@@ -7572,25 +7731,62 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {searchText, questionId} = action.payload;
 
-			// Clear existing timeout
-			if (state.questionTypeaheadDebounceTimeout) {
-				clearTimeout(state.questionTypeaheadDebounceTimeout);
-			}
+			if (questionId) {
+				// Inline editing context - use existing logic
+				// Clear existing timeout
+				if (state.questionTypeaheadDebounceTimeout) {
+					clearTimeout(state.questionTypeaheadDebounceTimeout);
+				}
 
-			// Set up debounced search
-			const timeout = setTimeout(() => {
+				// Set up debounced search
+				const timeout = setTimeout(() => {
+					dispatch('SEARCH_QUESTIONS', {
+						searchText: searchText
+					});
+				}, 300);
+
+				updateState({
+					questionTypeaheadQuery: searchText,
+					questionTypeaheadVisible: true,
+					questionTypeaheadSelectedIndex: -1,
+					questionTypeaheadDebounceTimeout: timeout,
+					editingQuestionId: questionId
+				});
+			} else {
+				// Relationship modal context - use different search action
+				console.log('=== RELATIONSHIP MODAL QUESTION SEARCH ===');
+				console.log('Searching for questions to add to relationship:', searchText);
+
+				dispatch('RELATIONSHIP_QUESTION_SEARCH', {
+					searchText: searchText,
+					answerId: state.relationshipModalAnswerId
+				});
+			}
+		},
+
+		'RELATIONSHIP_QUESTION_SEARCH': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {searchText, answerId} = action.payload;
+
+			console.log('=== RELATIONSHIP_QUESTION_SEARCH ===');
+			console.log('Searching for questions to add as relationship:', searchText);
+			console.log('Answer ID:', answerId);
+
+			if (searchText.length >= 3) {
+				// Start loading state
+				updateState({
+					relationshipTypeaheadLoading: true
+				});
+
+				// Use the existing question search endpoint
 				dispatch('SEARCH_QUESTIONS', {
 					searchText: searchText
 				});
-			}, 300);
-
-			updateState({
-				questionTypeaheadQuery: searchText,
-				questionTypeaheadVisible: true,
-				questionTypeaheadSelectedIndex: -1,
-				questionTypeaheadDebounceTimeout: timeout,
-				editingQuestionId: questionId
-			});
+			} else {
+				updateState({
+					relationshipTypeaheadResults: []
+				});
+			}
 		},
 
 		'QUESTION_TYPEAHEAD_HIDE': (coeffects) => {
@@ -8072,6 +8268,21 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				]
+			});
+		},
+
+		'ADD_QUESTION_RELATIONSHIP': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {answerId, questionId, questionLabel} = action.payload;
+
+			console.log('=== ADD_QUESTION_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Forwarding to ADD_BRANCH_QUESTION:', questionId, 'to answer:', answerId);
+
+			// Just forward to the existing ADD_BRANCH_QUESTION action
+			dispatch('ADD_BRANCH_QUESTION', {
+				answerId: answerId,
+				questionId: questionId,
+				questionLabel: questionLabel
 			});
 		},
 
@@ -11408,7 +11619,10 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				relationshipTypeaheadLoading: false
+				relationshipTypeaheadLoading: false,
+				// Clear selected items
+				selectedGuideline: null,
+				selectedQuestion: null
 			});
 		},
 
@@ -11423,7 +11637,10 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state when switching tabs to prevent contamination
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				relationshipTypeaheadLoading: false
+				relationshipTypeaheadLoading: false,
+				// Clear selected items when switching tabs
+				selectedGuideline: null,
+				selectedQuestion: null
 			});
 		},
 
