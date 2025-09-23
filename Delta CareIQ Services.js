@@ -528,3 +528,45 @@ builderCreateAssessment: function(assessmentData) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// BUILDER - RELATIONSHIP OPERATIONS
+
+deleteBranchQuestion: function(answerId, questionId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId) + '/branch-question/' + encodeURIComponent(questionId));
+        var r = this._createRESTMessage('Delete Branch Question', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteBranchQuestion');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteBranchQuestion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+deleteGuidelineRelationship: function(answerId, guidelineId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/answer/' + encodeURIComponent(answerId) + '/guideline-template/' + encodeURIComponent(guidelineId));
+        var r = this._createRESTMessage('Delete Guideline Relationship', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteGuidelineRelationship');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteGuidelineRelationship - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

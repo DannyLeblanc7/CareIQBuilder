@@ -3618,7 +3618,8 @@ const view = (state, {updateState, dispatch}) => {
 																	on={{
 																		click: () => dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
 																			answerId: answerId,
-																			guidelineId: guideline.id
+																			guidelineId: guideline.master_id || guideline.id,
+																			guidelineName: guideline.label
 																		})
 																	}}
 																>
@@ -6541,7 +6542,19 @@ createCustomElement('cadal-careiq-builder', {
 				'Content-Type': 'application/json'
 			},
 			successActionType: 'DELETE_BRANCH_QUESTION_SUCCESS',
-			errorActionType: 'DELETE_BRANCH_QUESTION_ERROR'
+			errorActionType: 'DELETE_BRANCH_QUESTION_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-guideline-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_GUIDELINE_RELATIONSHIP_SUCCESS',
+			errorActionType: 'DELETE_GUIDELINE_RELATIONSHIP_ERROR',
+			metaParam: 'meta'
 		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
@@ -6602,15 +6615,84 @@ createCustomElement('cadal-careiq-builder', {
 		},
 		'DELETE_BRANCH_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
+
 			console.error('DELETE_BRANCH_QUESTION_ERROR:', action.payload);
-			
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'error',
 						message: `Failed to delete triggered question: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== DELETE_GUIDELINE_RELATIONSHIP_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Original action data:', action.meta);
+			console.log('action.meta type:', typeof action.meta);
+			if (action.meta) {
+				console.log('action.meta keys:', Object.keys(action.meta));
+			}
+
+			// Get original data from response payload (enhanced by backend API)
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId, guidelineId, guidelineName} = originalRequest;
+
+			console.log('Guideline relationship deleted successfully:', guidelineId, 'from answer:', answerId);
+			console.log('Extracted values:', {answerId, guidelineId, guidelineName});
+			console.log('Modal state check:', {
+				relationshipModalOpen: state.relationshipModalOpen,
+				relationshipModalAnswerId: state.relationshipModalAnswerId,
+				conditionMet: answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId
+			});
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Successfully deleted guideline relationship "${guidelineName}"! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'DELETE_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('DELETE_GUIDELINE_RELATIONSHIP_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to delete guideline relationship: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -8152,41 +8234,34 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'REMOVE_GUIDELINE_RELATIONSHIP': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
-			
+
 			console.log('=== REMOVE_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
 			console.log('Removing guideline:', guidelineId, 'from answer:', answerId);
 			console.log('Guideline name:', guidelineName);
-			
-			// Generate the unique key for this relationship (same format as add)
-			const relationshipKey = `${answerId}_guideline_${guidelineId}`;
-			
-			console.log('Removing relationship key:', relationshipKey);
-			
-			// Remove from relationship changes tracking
-			const updatedRelationshipChanges = { ...state.relationshipChanges };
-			delete updatedRelationshipChanges[relationshipKey];
-			
-			console.log('Updated relationship changes:', updatedRelationshipChanges);
-			
-			// Clear the add relationship UI and show success message
-			updateState({
-				relationshipChanges: updatedRelationshipChanges,
-				// Add to system messages to show it's been removed
-				systemMessages: [
-					...(state.systemMessages || []),
-					
-					{
-						type: 'warning',
-						message: `Guideline relationship "${guidelineName}" removed from queue.`,
-						timestamp: new Date().toISOString()
-					}
-				]
+
+			// Call backend API to delete guideline relationship immediately (like DELETE_BRANCH_QUESTION)
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				guidelineId: guidelineId,
+				guidelineName: guidelineName
 			});
-			
-			console.log('=== REMOVE_GUIDELINE_RELATIONSHIP - State updated successfully ===');
-			console.log('Guideline relationship removed from queue');
+
+			console.log('About to dispatch with meta:', {
+				answerId: answerId,
+				guidelineId: guidelineId,
+				guidelineName: guidelineName
+			});
+
+			dispatch('MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					answerId: answerId,
+					guidelineId: guidelineId,
+					guidelineName: guidelineName
+				}
+			});
 		},
 
 		'ADD_BRANCH_QUESTION': (coeffects) => {
