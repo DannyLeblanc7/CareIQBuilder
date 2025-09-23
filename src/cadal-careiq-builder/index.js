@@ -1688,7 +1688,7 @@ const view = (state, {updateState, dispatch}) => {
 																			{/* Relationship button/counts */}
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
-																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
+																					{!state.relationshipsLoading[answer.ids.id] ? (
 																						<button
 																							className="load-relationships-btn"
 																							on={{
@@ -1718,16 +1718,16 @@ const view = (state, {updateState, dispatch}) => {
 																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
 																							})()}
 																						</button>
-																					) : state.relationshipsLoading[answer.ids.id] ? (
+																					) : (
 																						<div className="relationships-loading">
 																							⏳ Loading relationships...
 																						</div>
-																					) : null}
+																					)}
 																				</div>
 																			)}
 																			
-																			{/* Relationship display (shown when loaded) */}
-																			{isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
+																			{/* OLD Relationship display (DISABLED - now using modal) */}
+																			{false && isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
 																				<div className="relationships-display">
 																					<div className="relationships-header">
 																						🔍 <strong>Relationships for "{answer.label}"</strong>
@@ -2490,7 +2490,7 @@ const view = (state, {updateState, dispatch}) => {
 																			{/* Relationship button/counts */}
 																			{isEditable && state.showRelationships && (
 																				<div className="answer-relationships">
-																					{!state.answerRelationships[answer.ids.id] && !state.relationshipsLoading[answer.ids.id] ? (
+																					{!state.relationshipsLoading[answer.ids.id] ? (
 																						<button
 																							className="load-relationships-btn"
 																							on={{
@@ -2520,16 +2520,16 @@ const view = (state, {updateState, dispatch}) => {
 																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
 																							})()}
 																						</button>
-																					) : state.relationshipsLoading[answer.ids.id] ? (
+																					) : (
 																						<div className="relationships-loading">
 																							⏳ Loading relationships...
 																						</div>
-																					) : null}
+																					)}
 																				</div>
 																			)}
 																			
-																			{/* Relationship display (shown when loaded) */}
-																			{isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
+																			{/* OLD Relationship display (DISABLED - now using modal) */}
+																			{false && isEditable && state.showRelationships && state.answerRelationships[answer.ids.id] && (
 																				<div className="relationships-display">
 																					<div className="relationships-header">
 																						🔍 <strong>Relationships for "{answer.label}"</strong>
@@ -3759,9 +3759,10 @@ const view = (state, {updateState, dispatch}) => {
 																<button
 																	className="remove-relationship-btn"
 																	on={{
-																		click: () => dispatch('REMOVE_QUESTION_RELATIONSHIP', {
+																		click: () => dispatch('DELETE_BRANCH_QUESTION', {
 																			answerId: answerId,
-																			questionId: question.id
+																			questionId: question.id,
+																			questionLabel: question.label
 																		})
 																	}}
 																>
@@ -6355,19 +6356,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'CLOSE_ANSWER_RELATIONSHIPS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			const {answerId} = action.payload;
-			
-			console.log('Closing answer relationships for:', answerId);
-			
-			const updatedRelationships = {...state.answerRelationships};
-			delete updatedRelationships[answerId];
-			
-			updateState({
-				answerRelationships: updatedRelationships
-			});
-		},
 
 		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-branch-question', {
 			method: 'POST',
@@ -6451,7 +6439,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Failed to add guideline relationship: ${errorMessage}`,
@@ -6518,7 +6505,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Failed to add triggered question: ${action.payload?.error || 'Unknown error'}`,
@@ -6579,7 +6565,6 @@ createCustomElement('cadal-careiq-builder', {
 				sectionChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'success',
 						message: `Successfully deleted triggered question "${questionLabel}" from answer relationship! Refreshing data...`,
@@ -6602,6 +6587,14 @@ createCustomElement('cadal-careiq-builder', {
 				selectedRelationshipQuestion: null
 			});
 			
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
+
 			// Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: state.currentAssessmentId
@@ -6615,7 +6608,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Failed to delete triggered question: ${action.payload?.error || 'Unknown error'}`,
@@ -6989,7 +6981,6 @@ createCustomElement('cadal-careiq-builder', {
 				currentQuestionSearchSectionId: null,
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Error searching questions: ${action.payload?.error || 'Unknown error'}`,
@@ -7055,7 +7046,6 @@ createCustomElement('cadal-careiq-builder', {
 				pendingLibraryQuestionReplacementId: null,  // Clear pending ID
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Error fetching library question: ${action.payload?.error || 'Unknown error'}`,
@@ -7100,7 +7090,6 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadVisible: false,
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Error searching answers: ${action.payload?.error || 'Unknown error'}`,
@@ -7160,7 +7149,6 @@ createCustomElement('cadal-careiq-builder', {
 				pendingLibraryAnswerReplacementId: null,
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Error fetching library answer: ${action.payload?.error || 'Unknown error'}`,
@@ -7599,7 +7587,6 @@ createCustomElement('cadal-careiq-builder', {
 				currentGuidelineSearchAnswerId: null, // Clear on error
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: `Failed to search guidelines: ${action.payload?.error || 'Unknown error'}`,
@@ -7655,7 +7642,7 @@ createCustomElement('cadal-careiq-builder', {
 					const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
 					console.log('Existing triggered question IDs to exclude:', existingQuestionIds);
 
-					// Filter questions: match search text, exclude current question, exclude existing relationships
+					// Filter questions: match search text, exclude current question, exclude existing relationships, only higher sort order
 					const filteredQuestions = allQuestions.filter(question => {
 						// Must contain search text (case insensitive)
 						const matchesSearch = question.label?.toLowerCase().includes(text.toLowerCase());
@@ -7666,9 +7653,12 @@ createCustomElement('cadal-careiq-builder', {
 						// Exclude existing triggered questions
 						const isExistingTriggered = existingQuestionIds.includes(question.ids.id);
 
-						console.log(`Question "${question.label}": matches="${matchesSearch}", current="${isCurrentQuestion}", existing="${isExistingTriggered}"`);
+						// Only allow questions with higher sort order (triggered questions must come after current question)
+						const hasHigherSortOrder = question.sort_order > (currentQuestion?.sort_order || 0);
 
-						return matchesSearch && !isCurrentQuestion && !isExistingTriggered;
+						console.log(`Question "${question.label}": matches="${matchesSearch}", current="${isCurrentQuestion}", existing="${isExistingTriggered}", sortOrder="${question.sort_order}", currentSortOrder="${currentQuestion?.sort_order}", higherSort="${hasHigherSortOrder}"`);
+
+						return matchesSearch && !isCurrentQuestion && !isExistingTriggered && hasHigherSortOrder;
 					});
 
 					console.log(`Filtered questions: ${filteredQuestions.length} out of ${allQuestions.length}`);
@@ -11343,7 +11333,6 @@ createCustomElement('cadal-careiq-builder', {
 				sectionTypeaheadVisible: false,
 				systemMessages: [
 					...(state.systemMessages || []),
-					...state.systemMessages,
 					{
 						type: 'error',
 						message: 'Failed to search section library. Please try again.',
@@ -11608,9 +11597,10 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CLOSE_RELATIONSHIP_MODAL': (coeffects) => {
-			const {updateState} = coeffects;
+			const {updateState, state, dispatch} = coeffects;
+			const answerId = state.relationshipModalAnswerId;
 
-			console.log('Closing relationship modal');
+			console.log('Closing relationship modal for answer:', answerId);
 
 			updateState({
 				relationshipModalOpen: false,
@@ -11624,6 +11614,15 @@ createCustomElement('cadal-careiq-builder', {
 				selectedGuideline: null,
 				selectedQuestion: null
 			});
+
+			// Refresh section questions to get updated badge counts
+			if (state.selectedSection) {
+				console.log('Refreshing section questions to update relationship badges');
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
 		},
 
 		'SET_RELATIONSHIP_TAB': (coeffects) => {
