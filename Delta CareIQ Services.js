@@ -626,3 +626,130 @@ deleteBarrierRelationship: function(barrierId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+addProblemRelationship: function(answerId, problemName, problemId, sortOrder, guidelineTemplateId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/problem');
+        var r = this._createRESTMessage('Add Problem Relationship', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request body with CORRECT field names for CareIQ API
+        var requestBody = {
+            answer_id: answerId,
+            label: problemName,
+            original_label: problemName,
+            sort_order: sortOrder || 0,
+            guideline_template_id: guidelineTemplateId
+        };
+
+        // Only include library_id if we're adding an existing problem from library
+        if (problemId && problemId !== null && problemId !== '') {
+            requestBody.library_id = problemId;
+        }
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'AddProblemRelationship');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddProblemRelationship - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+saveProblemEdits: function(problemId, label, alternativeWording, tooltip, customAttributes, required) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+        var r = this._createRESTMessage('Save Problem Edits', endpoint);
+        r.setHttpMethod('PATCH');
+
+        // Build request body matching the CareIQ API specification
+        var requestBody = {
+            label: label,
+            tooltip: tooltip || '',
+            alternative_wording: alternativeWording || '',
+            custom_attributes: customAttributes || {},
+            required: required || false
+        };
+
+        r.setRequestBody(JSON.stringify(requestBody));
+
+        var response = this._executeRequestWithRetry(r, 'SaveProblemEdits');
+        return response.getBody();
+    } catch (e) {
+        this._logError('SaveProblemEdits - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+getProblemDetails: function(problemId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+        var r = this._createRESTMessage('Get Problem Details', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetProblemDetails');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetProblemDetails - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+deleteProblemRelationship: function(problemId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+        var r = this._createRESTMessage('Delete Problem Relationship', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteProblemRelationship');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteProblemRelationship - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+getProblemGoals: function(guidelineTemplateId, problemId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/problem/' + encodeURIComponent(problemId) + '/goals');
+        var r = this._createRESTMessage('Get Problem Goals', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetProblemGoals');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetProblemGoals - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

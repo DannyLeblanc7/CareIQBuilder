@@ -261,6 +261,31 @@ currentGuidelineSearchAnswerId: null        // Clears cached answer ID
 
 Use `selected` attributes on individual options with boolean conditions instead of `value` on the select element.
 
+### CRITICAL: JSX Fragment Syntax Not Supported
+**ServiceNow's snabbdom renderer does NOT support JSX fragment syntax (`<>...</>`).**
+
+**Incorrect Pattern** (causes "React is not defined" error):
+```javascript
+return (
+  <>
+    <div>First element</div>
+    <div>Second element</div>
+  </>
+);
+```
+
+**Correct Pattern** (use array syntax):
+```javascript
+return [
+  <div>First element</div>,
+  <div>Second element</div>
+];
+```
+
+**Error Message**: `ReferenceError: React is not defined` when using JSX fragments.
+
+**Solution**: Always use array syntax `[element1, element2]` instead of JSX fragments for multiple elements.
+
 ## Debug Settings
 - Global debug flag: `x_1628056_careiq.careiq.platform.globalDebug`
 - When enabled, logs detailed request/response information
@@ -894,11 +919,16 @@ Delta CareIQ Services - Consolidated.js (SINGLE SOURCE OF TRUTH)
 3. **Problem UI**: Collapsed display in relationship modal
 4. **Check/X pattern**: User types → typeahead → select/create → ✓ save → refresh
 
-#### Phase 2: Goal Creation
-1. **Generic typeahead** with `goal` parameter
-2. **Add Goal API**: Create new goal under specific problem
-3. **Goal UI**: Expandable under problems
+#### Phase 2: Goal Creation ✅ CURRENT PHASE
+1. **Generic typeahead** with `goal` parameter (user adding to generic typeahead)
+2. **Add Goal API**: `POST /api/v1/builder/goal` (requires problemId in payload)
+3. **Goal UI**: Expandable under problems with expansion state tracking
 4. **Check/X pattern**: Same as problems but tied to problem ID
+5. **UI Requirements**:
+   - Goals only show when parent problem is expanded
+   - Expand/collapse icons (▼/▶) for problems
+   - Proper indentation hierarchy: Problem → Goal
+   - Independent expansion state per problem
 
 #### Phase 3: Intervention Creation
 1. **Generic typeahead** with `intervention` parameter
@@ -906,10 +936,12 @@ Delta CareIQ Services - Consolidated.js (SINGLE SOURCE OF TRUTH)
 3. **Intervention UI**: Expandable under goals
 4. **Check/X pattern**: Same pattern tied to goal ID
 
-### API Endpoints (TBD)
-- **Problems**: Separate creation endpoint
-- **Goals**: Separate creation endpoint (requires problem ID)
-- **Interventions**: Separate creation endpoint (requires goal ID)
+### API Endpoints
+- **Problems**: `POST https://app.stg.careiq.cadalysapp.com/api/v1/builder/problem`
+  - Delete: `DELETE https://app.stg.careiq.cadalysapp.com/api/v1/builder/problem/{problemId}`
+- **Goals**: `POST https://app.stg.careiq.cadalysapp.com/api/v1/builder/goal`
+  - Delete: `DELETE https://app.stg.careiq.cadalysapp.com/api/v1/builder/goal/{goalId}`
+- **Interventions**: Separate creation endpoint (requires goal ID) - TBD
 
 ### Bundle System
 - **Bundles**: Pre-existing problem/goal/intervention combinations
@@ -938,6 +970,13 @@ Problem 1 [▼] [✗]
 1. **Problem Creation** → Save to backend → Refresh modal
 2. **Goal Creation** → Requires saved problem ID → Save to backend → Refresh
 3. **Intervention Creation** → Requires saved goal ID → Save to backend → Refresh
+
+### UI State Management for Goals
+- **Problem Expansion State**: Track which problems are expanded to show their goals
+- **Goal Display**: Goals only visible when parent problem is expanded
+- **Expansion Toggle**: Click problem expand/collapse icon (▼/▶) to show/hide goals
+- **Nested Structure**: Goals render as children of problems with proper indentation
+- **Independent Expansion**: Each problem's expansion state managed separately
 
 ### Deletion Pattern
 - **Problems**: Delete cascades to goals and interventions

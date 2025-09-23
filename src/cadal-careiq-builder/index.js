@@ -3913,22 +3913,276 @@ const view = (state, {updateState, dispatch}) => {
 											if (relationships && relationships.problems && relationships.problems.problems && relationships.problems.problems.length > 0) {
 												return (
 													<div className="existing-relationships">
-														{relationships.problems.problems.map((problem, index) => (
-															<div key={index} className="relationship-item">
-																<span className="relationship-label">{problem.label || problem.name}</span>
-																<button
-																	className="remove-relationship-btn"
-																	on={{
-																		click: () => dispatch('REMOVE_PROBLEM_RELATIONSHIP', {
-																			answerId: answerId,
-																			problemId: problem.id
-																		})
-																	}}
-																>
-																	✗
-																</button>
-															</div>
-														))}
+														{relationships.problems.problems.map((problem, index) => [
+															<div key={`problem-${index}`} className="relationship-item">
+																{/* Show edit form if this problem is being edited */}
+																{state.editingProblemId === problem.id ? (
+																	<div className="edit-problem-form">
+																		{state.problemDetailsLoading === problem.id ? (
+																			<div className="loading-message">
+																				Loading problem details...
+																			</div>
+																		) : (
+																			[
+																				<div className="edit-field">
+																					<label>Label:</label>
+																					<input
+																						type="text"
+																						value={state.editingProblemData?.label || ''}
+																						on={{
+																							input: (e) => updateState({
+																								editingProblemData: {
+																									...state.editingProblemData,
+																									label: e.target.value
+																								}
+																							})
+																						}}
+																					/>
+																				</div>,
+																				<div className="edit-field">
+																					<label>Alternative Wording:</label>
+																					<input
+																						type="text"
+																						value={state.editingProblemData?.alternative_wording || ''}
+																						on={{
+																							input: (e) => updateState({
+																								editingProblemData: {
+																									...state.editingProblemData,
+																									alternative_wording: e.target.value
+																								}
+																							})
+																						}}
+																					/>
+																				</div>,
+																				<div className="edit-field">
+																					<label>Tooltip:</label>
+																					<textarea
+																						value={state.editingProblemData?.tooltip || ''}
+																						rows="2"
+																						on={{
+																							input: (e) => updateState({
+																								editingProblemData: {
+																									...state.editingProblemData,
+																									tooltip: e.target.value
+																								}
+																							})
+																						}}
+																					/>
+																				</div>,
+																				<div className="edit-actions">
+																					<button
+																						className="confirm-relationship-btn"
+																						onclick={() => {
+																							dispatch('SAVE_PROBLEM_EDITS', {
+																								answerId: answerId,
+																								problemId: problem.id,
+																								editData: state.editingProblemData
+																							});
+																						}}
+																						title="Save Changes"
+																					>
+																						✓
+																					</button>
+																					<button
+																						className="cancel-relationship-btn"
+																						onclick={() => {
+																							updateState({
+																								editingProblemId: null,
+																								editingProblemData: null
+																							});
+																						}}
+																						title="Cancel"
+																					>
+																						✕
+																					</button>
+																				</div>
+																			]
+																		)}
+																	</div>
+																) : (
+																	// Normal display mode - ServiceNow doesn't support JSX fragments, use array
+																	[
+																		<span
+																			className="expansion-icon"
+																			on={{
+																				click: () => dispatch('TOGGLE_PROBLEM_EXPANSION', {
+																					problemId: problem.id
+																				})
+																			}}
+																			title="Click to expand/collapse goals"
+																			style={{cursor: 'pointer', marginRight: '8px', fontSize: '12px'}}
+																		>
+																			{state.expandedProblems[problem.id] ? '▼' : '▶'}
+																		</span>,
+																		<span
+																			className="relationship-label"
+																			on={{
+																				dblclick: () => {
+																					// Fetch full problem details before editing
+																					dispatch('FETCH_PROBLEM_DETAILS', {
+																						problemId: problem.id,
+																						fallbackData: {
+																							label: problem.label || problem.name,
+																							alternative_wording: problem.alternative_wording || '',
+																							tooltip: problem.tooltip || ''
+																						}
+																					});
+																				}
+																			}}
+																			title="Double-click to edit"
+																			style={{cursor: 'pointer'}}
+																		>
+																			{problem.label || problem.name}
+																		</span>,
+																		<button
+																			className="cancel-relationship-btn"
+																			on={{
+																				click: () => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
+																					answerId: answerId,
+																					problemId: problem.id,
+																					problemName: problem.label || problem.name
+																				})
+																			}}
+																			title="Delete problem"
+																		>
+																			✕
+																		</button>
+																	]
+																)}
+															</div>,
+
+															// Goals Display - Show when problem is expanded (outside flex container)
+															state.expandedProblems[problem.id] && (
+																<div key={`goals-${index}`} className="goals-container" style={{marginLeft: '24px', marginTop: '12px', marginBottom: '16px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px', backgroundColor: '#fafbfc', borderRadius: '6px', padding: '12px'}}>
+																	{/* Goals Header */}
+																	<div style={{marginBottom: '12px', fontSize: '14px', color: '#374151', fontWeight: '600'}}>
+																		Goals
+																	</div>
+
+																	{/* Existing Goals */}
+																	{(() => {
+																		// Check loading state first
+																		if (state.goalsLoading[problem.id]) {
+																			return (
+																				<div style={{fontSize: '14px', color: '#6b7280', fontStyle: 'italic', marginBottom: '12px', padding: '8px', backgroundColor: '#f3f4f6', borderRadius: '4px'}}>
+																					Loading goals...
+																				</div>
+																			);
+																		}
+
+																		// Check if we have loaded goals data for this problem
+																		const problemGoals = state.problemGoals[problem.id];
+																		if (problemGoals && problemGoals.length > 0) {
+																			return (
+																				<div className="existing-goals" style={{marginBottom: '12px'}}>
+																					{problemGoals.map((goal, goalIndex) => (
+																						<div key={goalIndex} className="goal-item" style={{
+																							display: 'flex',
+																							alignItems: 'center',
+																							marginBottom: '8px',
+																							fontSize: '14px',
+																							padding: '8px 12px',
+																							backgroundColor: '#ffffff',
+																							border: '1px solid #e5e7eb',
+																							borderRadius: '6px',
+																							boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+																						}}>
+																							<span
+																								className="goal-label"
+																								style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
+																								title="Double-click to edit goal"
+																							>
+																								{goal.label || goal.name}
+																							</span>
+																							<button
+																								className="cancel-relationship-btn"
+																								style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																								title="Delete goal"
+																							>
+																								✕
+																							</button>
+																						</div>
+																					))}
+																				</div>
+																			);
+																		}
+
+																		// Show no goals message only if we've tried to load (not loading and no data)
+																		if (problemGoals !== undefined && problemGoals.length === 0) {
+																			return (
+																				<div style={{fontSize: '14px', color: '#9ca3af', fontStyle: 'italic', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '4px', textAlign: 'center'}}>
+																					No goals linked to this problem yet.
+																				</div>
+																			);
+																		}
+
+																		// Default: haven't loaded yet, show placeholder
+																		return (
+																			<div style={{fontSize: '14px', color: '#9ca3af', fontStyle: 'italic', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '4px', textAlign: 'center'}}>
+																				Click to load goals...
+																			</div>
+																		);
+																	})()}
+
+																	{/* Add New Goal */}
+																	<div className="add-goal" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px'}}>
+																		<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
+																			Add New Goal
+																		</div>
+																		<div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+																			<input
+																				type="text"
+																				placeholder="Search for goals or type to create new..."
+																				style={{
+																					flex: 1,
+																					fontSize: '14px',
+																					padding: '10px 12px',
+																					border: '1px solid #d1d5db',
+																					borderRadius: '6px',
+																					backgroundColor: '#ffffff',
+																					outline: 'none',
+																					transition: 'border-color 0.2s'
+																				}}
+																				onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+																				onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+																			/>
+																			<button
+																				className="confirm-relationship-btn"
+																				style={{
+																					fontSize: '14px',
+																					padding: '10px 16px',
+																					backgroundColor: '#10b981',
+																					color: 'white',
+																					border: 'none',
+																					borderRadius: '6px',
+																					cursor: 'pointer',
+																					fontWeight: '500'
+																				}}
+																				title="Save goal"
+																			>
+																				✓
+																			</button>
+																			<button
+																				className="cancel-relationship-btn"
+																				style={{
+																					fontSize: '14px',
+																					padding: '10px 16px',
+																					backgroundColor: '#ef4444',
+																					color: 'white',
+																					border: 'none',
+																					borderRadius: '6px',
+																					cursor: 'pointer',
+																					fontWeight: '500'
+																				}}
+																				title="Cancel"
+																			>
+																				✕
+																			</button>
+																		</div>
+																	</div>
+																</div>
+															)
+														])}
 													</div>
 												);
 											}
@@ -6693,6 +6947,58 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'DELETE_BARRIER_RELATIONSHIP_ERROR',
 			metaParam: 'meta'
 		}),
+
+		'MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-problem-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_PROBLEM_RELATIONSHIP_SUCCESS',
+			errorActionType: 'ADD_PROBLEM_RELATIONSHIP_ERROR'
+		}),
+
+		'MAKE_SAVE_PROBLEM_EDITS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-problem-edits', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'SAVE_PROBLEM_EDITS_SUCCESS',
+			errorActionType: 'SAVE_PROBLEM_EDITS_ERROR'
+		}),
+
+		'MAKE_GET_PROBLEM_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-details', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GET_PROBLEM_DETAILS_SUCCESS',
+			errorActionType: 'GET_PROBLEM_DETAILS_ERROR'
+		}),
+
+		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-problem-relationship', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_PROBLEM_RELATIONSHIP_SUCCESS',
+			errorActionType: 'DELETE_PROBLEM_RELATIONSHIP_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-goals', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'LOAD_PROBLEM_GOALS_SUCCESS',
+			errorActionType: 'LOAD_PROBLEM_GOALS_ERROR',
+			metaParam: 'meta'
+		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			
@@ -6919,6 +7225,89 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'ADD_PROBLEM_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_PROBLEM_RELATIONSHIP_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Check if the response contains an error (API can return 200 with error details)
+			if (action.payload?.detail && (
+				action.payload.detail.toLowerCase().includes('required') ||
+				action.payload.detail.toLowerCase().includes('should be provided') ||
+				action.payload.detail.toLowerCase().includes('error') ||
+				action.payload.detail.toLowerCase().includes('failed')
+			)) {
+				console.error('API returned error in success response:', action.payload.detail);
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to add problem: ${action.payload.detail}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Get original data from response payload
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId, problemName} = originalRequest;
+
+			console.log('Problem relationship added successfully:', problemName, 'to answer:', answerId);
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Successfully added problem "${problemName}"! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Clear typeahead state
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedProblemData: null
+			});
+
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'ADD_PROBLEM_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('ADD_PROBLEM_RELATIONSHIP_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to add problem relationship: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'DELETE_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
@@ -7004,6 +7393,151 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'info',
 						message: 'Deleting barrier relationship from backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SAVE_PROBLEM_EDITS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, problemId, editData} = action.payload;
+
+			console.log('=== SAVE_PROBLEM_EDITS ACTION TRIGGERED ===');
+			console.log('Saving problem edits for:', problemId, 'on answer:', answerId);
+			console.log('Edit data:', editData);
+
+			// Get current problem data for merging with edits
+			const relationships = state.answerRelationships?.[answerId];
+			const currentProblem = relationships?.problems?.problems?.find(p => p.id === problemId);
+
+			if (!currentProblem) {
+				console.error('Could not find problem to edit:', problemId);
+				updateState({
+					editingProblemId: null,
+					editingProblemData: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Could not find problem to update',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// AUTO-SAVE: Immediately call API with full payload structure
+			const requestBody = JSON.stringify({
+				problemId: problemId,  // Use correct field name expected by server API
+				label: editData.label,
+				tooltip: editData.tooltip || '',
+				alternative_wording: editData.alternative_wording || '',
+				custom_attributes: currentProblem.custom_attributes || {},
+				required: currentProblem.required || false
+			});
+
+			console.log('=== SAVE PROBLEM EDITS REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_SAVE_PROBLEM_EDITS_REQUEST', {
+				requestBody: requestBody
+			});
+
+			// Clear editing state and show system message
+			updateState({
+				editingProblemId: null,
+				editingProblemData: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving problem changes to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SAVE_PROBLEM_EDITS_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== SAVE_PROBLEM_EDITS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+
+			// Handle 204 No Content response (null/empty payload is expected and indicates success)
+			if (action.payload === null || action.payload === undefined) {
+				console.log('API returned 204 No Content - this is expected for successful PATCH operations');
+
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Problem updated successfully! Refreshing data...',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Refresh the modal answer relationships to show updated data
+				if (state.relationshipModalAnswerId) {
+					dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+						answerId: state.relationshipModalAnswerId
+					});
+				}
+				return;
+			}
+
+			// Check if the response contains an error
+			if (action.payload?.error) {
+				console.error('API returned error in success response:', action.payload.error);
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to save problem edits: ${action.payload.error}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Problem updated successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh the modal answer relationships to show updated data
+			if (state.relationshipModalAnswerId) {
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: state.relationshipModalAnswerId
+				});
+			}
+		},
+
+		'SAVE_PROBLEM_EDITS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('SAVE_PROBLEM_EDITS_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to update problem: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -7249,6 +7783,295 @@ createCustomElement('cadal-careiq-builder', {
 					searchText: searchText,
 					answerId: answerId
 				}
+			});
+		},
+
+		'FETCH_PROBLEM_DETAILS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {problemId, fallbackData} = action.payload;
+
+			console.log('=== FETCH_PROBLEM_DETAILS ACTION TRIGGERED ===');
+			console.log('Fetching details for problem:', problemId);
+
+			// Show loading state for the specific problem
+			updateState({
+				editingProblemId: problemId,
+				editingProblemData: null, // Clear previous data while loading
+				problemDetailsLoading: problemId
+			});
+
+			// Make API request to get full problem details
+			const requestBody = JSON.stringify({
+				problemId: problemId
+			});
+
+			console.log('=== FETCH PROBLEM DETAILS REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			// Store fallback data in case the API call fails
+			updateState({
+				problemDetailsFallback: fallbackData
+			});
+
+			dispatch('MAKE_GET_PROBLEM_DETAILS_REQUEST', {
+				requestBody: requestBody
+			});
+		},
+
+		'GET_PROBLEM_DETAILS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== GET_PROBLEM_DETAILS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Clear loading state
+			updateState({
+				problemDetailsLoading: null
+			});
+
+			// Check if we got valid problem data
+			if (action.payload && (action.payload.label || action.payload.name)) {
+				// Use the detailed data from the API
+				updateState({
+					editingProblemData: {
+						label: action.payload.label || action.payload.name || '',
+						alternative_wording: action.payload.alternative_wording || '',
+						tooltip: action.payload.tooltip || ''
+					}
+				});
+			} else {
+				// Fallback to cached data if API didn't return proper details
+				console.warn('API returned incomplete problem details, using fallback data');
+				updateState({
+					editingProblemData: state.problemDetailsFallback || {
+						label: '',
+						alternative_wording: '',
+						tooltip: ''
+					}
+				});
+			}
+
+			// Clear fallback data
+			updateState({
+				problemDetailsFallback: null
+			});
+		},
+
+		'GET_PROBLEM_DETAILS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('GET_PROBLEM_DETAILS_ERROR:', action.payload);
+
+			// Clear loading state and use fallback data
+			updateState({
+				problemDetailsLoading: null,
+				editingProblemData: state.problemDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: ''
+				},
+				problemDetailsFallback: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'warning',
+						message: 'Could not load full problem details. Using basic information for editing.',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_PROBLEM_RELATIONSHIP': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, problemId, problemName} = action.payload;
+
+			console.log('=== DELETE_PROBLEM_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Deleting problem:', problemName, 'ID:', problemId, 'from answer:', answerId);
+
+			// AUTO-DELETE: Immediately call API
+			const requestBody = JSON.stringify({
+				problemId: problemId
+			});
+
+			console.log('=== DELETE PROBLEM REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					problemId: problemId,
+					problemName: problemName,
+					answerId: answerId
+				}
+			});
+
+			// Show system message about deletion
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Deleting problem relationship from backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_PROBLEM_RELATIONSHIP_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== DELETE_PROBLEM_RELATIONSHIP_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+
+			const meta = action.meta || {};
+			const {problemName, answerId} = meta;
+
+			// Handle 204 No Content response (null/empty payload is expected and indicates success)
+			if (action.payload === null || action.payload === undefined) {
+				console.log('API returned 204 No Content - this is expected for successful DELETE operations');
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Problem relationship deleted successfully! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh the modal answer relationships to show updated data
+			if (state.relationshipModalAnswerId) {
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: state.relationshipModalAnswerId,
+					currentAssessmentId: state.currentAssessmentId,
+					sectionId: state.selectedSectionId,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'DELETE_PROBLEM_RELATIONSHIP_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('DELETE_PROBLEM_RELATIONSHIP_ERROR:', action.payload);
+
+			const meta = action.meta || {};
+			const {problemName} = meta;
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to delete problem "${problemName}": ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'LOAD_PROBLEM_GOALS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {problemId, guidelineTemplateId} = action.payload;
+
+			console.log('=== LOAD_PROBLEM_GOALS ACTION TRIGGERED ===');
+			console.log('Loading goals for problem:', problemId);
+			console.log('Guideline Template ID:', guidelineTemplateId);
+
+			// Set loading state and store current loading problemId for success handler
+			updateState({
+				goalsLoading: {
+					...state.goalsLoading,
+					[problemId]: true
+				},
+				currentGoalsLoadingProblemId: problemId  // Store for SUCCESS handler
+			});
+
+			// Fix: Use direct fields pattern (API expects request.body.data.problemId directly)
+			const requestBody = JSON.stringify({
+				problemId: problemId,
+				guidelineTemplateId: guidelineTemplateId
+			});
+
+			console.log('=== LOAD PROBLEM GOALS REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_LOAD_PROBLEM_GOALS_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					problemId: problemId,
+					guidelineTemplateId: guidelineTemplateId
+				}
+			});
+		},
+
+		'LOAD_PROBLEM_GOALS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== LOAD_PROBLEM_GOALS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Use stored problemId from state instead of meta (meta not working reliably)
+			const problemId = state.currentGoalsLoadingProblemId;
+			console.log('Using stored problemId from state:', problemId);
+
+			// Parse the response to get goals data
+			const goalsData = action.payload?.goals || [];
+
+			updateState({
+				goalsLoading: {
+					...state.goalsLoading,
+					[problemId]: false
+				},
+				problemGoals: {
+					...state.problemGoals,
+					[problemId]: goalsData
+				},
+				currentGoalsLoadingProblemId: null  // Clear stored ID
+			});
+
+			console.log(`Loaded ${goalsData.length} goals for problem:`, problemId);
+		},
+
+		'LOAD_PROBLEM_GOALS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('LOAD_PROBLEM_GOALS_ERROR:', action.payload);
+
+			// Use stored problemId from state instead of meta
+			const problemId = state.currentGoalsLoadingProblemId;
+
+			updateState({
+				goalsLoading: {
+					...state.goalsLoading,
+					[problemId]: false
+				},
+				currentGoalsLoadingProblemId: null,  // Clear stored ID
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to load goals for problem: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -8800,6 +9623,90 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'info',
 						message: 'Creating new barrier and saving to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_PROBLEM_RELATIONSHIP': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, problemId, problemName, problemMasterId} = action.payload;
+
+			console.log('=== ADD_PROBLEM_RELATIONSHIP ACTION TRIGGERED ===');
+			console.log('Auto-saving problem relationship immediately:', problemName, 'to answer:', answerId);
+			console.log('Full payload:', action.payload);
+
+			// Calculate sort_order based on existing problems
+			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
+			const sortOrder = existingProblems.length + 1;
+
+			// AUTO-SAVE: Immediately call API with library problemId
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				problemName: problemName,
+				problemId: problemId, // Include for existing library problems
+				sortOrder: sortOrder,
+				guidelineTemplateId: state.currentAssessmentId
+			});
+
+			console.log('=== EXISTING PROBLEM REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody
+			});
+
+			// Show system message about auto-save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving problem relationship to backend...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_NEW_PROBLEM': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, problemName} = action.payload;
+
+			console.log('=== CREATE_NEW_PROBLEM ACTION TRIGGERED ===');
+			console.log('Creating new problem:', problemName, 'for answer:', answerId);
+			console.log('Full payload:', action.payload);
+
+			// Calculate sort_order based on existing problems
+			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
+			const sortOrder = existingProblems.length + 1;
+
+			// AUTO-SAVE: Immediately call API (no problemId means new problem)
+			const requestBody = JSON.stringify({
+				answerId: answerId,
+				problemName: problemName,
+				sortOrder: sortOrder,
+				guidelineTemplateId: state.currentAssessmentId
+				// No problemId means create new problem (no library_id in payload)
+			});
+
+			console.log('=== NEW PROBLEM REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST', {
+				requestBody: requestBody
+			});
+
+			// Show system message about auto-save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Creating new problem and saving to backend...',
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -12127,7 +13034,12 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear any existing typeahead state to prevent contamination
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				relationshipTypeaheadLoading: false
+				relationshipTypeaheadLoading: false,
+				// Initialize problem expansion state tracking
+				expandedProblems: {},
+				// Initialize goals state tracking
+				problemGoals: {},      // Store goals data by problemId
+				goalsLoading: {}       // Track loading state by problemId
 			});
 
 			// Auto-load relationships if they don't exist yet
@@ -12157,7 +13069,12 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipTypeaheadLoading: false,
 				// Clear selected items
 				selectedGuideline: null,
-				selectedQuestion: null
+				selectedQuestion: null,
+				// Clear expansion state
+				expandedProblems: {},
+				// Clear goals state
+				problemGoals: {},
+				goalsLoading: {}
 			});
 
 			// Refresh section questions to get updated badge counts
@@ -12166,6 +13083,32 @@ createCustomElement('cadal-careiq-builder', {
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'TOGGLE_PROBLEM_EXPANSION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {problemId} = action.payload;
+
+			console.log('Toggling expansion for problem:', problemId);
+
+			const currentExpansion = state.expandedProblems || {};
+			const isExpanded = currentExpansion[problemId] || false;
+
+			updateState({
+				expandedProblems: {
+					...currentExpansion,
+					[problemId]: !isExpanded
+				}
+			});
+
+			// If expanding and goals haven't been loaded yet, load them
+			if (!isExpanded && !state.problemGoals[problemId] && !state.goalsLoading[problemId]) {
+				console.log('Problem expanded and goals not loaded yet - loading goals for:', problemId);
+				dispatch('LOAD_PROBLEM_GOALS', {
+					problemId: problemId,
+					guidelineTemplateId: state.currentAssessmentId
 				});
 			}
 		},
