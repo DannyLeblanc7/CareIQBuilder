@@ -5168,7 +5168,8 @@ createCustomElement('cadal-careiq-builder', {
 		editingGoalData: null,                     // Goal data being edited
 		goalDetailsLoading: null,                  // ID of goal whose details are being loaded
 		goalDetailsFallback: null,                 // Fallback goal data if API fails
-		editingGoalProblemId: null                 // Problem ID containing the goal being edited
+		editingGoalProblemId: null,                // Problem ID containing the goal being edited
+		lastEditedGoalProblemId: null             // Problem ID for the last edited goal (for success handler)
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -7536,7 +7537,8 @@ createCustomElement('cadal-careiq-builder', {
 				'Content-Type': 'application/json'
 			},
 			successActionType: 'UPDATE_GOAL_SUCCESS',
-			errorActionType: 'UPDATE_GOAL_ERROR'
+			errorActionType: 'UPDATE_GOAL_ERROR',
+			metaParam: 'meta'
 		}),
 
 		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-problem-relationship', {
@@ -11029,11 +11031,15 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Saving edits for goal:', goalId);
 			console.log('Goal data:', goalData);
 
-			// Clear editing state and show system message
+			// Store problem ID before clearing it
+			const problemId = state.editingGoalProblemId;
+
+			// Clear editing state and show system message, but store problem ID for success handler
 			updateState({
 				editingGoalId: null,
 				editingGoalData: null,
 				editingGoalProblemId: null,
+				lastEditedGoalProblemId: problemId, // Store for success handler
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -11063,7 +11069,10 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			dispatch('MAKE_UPDATE_GOAL_REQUEST', {
-				requestBody: requestBody
+				requestBody: requestBody,
+				meta: {
+					problemId: problemId
+				}
 			});
 		},
 
@@ -11073,6 +11082,7 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('=== UPDATE_GOAL_SUCCESS ===');
 			console.log('API Response:', action.payload);
 			console.log('Response type:', typeof action.payload);
+			console.log('Meta data:', action.meta);
 
 			// Handle 204 No Content response (null/empty payload is expected and indicates success)
 			if (action.payload === null || action.payload === undefined) {
@@ -11092,13 +11102,26 @@ createCustomElement('cadal-careiq-builder', {
 					] : state.modalSystemMessages
 				});
 
-				// Refresh just the goals for this specific problem
-				if (state.editingGoalProblemId && state.currentAssessmentId) {
-					console.log('Refreshing goals for problem:', state.editingGoalProblemId);
+				// Refresh just the goals for the specific problem using stored ID
+				const problemId = state.lastEditedGoalProblemId;
+				console.log('UPDATE_GOAL_SUCCESS - problemId from state:', problemId);
+				console.log('UPDATE_GOAL_SUCCESS - currentAssessmentId:', state.currentAssessmentId);
+				console.log('UPDATE_GOAL_SUCCESS - condition met?', problemId && state.currentAssessmentId);
+
+				if (problemId && state.currentAssessmentId) {
+					console.log('Refreshing goals for problem:', problemId);
+
+					// Clear the stored problem ID and refresh goals
+					updateState({
+						lastEditedGoalProblemId: null
+					});
+
 					dispatch('LOAD_PROBLEM_GOALS', {
-						problemId: state.editingGoalProblemId,
+						problemId: problemId,
 						guidelineTemplateId: state.currentAssessmentId
 					});
+				} else {
+					console.log('NOT refreshing goals - missing problemId or assessmentId');
 				}
 				return;
 			}

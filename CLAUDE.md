@@ -1045,6 +1045,57 @@ All PGI creation success handlers must refresh BOTH the modal relationships AND 
 4. **Success feedback**: Clear user messaging about refresh
 5. **Badge updates**: Update counts in main view
 
+## CRITICAL PATTERN: Goal/Intervention Edit Refresh (WORKING SOLUTION)
+**PROBLEM**: After editing goals/interventions, the UI doesn't refresh to show updated API data.
+**ROOT CAUSE**: HTTP effect meta parameters don't work reliably in ServiceNow UI Framework.
+
+### Working Solution Pattern (State-Based Refresh):
+1. **Store Context Before Save**: In save action, store the parent ID before clearing editing state
+2. **Success Handler Uses Stored ID**: Success handler uses stored state rather than meta parameters
+3. **Targeted Refresh**: Call specific refresh API (e.g., `LOAD_PROBLEM_GOALS`) rather than full modal refresh
+
+### Implementation Example (Goals):
+```javascript
+// 1. SAVE_GOAL_EDITS - Store problem ID before clearing
+const problemId = state.editingGoalProblemId;
+updateState({
+    editingGoalId: null,
+    editingGoalData: null,
+    editingGoalProblemId: null,
+    lastEditedGoalProblemId: problemId  // Store for success handler
+});
+
+// 2. UPDATE_GOAL_SUCCESS - Use stored ID to refresh
+const problemId = state.lastEditedGoalProblemId;
+if (problemId && state.currentAssessmentId) {
+    updateState({ lastEditedGoalProblemId: null }); // Clear after use
+    dispatch('LOAD_PROBLEM_GOALS', {
+        problemId: problemId,
+        guidelineTemplateId: state.currentAssessmentId
+    });
+}
+```
+
+### Key Requirements:
+- **State field**: Add `lastEdited[Type]ParentId` to track parent context
+- **Store before clear**: Save parent ID before clearing editing state in save action
+- **Use in success**: Success handler uses stored state, not meta parameters
+- **Clear after use**: Clean up stored ID after successful refresh
+- **Targeted API**: Call specific refresh API, not full modal refresh
+
+### Manual Refresh Button Pattern:
+```javascript
+// Always works - provides backup refresh option for testing
+<button onclick={() => {
+    dispatch('LOAD_PROBLEM_GOALS', {
+        problemId: problem.id,
+        guidelineTemplateId: state.currentAssessmentId
+    });
+}}>🔄 Refresh</button>
+```
+
+**This pattern bypasses ServiceNow HTTP effect meta parameter issues and provides reliable refresh behavior.**
+
 # CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER copy backup files over current files.
