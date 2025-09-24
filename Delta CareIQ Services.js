@@ -754,7 +754,7 @@ getProblemGoals: function(guidelineTemplateId, problemId) {
     }
 },
 
-addGoalToProblem: function(problemId, goalText, goalId, answerId, guidelineTemplateId) {
+addGoalToProblem: function(problemId, goalText, goalId, answerId, guidelineTemplateId, libraryId) {
     try {
         var config = this._getConfig();
 
@@ -777,6 +777,11 @@ addGoalToProblem: function(problemId, goalText, goalId, answerId, guidelineTempl
         // If goalId is provided, it's linking an existing goal, otherwise creating new
         if (goalId && goalId !== null) {
             payload.goal_id = goalId;  // Link existing goal (use snake_case)
+        }
+
+        // If libraryId is provided, it's using a library goal as template
+        if (libraryId && libraryId !== null) {
+            payload.library_id = libraryId;  // Reference library goal by master_id
         }
 
         r.setRequestBody(JSON.stringify(payload));

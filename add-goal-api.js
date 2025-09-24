@@ -76,7 +76,8 @@
             requestData.goalText,
             requestData.goalId || null,  // Explicitly pass null for new goals
             requestData.answerId,
-            requestData.guidelineTemplateId
+            requestData.guidelineTemplateId,
+            requestData.libraryId || null  // Pass library_id for library goals
         );
 
         if (isDebugEnabled) {

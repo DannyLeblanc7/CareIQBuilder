@@ -8282,13 +8282,51 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
+			// ALWAYS do pre-save typeahead check for exact matches to prevent duplicates
+			console.log('=== PRE-SAVE EXACT MATCH CHECK ===');
+			console.log('Searching for exact match of:', goalText);
+
+			// Store original save data for after the check
+			updateState({
+				pendingGoalSave: {
+					problemId: problemId,
+					goalText: goalText,
+					selectedGoal: selectedGoal,
+					answerId: answerId
+				},
+				// Store pre-save context separately from UI context to prevent clearing
+				preSaveGoalContext: {
+					contentType: 'goal',
+					problemId: problemId,
+					searchText: goalText,
+					isPreSaveCheck: true
+				}
+			});
+
+			// Silent typeahead search to check for exact matches
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: goalText,
+				type: 'goal',
+				problemId: problemId,
+				isPreSaveCheck: true  // Flag to identify this as pre-save check
+			});
+		},
+
+		'SAVE_GOAL_TO_PROBLEM_AFTER_CHECK': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {problemId, goalText, selectedGoal, answerId} = action.payload;
+
+			console.log('=== SAVE_GOAL_TO_PROBLEM_AFTER_CHECK ===');
+			console.log('Final save with goal:', selectedGoal);
+
 			// Prepare request body for goal creation/linking
 			const requestBody = JSON.stringify({
 				problemId: problemId,
 				goalText: goalText,
 				goalId: selectedGoal ? selectedGoal.id : null, // null means create new
 				answerId: answerId,
-				guidelineTemplateId: state.currentAssessmentId  // Required by backend
+				guidelineTemplateId: state.currentAssessmentId,  // Required by backend
+				libraryId: selectedGoal ? selectedGoal.master_id : null  // Library reference for existing goals
 			});
 
 			dispatch('MAKE_ADD_GOAL_REQUEST', {
@@ -8309,13 +8347,26 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('Goal processing for answer:', answerId, 'goal:', goalText);
 
-			// Show success message (assume success since this handler was called)
+			// Show success or backend message
+			let systemMessage = `Goal "${goalText}" processed! Refreshing data...`;
+			let messageType = 'success';
+
+			// Surface any backend detail messages to user (like duplicate warnings)
+			if (action.payload && action.payload.detail) {
+				systemMessage = action.payload.detail;
+				// Classify message type based on content
+				if (systemMessage.toLowerCase().includes('duplicate') ||
+					systemMessage.toLowerCase().includes('already')) {
+					messageType = 'warning'; // Informational, not error
+				}
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
-						type: 'success',
-						message: `Goal "${goalText}" processed! Refreshing data...`,
+						type: messageType,
+						message: systemMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -8516,14 +8567,15 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			const {searchText, type, problemId} = action.payload;
+			const {searchText, type, problemId, isPreSaveCheck} = action.payload;
 
 			console.log('=== GENERIC_TYPEAHEAD_SEARCH ===');
 			console.log('Search text:', searchText);
 			console.log('Content type:', type);
 			console.log('Problem ID:', problemId);
+			console.log('Is pre-save check:', isPreSaveCheck);
 
-			if (!searchText || searchText.length < 3) {
+			if (!searchText || (searchText.length < 3 && !isPreSaveCheck)) {
 				if (type === 'goal' && problemId) {
 					// Clear goal typeahead results for specific problem
 					updateState({
@@ -8549,7 +8601,8 @@ createCustomElement('cadal-careiq-builder', {
 					currentGoalSearchContext: {
 						contentType: type,
 						problemId: problemId,
-						searchText: searchText
+						searchText: searchText,
+						isPreSaveCheck: isPreSaveCheck || false
 					}
 				});
 			} else {
@@ -8588,7 +8641,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'GENERIC_TYPEAHEAD_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 
 			console.log('=== GENERIC_TYPEAHEAD_SUCCESS ===');
 			console.log('Response payload:', action.payload);
@@ -8598,11 +8651,67 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
+			const preSaveContext = state.preSaveGoalContext;
 			console.log('Stored goal search context:', goalSearchContext);
+			console.log('Stored pre-save context:', preSaveContext);
 
 			console.log('Found results:', results.length);
 
-			// Route results to correct state based on stored context
+			// Check if this is a pre-save exact match check
+			if (preSaveContext && preSaveContext.isPreSaveCheck) {
+				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS ===');
+				console.log('Checking for exact matches in results...');
+
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					console.log('EXACT MATCH FOUND:', exactMatch);
+					console.log('Using library goal with master_id:', exactMatch.master_id);
+
+					// Use the exact match as selectedGoal with library data
+					const selectedGoal = {
+						id: exactMatch.id,
+						name: exactMatch.name,
+						master_id: exactMatch.master_id
+					};
+
+					// Get pending save data and proceed with library goal
+					const pendingGoalSave = state.pendingGoalSave;
+					if (pendingGoalSave) {
+						console.log('Proceeding with library goal save...');
+						dispatch('SAVE_GOAL_TO_PROBLEM_AFTER_CHECK', {
+							problemId: pendingGoalSave.problemId,
+							goalText: pendingGoalSave.goalText,
+							selectedGoal: selectedGoal,  // Use exact match
+							answerId: pendingGoalSave.answerId
+						});
+					}
+				} else {
+					console.log('NO EXACT MATCH FOUND - proceeding as new goal');
+
+					// No exact match, proceed with original goal (new goal creation)
+					const pendingGoalSave = state.pendingGoalSave;
+					if (pendingGoalSave) {
+						dispatch('SAVE_GOAL_TO_PROBLEM_AFTER_CHECK', {
+							problemId: pendingGoalSave.problemId,
+							goalText: pendingGoalSave.goalText,
+							selectedGoal: pendingGoalSave.selectedGoal,  // Original selection (null for new)
+							answerId: pendingGoalSave.answerId
+						});
+					}
+				}
+
+				// Clear pre-save context and pending data
+				updateState({
+					preSaveGoalContext: null,
+					pendingGoalSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Normal typeahead UI flow (not pre-save check)
 			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
 				const problemId = goalSearchContext.problemId;
 				console.log('Routing to goal typeahead for problem:', problemId);
