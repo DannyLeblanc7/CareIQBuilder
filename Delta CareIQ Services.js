@@ -754,7 +754,7 @@ getProblemGoals: function(guidelineTemplateId, problemId) {
     }
 },
 
-addGoalToProblem: function(problemId, goalText, goalId, answerId) {
+addGoalToProblem: function(problemId, goalText, goalId, answerId, guidelineTemplateId) {
     try {
         var config = this._getConfig();
 
@@ -766,16 +766,17 @@ addGoalToProblem: function(problemId, goalText, goalId, answerId) {
         var r = this._createRESTMessage('Add Goal to Problem', endpoint);
         r.setHttpMethod('POST');
 
-        // Build request payload
+        // Build request payload with CORRECT field names for CareIQ API
         var payload = {
-            problemId: problemId,
+            problem_id: problemId,  // Use snake_case like other APIs
             label: goalText,  // CareIQ API expects 'label' field for goal text
-            answerId: answerId
+            answer_id: answerId,  // Use snake_case like other APIs
+            guideline_template_id: guidelineTemplateId  // Use snake_case like other APIs
         };
 
         // If goalId is provided, it's linking an existing goal, otherwise creating new
         if (goalId && goalId !== null) {
-            payload.goalId = goalId;  // Link existing goal
+            payload.goal_id = goalId;  // Link existing goal (use snake_case)
         }
 
         r.setRequestBody(JSON.stringify(payload));
@@ -785,6 +786,26 @@ addGoalToProblem: function(problemId, goalText, goalId, answerId) {
         return response.getBody();
     } catch (e) {
         this._logError('AddGoalToProblem - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+deleteGoal: function(goalId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+        var r = this._createRESTMessage('Delete Goal', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteGoal');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteGoal - Error: ' + e);
         return '{"error": "' + e.message + '"}';
     }
 },

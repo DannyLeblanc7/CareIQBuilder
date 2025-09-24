@@ -984,6 +984,67 @@ Problem 1 [▼] [✗]
 - **Interventions**: Delete individual only
 - **Confirmation**: Required for cascade deletes
 
+## CRITICAL PATTERN: PGI Creation UI Refresh
+**PROBLEM**: After creating a new PGI item (Goal/Intervention), it doesn't appear in the UI even though backend creation succeeds.
+
+### Root Cause
+PGI hierarchical data is stored separately:
+- **Relationship data**: `state.answerRelationships[answerId]` (refreshed by `LOAD_ANSWER_RELATIONSHIPS`)
+- **Goal data**: `state.problemGoals[problemId]` (refreshed by `LOAD_PROBLEM_GOALS`)
+- **Intervention data**: `state.goalInterventions[goalId]` (refreshed by `LOAD_GOAL_INTERVENTIONS`)
+
+**Creating a goal refreshes relationships but NOT the specific problem's goals list.**
+
+### Correct Success Handler Pattern
+All PGI creation success handlers must refresh BOTH the modal relationships AND the expanded hierarchical data:
+
+```javascript
+'ADD_GOAL_SUCCESS': (coeffects) => {
+    const {action, updateState, state, dispatch} = coeffects;
+    const originalRequest = action.payload?.originalRequest || {};
+    const {answerId, goalText} = originalRequest;
+
+    // 1. Show success message
+    updateState({
+        systemMessages: [..., {type: 'success', message: `Goal "${goalText}" processed! Refreshing data...`}]
+    });
+
+    // 2. If we're in modal context, refresh the modal relationships
+    if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+        dispatch('LOAD_ANSWER_RELATIONSHIPS', {answerId: answerId});
+
+        // 3. CRITICAL: Also refresh hierarchical data for any expanded items
+        const expandedProblems = Object.keys(state.expandedProblems || {});
+        expandedProblems.forEach(problemId => {
+            if (state.expandedProblems[problemId] === true) {
+                dispatch('LOAD_PROBLEM_GOALS', {
+                    problemId: problemId,
+                    guidelineTemplateId: state.currentAssessmentId  // Required field!
+                });
+            }
+        });
+    }
+
+    // 4. Also refresh section questions to update badge counts
+    if (state.selectedSection) {
+        dispatch('FETCH_SECTION_QUESTIONS', {sectionId: state.selectedSection, sectionLabel: state.selectedSectionLabel});
+    }
+}
+```
+
+### Pattern for Each Level
+- **Goal Creation**: Refresh `LOAD_PROBLEM_GOALS` for expanded problems
+- **Intervention Creation**: Refresh `LOAD_GOAL_INTERVENTIONS` for expanded goals
+- **Always include required fields** (like `guidelineTemplateId`) in refresh calls
+- **Check expansion state** (`state.expandedProblems[problemId]`, `state.expandedGoals[goalId]`) to only refresh what's visible
+
+### Key Requirements
+1. **Two-level refresh**: Modal relationships + hierarchical data
+2. **Expansion state aware**: Only refresh expanded items
+3. **Required fields**: Include all required parameters in refresh calls
+4. **Success feedback**: Clear user messaging about refresh
+5. **Badge updates**: Update counts in main view
+
 # CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER copy backup files over current files.

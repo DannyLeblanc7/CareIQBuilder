@@ -5,7 +5,7 @@
 
         // Log raw request body for debugging
         if (isDebugEnabled) {
-            gs.info('=== CareIQ Add Goal API ===');
+            gs.info('=== CareIQ Delete Goal API ===');
             gs.info('Request method: ' + request.httpMethod);
             gs.info('Raw request.body: ' + JSON.stringify(request.body));
             gs.info('request.body type: ' + typeof request.body);
@@ -27,7 +27,7 @@
         }
 
         // Validate required fields
-        var requiredFields = ['problemId', 'goalText', 'answerId', 'guidelineTemplateId'];
+        var requiredFields = ['goalId'];
         var missingFields = [];
 
         for (var i = 0; i < requiredFields.length; i++) {
@@ -37,7 +37,7 @@
         }
 
         if (missingFields.length > 0) {
-            gs.error('CareIQ Add Goal: Missing required fields: ' + missingFields.join(', '));
+            gs.error('CareIQ Delete Goal: Missing required fields: ' + missingFields.join(', '));
             response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString('{"error": "Missing required fields: ' + missingFields.join(', ') + '"}');
@@ -46,11 +46,7 @@
 
         if (isDebugEnabled) {
             gs.info('=== CALLING SCRIPT INCLUDE ===');
-            gs.info('problemId: ' + requestData.problemId);
-            gs.info('goalText: ' + requestData.goalText);
             gs.info('goalId: ' + requestData.goalId);
-            gs.info('answerId: ' + requestData.answerId);
-            gs.info('guidelineTemplateId: ' + requestData.guidelineTemplateId);
             gs.info('================================');
         }
 
@@ -59,25 +55,19 @@
 
         if (isDebugEnabled) {
             gs.info('CareIQServices instance created successfully');
-            gs.info('About to call addGoalToProblem method');
+            gs.info('About to call deleteGoal method');
         }
 
         // Check if the method exists
-        if (typeof careiqServices.addGoalToProblem !== 'function') {
-            gs.error('CareIQ Add Goal: addGoalToProblem method not found in CareIQServices');
+        if (typeof careiqServices.deleteGoal !== 'function') {
+            gs.error('CareIQ Delete Goal: deleteGoal method not found in CareIQServices');
             response.setStatus(500);
             response.setHeader('Content-Type', 'application/json');
-            response.getStreamWriter().writeString('{"error": "addGoalToProblem method not found in CareIQServices"}');
+            response.getStreamWriter().writeString('{"error": "deleteGoal method not found in CareIQServices"}');
             return;
         }
 
-        var responseBody = careiqServices.addGoalToProblem(
-            requestData.problemId,
-            requestData.goalText,
-            requestData.goalId || null,  // Explicitly pass null for new goals
-            requestData.answerId,
-            requestData.guidelineTemplateId
-        );
+        var responseBody = careiqServices.deleteGoal(requestData.goalId);
 
         if (isDebugEnabled) {
             gs.info('CareIQServices response received: ' + responseBody);
@@ -89,7 +79,7 @@
         try {
             parsedResponse = JSON.parse(responseBody);
         } catch (parseError) {
-            gs.error('CareIQ Add Goal: Invalid JSON response from CareIQ Services');
+            gs.error('CareIQ Delete Goal: Invalid JSON response from CareIQ Services');
             response.setStatus(500);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services"}');
@@ -105,43 +95,31 @@
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         } else {
-            // Successful response - enhance with original request data
-            var enhancedResponse = {
-                ...parsedResponse,
-                // Include original request data for client use
-                originalRequest: {
-                    problemId: requestData.problemId,
-                    goalText: requestData.goalText,
-                    goalId: requestData.goalId,
-                    answerId: requestData.answerId
-                }
-            };
-
+            // Successful response (204 No Content expected for DELETE)
             if (isDebugEnabled) {
-                gs.info('=== ADD GOAL SUCCESS ===');
-                gs.info('Problem ID: ' + requestData.problemId);
-                gs.info('Goal Text: ' + requestData.goalText);
-                gs.info('Enhanced response: ' + JSON.stringify(enhancedResponse));
-                gs.info('========================');
+                gs.info('=== DELETE GOAL SUCCESS ===');
+                gs.info('Goal ID: ' + requestData.goalId);
+                gs.info('Response: ' + responseBody);
+                gs.info('==========================');
             }
 
-            response.setStatus(201);
+            response.setStatus(204); // No Content for successful DELETE
             response.setHeader('Content-Type', 'application/json');
-            response.getStreamWriter().writeString(JSON.stringify(enhancedResponse));
+            // No body for 204 No Content
         }
 
     } catch (e) {
         // Safe error handling for ServiceNow
-        var errorMsg = 'Unexpected server error occurred during goal addition';
+        var errorMsg = 'Unexpected server error occurred during goal deletion';
         try {
             if (e && typeof e.toString === 'function') {
                 errorMsg = e.toString();
             }
         } catch (innerE) {
-            errorMsg = 'Server error occurred during goal addition';
+            errorMsg = 'Server error occurred during goal deletion';
         }
 
-        gs.error('CareIQ Add Goal Script Error: ' + errorMsg);
+        gs.error('CareIQ Delete Goal Script Error: ' + errorMsg);
 
         response.setStatus(500);
         response.setHeader('Content-Type', 'application/json');

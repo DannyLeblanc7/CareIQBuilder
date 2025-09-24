@@ -4098,6 +4098,14 @@ const view = (state, {updateState, dispatch}) => {
 																								className="cancel-relationship-btn"
 																								style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
 																								title="Delete goal"
+																								on={{
+																									click: () => dispatch('DELETE_GOAL', {
+																										answerId: state.relationshipModalAnswerId,
+																										goalId: goal.id,
+																										goalName: goal.label || goal.name,
+																										problemId: problem.id
+																									})
+																								}}
 																							>
 																								✕
 																							</button>
@@ -4180,7 +4188,9 @@ const view = (state, {updateState, dispatch}) => {
 																									goalTypeaheadResults: {
 																										...state.goalTypeaheadResults,
 																										[problem.id]: []
-																									}
+																									},
+																									// Clear goal search context after delay
+																									currentGoalSearchContext: null
 																								});
 																							}, 150);
 																						},
@@ -4198,7 +4208,9 @@ const view = (state, {updateState, dispatch}) => {
 																									selectedGoalData: {
 																										...state.selectedGoalData,
 																										[problem.id]: null
-																									}
+																									},
+																									// Clear goal search context when user escapes
+																									currentGoalSearchContext: null
 																								});
 																							}
 																						}
@@ -4330,7 +4342,9 @@ const view = (state, {updateState, dispatch}) => {
 																						selectedGoalData: {
 																							...state.selectedGoalData,
 																							[problem.id]: null
-																						}
+																						},
+																						// Clear goal search context when cancelling
+																						currentGoalSearchContext: null
 																					});
 																				}}
 																			>
@@ -7147,6 +7161,17 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
+		'MAKE_DELETE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-goal', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_GOAL_SUCCESS',
+			errorActionType: 'DELETE_GOAL_ERROR',
+			metaParam: 'meta'
+		}),
+
 		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-goals', {
 			method: 'POST',
 			dataParam: 'requestBody',
@@ -8262,7 +8287,8 @@ createCustomElement('cadal-careiq-builder', {
 				problemId: problemId,
 				goalText: goalText,
 				goalId: selectedGoal ? selectedGoal.id : null, // null means create new
-				answerId: answerId
+				answerId: answerId,
+				guidelineTemplateId: state.currentAssessmentId  // Required by backend
 			});
 
 			dispatch('MAKE_ADD_GOAL_REQUEST', {
@@ -8273,32 +8299,54 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_GOAL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			const problemId = action.meta?.problemId;
 
 			console.log('=== ADD_GOAL_SUCCESS ===');
-			console.log('Problem ID:', problemId);
 			console.log('Response:', action.payload);
 
-			// Show success message
-			let successMessage = 'Goal saved successfully!';
-			if (action.payload && action.payload.detail) {
-				successMessage = action.payload.detail;
-			}
+			// Get original data from response payload
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId, goalText} = originalRequest;
 
+			console.log('Goal processing for answer:', answerId, 'goal:', goalText);
+
+			// Show success message (assume success since this handler was called)
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: successMessage,
+						message: `Goal "${goalText}" processed! Refreshing data...`,
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
 
-			// Reload goals for this problem to show the new goal
-			if (problemId) {
-				dispatch('LOAD_PROBLEM_GOALS', {problemId: problemId});
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+
+				// Also refresh goals for any expanded problems to show the new goal
+				const expandedProblems = Object.keys(state.expandedProblems || {});
+				expandedProblems.forEach(problemId => {
+					if (state.expandedProblems[problemId] === true) {
+						console.log('Refreshing goals for expanded problem:', problemId);
+						dispatch('LOAD_PROBLEM_GOALS', {
+							problemId: problemId,
+							guidelineTemplateId: state.currentAssessmentId
+						});
+					}
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
 			}
 		},
 
@@ -8314,6 +8362,127 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: `Failed to save goal: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_GOAL': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, goalId, goalName, problemId} = action.payload;
+
+			console.log('=== DELETE_GOAL ACTION TRIGGERED ===');
+			console.log('Deleting goal:', goalName, 'ID:', goalId, 'from problem:', problemId);
+
+			// AUTO-DELETE: Immediately call API
+			const requestBody = JSON.stringify({
+				goalId: goalId
+			});
+
+			console.log('=== DELETE GOAL REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_DELETE_GOAL_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					goalId: goalId,
+					goalName: goalName,
+					answerId: answerId,
+					problemId: problemId
+				}
+			});
+
+			// Show system message about deletion
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: `Deleting goal "${goalName}"...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_GOAL_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== DELETE_GOAL_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+
+			const meta = action.meta || {};
+			const {goalName, answerId, problemId} = meta;
+
+			// Handle 204 No Content response (null/empty payload is expected and indicates success)
+			if (action.payload === null || action.payload === undefined) {
+				console.log('API returned 204 No Content - this is expected for successful DELETE operations');
+			}
+
+			// Debug modal state
+			console.log('Modal state check:');
+			console.log('- answerId from meta:', answerId);
+			console.log('- state.relationshipModalOpen:', state.relationshipModalOpen);
+			console.log('- state.relationshipModalAnswerId:', state.relationshipModalAnswerId);
+			console.log('- Match check:', answerId === state.relationshipModalAnswerId);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Goal "${goalName || 'Unknown'}" deleted successfully! Refreshing data...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// EXACT SAME PATTERN AS ADD_GOAL_SUCCESS - Use current modal answer ID
+			if (state.relationshipModalOpen && state.relationshipModalAnswerId) {
+				console.log('Refreshing relationships for modal:', state.relationshipModalAnswerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: state.relationshipModalAnswerId
+				});
+
+				// Also refresh goals for any expanded problems to show the deletion
+				const expandedProblems = Object.keys(state.expandedProblems || {});
+				expandedProblems.forEach(problemId => {
+					if (state.expandedProblems[problemId] === true) {
+						console.log('Refreshing goals for expanded problem after deletion:', problemId);
+						dispatch('LOAD_PROBLEM_GOALS', {
+							problemId: problemId,
+							guidelineTemplateId: state.currentAssessmentId
+						});
+					}
+				});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'DELETE_GOAL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('DELETE_GOAL_ERROR:', action.payload);
+
+			const meta = action.meta || {};
+			const {goalName} = meta;
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to delete goal "${goalName}": ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -8385,9 +8554,9 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				updateState({
-					relationshipTypeaheadLoading: true,
-					// Clear goal search context
-					currentGoalSearchContext: null
+					relationshipTypeaheadLoading: true
+					// DON'T clear goal search context for non-goal searches
+					// Only clear goal context when goal searches are explicitly cancelled
 				});
 			}
 
@@ -8438,7 +8607,7 @@ createCustomElement('cadal-careiq-builder', {
 				const problemId = goalSearchContext.problemId;
 				console.log('Routing to goal typeahead for problem:', problemId);
 
-				// Update goal typeahead state for specific problem
+				// Update goal typeahead state for specific problem - DON'T clear context yet
 				updateState({
 					goalTypeaheadResults: {
 						...state.goalTypeaheadResults,
@@ -8447,9 +8616,8 @@ createCustomElement('cadal-careiq-builder', {
 					goalTypeaheadLoading: {
 						...state.goalTypeaheadLoading,
 						[problemId]: false
-					},
-					// Clear context after use
-					currentGoalSearchContext: null
+					}
+					// DON'T clear context - let it be cleared by blur/escape events
 				});
 			} else {
 				console.log('Routing to relationship typeahead');
