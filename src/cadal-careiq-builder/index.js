@@ -3957,100 +3957,148 @@ const view = (state, {updateState, dispatch}) => {
 													<div className="existing-relationships">
 														{relationships.problems.problems.map((problem, index) => [
 															<div key={`problem-${index}`} className="relationship-item">
-																{/* Show edit form if this problem is being edited */}
-																{state.editingProblemId === problem.id ? (
-																	<div className="edit-problem-form">
+																{/* Check if this problem is being edited */}
+																{state.editingProblemId === problem.id ? [
+																	// Problem editing UI (matches goal layout)
+																	<div key="edit-ui" style={{display: 'flex', flexDirection: 'column', flex: 1, gap: '8px'}}>
 																		{state.problemDetailsLoading === problem.id ? (
-																			<div className="loading-message">
+																			<div style={{padding: '12px', textAlign: 'center', color: '#6b7280'}}>
 																				Loading problem details...
 																			</div>
-																		) : (
-																			[
-																				<div className="edit-field">
-																					<label>Label:</label>
-																					<input
-																						type="text"
-																						value={state.editingProblemData?.label || ''}
-																						on={{
-																							input: (e) => updateState({
-																								editingProblemData: {
-																									...state.editingProblemData,
-																									label: e.target.value
-																								}
-																							})
-																						}}
-																					/>
-																				</div>,
-																				<div className="edit-field">
-																					<label>Alternative Wording:</label>
-																					<input
-																						type="text"
-																						value={state.editingProblemData?.alternative_wording || ''}
-																						on={{
-																							input: (e) => updateState({
-																								editingProblemData: {
-																									...state.editingProblemData,
-																									alternative_wording: e.target.value
-																								}
-																							})
-																						}}
-																					/>
-																				</div>,
-																				<div className="edit-field">
-																					<label>Tooltip:</label>
-																					<textarea
-																						value={state.editingProblemData?.tooltip || ''}
-																						rows="2"
-																						on={{
-																							input: (e) => updateState({
-																								editingProblemData: {
-																									...state.editingProblemData,
-																									tooltip: e.target.value
-																								}
-																							})
-																						}}
-																					/>
-																				</div>,
-																				<div className="edit-actions">
-																					<button
-																						className="confirm-relationship-btn"
-																						onclick={() => {
-																							dispatch('SAVE_PROBLEM_EDITS', {
-																								answerId: answerId,
-																								problemId: problem.id,
-																								editData: state.editingProblemData
-																							});
-																						}}
-																						title="Save Changes"
-																					>
-																						✓
-																					</button>
-																					<button
-																						className="cancel-relationship-btn"
-																						onclick={() => {
-																							updateState({
-																								editingProblemId: null,
-																								editingProblemData: null
-																							});
-																						}}
-																						title="Cancel"
-																					>
-																						✕
-																					</button>
-																				</div>
-																			]
-																		)}
+																		) : [
+																			<div key="label-field">
+																				<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																					Problem Text
+																				</label>
+																				<input
+																					type="text"
+																					value={state.editingProblemData?.label || ''}
+																					oninput={(e) => {
+																						updateState({
+																							editingProblemData: {
+																								...state.editingProblemData,
+																								label: e.target.value
+																							}
+																						});
+																					}}
+																					style={{
+																						width: '100%',
+																						padding: '8px',
+																						border: '1px solid #d1d5db',
+																						borderRadius: '4px',
+																						fontSize: '14px'
+																					}}
+																					placeholder="Enter problem text"
+																				/>
+																			</div>,
+																			<div key="alt-field">
+																				<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																					Alternative Wording
+																				</label>
+																				<input
+																					type="text"
+																					value={state.editingProblemData?.alternative_wording || ''}
+																					oninput={(e) => {
+																						updateState({
+																							editingProblemData: {
+																								...state.editingProblemData,
+																								alternative_wording: e.target.value
+																							}
+																						});
+																					}}
+																					style={{
+																						width: '100%',
+																						padding: '8px',
+																						border: '1px solid #d1d5db',
+																						borderRadius: '4px',
+																						fontSize: '14px'
+																					}}
+																					placeholder="Enter alternative wording"
+																				/>
+																			</div>,
+																			<div key="tooltip-field">
+																				<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																					Tooltip
+																				</label>
+																				<textarea
+																					value={state.editingProblemData?.tooltip || ''}
+																					oninput={(e) => {
+																						updateState({
+																							editingProblemData: {
+																								...state.editingProblemData,
+																								tooltip: e.target.value
+																							}
+																						});
+																					}}
+																					style={{
+																						width: '100%',
+																						padding: '8px',
+																						border: '1px solid #d1d5db',
+																						borderRadius: '4px',
+																						fontSize: '14px',
+																						minHeight: '60px',
+																						resize: 'vertical'
+																					}}
+																					placeholder="Enter tooltip text"
+																				/>
+																			</div>
+																		]}
+																	</div>,
+																	<div key="edit-buttons" style={{display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '12px'}}>
+																		<button
+																			className="confirm-relationship-btn"
+																			style={{
+																				fontSize: '14px',
+																				padding: '8px 12px',
+																				backgroundColor: '#10b981',
+																				color: 'white',
+																				border: 'none',
+																				borderRadius: '4px',
+																				cursor: 'pointer',
+																				fontWeight: '500'
+																			}}
+																			onclick={() => {
+																				dispatch('SAVE_PROBLEM_EDITS', {
+																					answerId: answerId,
+																					problemId: problem.id,
+																					editData: state.editingProblemData
+																				});
+																			}}
+																			title="Save problem changes"
+																		>
+																			✓
+																		</button>
+																		<button
+																			className="cancel-relationship-btn"
+																			style={{
+																				fontSize: '14px',
+																				padding: '8px 12px',
+																				backgroundColor: '#ef4444',
+																				color: 'white',
+																				border: 'none',
+																				borderRadius: '4px',
+																				cursor: 'pointer',
+																				fontWeight: '500'
+																			}}
+																			onclick={() => {
+																				updateState({
+																					editingProblemId: null,
+																					editingProblemData: null
+																				});
+																			}}
+																			title="Cancel"
+																		>
+																			✗
+																		</button>
 																	</div>
-																) : (
+																] : (
 																	// Normal display mode - ServiceNow doesn't support JSX fragments, use array
 																	[
 																		<span
 																			className="expansion-icon"
-																			on={{
-																				click: () => dispatch('TOGGLE_PROBLEM_EXPANSION', {
-																					problemId: problem.id
-																				})
-																			}}
+																			onclick={() => dispatch('TOGGLE_PROBLEM_EXPANSION', {
+																				problemId: problem.id
+																			})}
 																			title="Click to expand/collapse goals"
 																			style={{cursor: 'pointer', marginRight: '8px', fontSize: '12px'}}
 																		>
@@ -4058,18 +4106,16 @@ const view = (state, {updateState, dispatch}) => {
 																		</span>,
 																		<span
 																			className="relationship-label"
-																			on={{
-																				dblclick: () => {
-																					// Fetch full problem details before editing
-																					dispatch('FETCH_PROBLEM_DETAILS', {
-																						problemId: problem.id,
-																						fallbackData: {
-																							label: problem.label || problem.name,
-																							alternative_wording: problem.alternative_wording || '',
-																							tooltip: problem.tooltip || ''
-																						}
-																					});
-																				}
+																			ondblclick={() => {
+																				// Fetch full problem details before editing
+																				dispatch('FETCH_PROBLEM_DETAILS', {
+																					problemId: problem.id,
+																					fallbackData: {
+																						label: problem.label || problem.name,
+																						alternative_wording: problem.alternative_wording || '',
+																						tooltip: problem.tooltip || ''
+																					}
+																				});
 																			}}
 																			title="Double-click to edit"
 																			style={{cursor: 'pointer'}}
@@ -4078,13 +4124,11 @@ const view = (state, {updateState, dispatch}) => {
 																		</span>,
 																		<button
 																			className="cancel-relationship-btn"
-																			on={{
-																				click: () => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
-																					answerId: answerId,
-																					problemId: problem.id,
-																					problemName: problem.label || problem.name
-																				})
-																			}}
+																			onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
+																				answerId: answerId,
+																				problemId: problem.id,
+																				problemName: problem.label || problem.name
+																			})}
 																			title="Delete problem"
 																		>
 																			✕
@@ -4117,42 +4161,184 @@ const view = (state, {updateState, dispatch}) => {
 																		if (problemGoals && problemGoals.length > 0) {
 																			return (
 																				<div className="existing-goals" style={{marginBottom: '12px'}}>
-																					{problemGoals.map((goal, goalIndex) => (
-																						<div key={goalIndex} className="goal-item" style={{
-																							display: 'flex',
-																							alignItems: 'center',
-																							marginBottom: '8px',
-																							fontSize: '14px',
-																							padding: '8px 12px',
-																							backgroundColor: '#ffffff',
-																							border: '1px solid #e5e7eb',
-																							borderRadius: '6px',
-																							boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-																						}}>
-																							<span
-																								className="goal-label"
-																								style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
-																								title="Double-click to edit goal"
-																							>
-																								{goal.label || goal.name}
-																							</span>
-																							<button
-																								className="cancel-relationship-btn"
-																								style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
-																								title="Delete goal"
-																								on={{
-																									click: () => dispatch('DELETE_GOAL', {
-																										answerId: state.relationshipModalAnswerId,
-																										goalId: goal.id,
-																										goalName: goal.label || goal.name,
-																										problemId: problem.id
-																									})
-																								}}
-																							>
-																								✕
-																							</button>
-																						</div>
-																					))}
+																					{problemGoals.map((goal, goalIndex) => {
+																						// Check if this goal is being edited
+																						const isEditing = state.editingGoalId === goal.id;
+																						const isLoading = state.goalDetailsLoading === goal.id;
+
+																						return (
+																							<div key={goalIndex} className="goal-item" style={{
+																								display: 'flex',
+																								alignItems: 'center',
+																								marginBottom: '8px',
+																								fontSize: '14px',
+																								padding: '8px 12px',
+																								backgroundColor: '#ffffff',
+																								border: '1px solid #e5e7eb',
+																								borderRadius: '6px',
+																								boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+																							}}>
+																								{isEditing ? [
+																									// Goal editing UI
+																									<div key="edit-ui" style={{display: 'flex', flexDirection: 'column', flex: 1, gap: '8px'}}>
+																										<div>
+																											<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																												Goal Text
+																											</label>
+																											<input
+																												type="text"
+																												value={state.editingGoalData?.label || ''}
+																												oninput={(e) => {
+																													updateState({
+																														editingGoalData: {
+																															...state.editingGoalData,
+																															label: e.target.value
+																														}
+																													});
+																												}}
+																												style={{
+																													width: '100%',
+																													padding: '8px',
+																													border: '1px solid #d1d5db',
+																													borderRadius: '4px',
+																													fontSize: '14px'
+																												}}
+																												placeholder="Enter goal text"
+																											/>
+																										</div>
+																										<div>
+																											<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																												Alternative Wording
+																											</label>
+																											<input
+																												type="text"
+																												value={state.editingGoalData?.alternative_wording || ''}
+																												oninput={(e) => {
+																													updateState({
+																														editingGoalData: {
+																															...state.editingGoalData,
+																															alternative_wording: e.target.value
+																														}
+																													});
+																												}}
+																												style={{
+																													width: '100%',
+																													padding: '8px',
+																													border: '1px solid #d1d5db',
+																													borderRadius: '4px',
+																													fontSize: '14px'
+																												}}
+																												placeholder="Enter alternative wording"
+																											/>
+																										</div>
+																										<div>
+																											<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																												Tooltip
+																											</label>
+																											<textarea
+																												value={state.editingGoalData?.tooltip || ''}
+																												oninput={(e) => {
+																													updateState({
+																														editingGoalData: {
+																															...state.editingGoalData,
+																															tooltip: e.target.value
+																														}
+																													});
+																												}}
+																												style={{
+																													width: '100%',
+																													padding: '8px',
+																													border: '1px solid #d1d5db',
+																													borderRadius: '4px',
+																													fontSize: '14px',
+																													minHeight: '60px',
+																													resize: 'vertical'
+																												}}
+																												placeholder="Enter tooltip text"
+																											/>
+																										</div>
+																									</div>,
+																									<div key="edit-buttons" style={{display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '12px'}}>
+																										<button
+																											className="confirm-relationship-btn"
+																											style={{
+																												fontSize: '14px',
+																												padding: '8px 12px',
+																												backgroundColor: '#10b981',
+																												color: 'white',
+																												border: 'none',
+																												borderRadius: '4px',
+																												cursor: 'pointer',
+																												fontWeight: '500'
+																											}}
+																											onclick={() => {
+																												dispatch('SAVE_GOAL_EDITS', {
+																													goalId: goal.id,
+																													goalData: state.editingGoalData
+																												});
+																											}}
+																											title="Save goal changes"
+																										>
+																											✓
+																										</button>
+																										<button
+																											className="cancel-relationship-btn"
+																											style={{
+																												fontSize: '14px',
+																												padding: '8px 12px',
+																												backgroundColor: '#ef4444',
+																												color: 'white',
+																												border: 'none',
+																												borderRadius: '4px',
+																												cursor: 'pointer',
+																												fontWeight: '500'
+																											}}
+																											onclick={() => {
+																												updateState({
+																													editingGoalId: null,
+																													editingGoalData: null,
+																													editingGoalProblemId: null
+																												});
+																											}}
+																											title="Cancel"
+																										>
+																											✗
+																										</button>
+																									</div>
+																								] : [
+																									// Normal goal display
+																									<span
+																										key="goal-label"
+																										className="goal-label"
+																										style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
+																										title="Double-click to edit goal"
+																										ondblclick={() => {
+																											dispatch('GET_GOAL_DETAILS', {
+																												goalId: goal.id,
+																												problemId: problem.id
+																											});
+																										}}
+																									>
+																										{isLoading ? 'Loading...' : (goal.label || goal.name)}
+																									</span>,
+																									<button
+																										key="delete-btn"
+																										className="cancel-relationship-btn"
+																										style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																										title="Delete goal"
+																										onclick={() => dispatch('DELETE_GOAL', {
+																											answerId: state.relationshipModalAnswerId,
+																											goalId: goal.id,
+																											goalName: goal.label || goal.name,
+																											problemId: problem.id
+																										})}
+																									>
+																										✕
+																									</button>
+																								]}
+																							</div>
+																						);
+																					})}
 																				</div>
 																			);
 																		}
@@ -4975,7 +5161,14 @@ createCustomElement('cadal-careiq-builder', {
 
 		// Pre-save context for problems (prevents duplicates)
 		preSaveProblemContext: null,               // Context for pre-save exact match checks
-		pendingProblemSave: null                   // Pending problem save data during exact match check
+		pendingProblemSave: null,                  // Pending problem save data during exact match check
+
+		// Goal editing state
+		editingGoalId: null,                       // ID of goal currently being edited
+		editingGoalData: null,                     // Goal data being edited
+		goalDetailsLoading: null,                  // ID of goal whose details are being loaded
+		goalDetailsFallback: null,                 // Fallback goal data if API fails
+		editingGoalProblemId: null                 // Problem ID containing the goal being edited
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -7324,6 +7517,26 @@ createCustomElement('cadal-careiq-builder', {
 			},
 			successActionType: 'GET_PROBLEM_DETAILS_SUCCESS',
 			errorActionType: 'GET_PROBLEM_DETAILS_ERROR'
+		}),
+
+		'MAKE_GET_GOAL_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-details', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GET_GOAL_DETAILS_SUCCESS',
+			errorActionType: 'GET_GOAL_DETAILS_ERROR'
+		}),
+
+		'MAKE_UPDATE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-goal', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'UPDATE_GOAL_SUCCESS',
+			errorActionType: 'UPDATE_GOAL_ERROR'
 		}),
 
 		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-problem-relationship', {
@@ -10698,6 +10911,255 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipModalOpen ? [
 					...(state.modalSystemMessages || []),
 					creatingMessage
+				] : state.modalSystemMessages
+			});
+		},
+
+		'GET_GOAL_DETAILS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {goalId, problemId} = action.payload;
+
+			console.log('=== GET_GOAL_DETAILS ACTION TRIGGERED ===');
+			console.log('Fetching details for goal:', goalId);
+			console.log('Problem ID:', problemId);
+
+			// Show loading state for the specific goal and store problem ID
+			updateState({
+				editingGoalId: goalId,
+				editingGoalData: null, // Clear previous data while loading
+				goalDetailsLoading: goalId,
+				editingGoalProblemId: problemId // Store the problem ID for later use
+			});
+
+			// Store fallback data in case the API call fails
+			const fallbackData = {
+				label: `Goal ${goalId}`,
+				alternative_wording: '',
+				tooltip: ''
+			};
+
+			// Store fallback data in case the API call fails
+			updateState({
+				goalDetailsFallback: fallbackData
+			});
+
+			const requestBody = JSON.stringify({
+				goalId: goalId
+			});
+
+			dispatch('MAKE_GET_GOAL_DETAILS_REQUEST', {
+				requestBody: requestBody
+			});
+		},
+
+		'GET_GOAL_DETAILS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== GET_GOAL_DETAILS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Clear loading state
+			updateState({
+				goalDetailsLoading: null
+			});
+
+			// Check if we got valid goal data
+			if (action.payload && (action.payload.label || action.payload.name)) {
+				// Use the detailed data from the API
+				updateState({
+					editingGoalData: {
+						label: action.payload.label || action.payload.name || '',
+						alternative_wording: action.payload.alternative_wording || '',
+						tooltip: action.payload.tooltip || ''
+					}
+				});
+			} else {
+				// Fallback to cached data if API didn't return proper details
+				console.warn('API returned incomplete goal details, using fallback data');
+				updateState({
+					editingGoalData: state.goalDetailsFallback || {
+						label: '',
+						alternative_wording: '',
+						tooltip: ''
+					}
+				});
+			}
+
+			// Clear fallback data
+			updateState({
+				goalDetailsFallback: null
+			});
+		},
+
+		'GET_GOAL_DETAILS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('GET_GOAL_DETAILS_ERROR:', action.payload);
+
+			// Clear loading state and use fallback data
+			updateState({
+				goalDetailsLoading: null,
+				editingGoalData: state.goalDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: ''
+				},
+				goalDetailsFallback: null,
+				systemMessages: [...(state.systemMessages || []), {
+					type: 'warning',
+					message: 'Could not load full goal details. Using basic information for editing.',
+					timestamp: new Date().toISOString()
+				}],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'warning',
+						message: 'Could not load full goal details. Using basic information for editing.',
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+		},
+
+		'SAVE_GOAL_EDITS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {goalId, goalData} = action.payload;
+
+			console.log('=== SAVE_GOAL_EDITS ACTION TRIGGERED ===');
+			console.log('Saving edits for goal:', goalId);
+			console.log('Goal data:', goalData);
+
+			// Clear editing state and show system message
+			updateState({
+				editingGoalId: null,
+				editingGoalData: null,
+				editingGoalProblemId: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving goal changes to backend...',
+						timestamp: new Date().toISOString()
+					}
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving goal changes to backend...',
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+
+			// Prepare request body for goal update
+			const requestBody = JSON.stringify({
+				goalId: goalId,
+				label: goalData.label,
+				tooltip: goalData.tooltip || '',
+				alternative_wording: goalData.alternative_wording || '',
+				required: goalData.required || false,
+				custom_attributes: goalData.custom_attributes || {}
+			});
+
+			dispatch('MAKE_UPDATE_GOAL_REQUEST', {
+				requestBody: requestBody
+			});
+		},
+
+		'UPDATE_GOAL_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== UPDATE_GOAL_SUCCESS ===');
+			console.log('API Response:', action.payload);
+			console.log('Response type:', typeof action.payload);
+
+			// Handle 204 No Content response (null/empty payload is expected and indicates success)
+			if (action.payload === null || action.payload === undefined) {
+				console.log('API returned 204 No Content - this is expected for successful PATCH operations');
+
+				const successMessage = {
+					type: 'success',
+					message: 'Goal updated successfully! Refreshing data...',
+					timestamp: new Date().toISOString()
+				};
+
+				updateState({
+					systemMessages: [...(state.systemMessages || []), successMessage],
+					modalSystemMessages: state.relationshipModalOpen ? [
+						...(state.modalSystemMessages || []),
+						successMessage
+					] : state.modalSystemMessages
+				});
+
+				// Refresh just the goals for this specific problem
+				if (state.editingGoalProblemId && state.currentAssessmentId) {
+					console.log('Refreshing goals for problem:', state.editingGoalProblemId);
+					dispatch('LOAD_PROBLEM_GOALS', {
+						problemId: state.editingGoalProblemId,
+						guidelineTemplateId: state.currentAssessmentId
+					});
+				}
+				return;
+			}
+
+			// Check if the response contains an error
+			if (action.payload?.error) {
+				console.error('API returned error in success response:', action.payload.error);
+				const errorMessage = {
+					type: 'error',
+					message: `Failed to save goal edits: ${action.payload.error}`,
+					timestamp: new Date().toISOString()
+				};
+
+				updateState({
+					systemMessages: [...(state.systemMessages || []), errorMessage],
+					modalSystemMessages: state.relationshipModalOpen ? [
+						...(state.modalSystemMessages || []),
+						errorMessage
+					] : state.modalSystemMessages
+				});
+				return;
+			}
+
+			const successMessage = {
+				type: 'success',
+				message: 'Goal updated successfully! Refreshing data...',
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
+			});
+
+			// Refresh the modal answer relationships to show updated data
+			if (state.relationshipModalAnswerId) {
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: state.relationshipModalAnswerId
+				});
+			}
+		},
+
+		'UPDATE_GOAL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('UPDATE_GOAL_ERROR:', action.payload);
+
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to update goal: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
 				] : state.modalSystemMessages
 			});
 		},

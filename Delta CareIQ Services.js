@@ -814,3 +814,55 @@ deleteGoal: function(goalId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+getGoalDetails: function(goalId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+        var r = this._createRESTMessage('Get Goal Details', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetGoalDetails');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetGoalDetails - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+updateGoal: function(goalId, label, tooltip, alternativeWording, required, customAttributes) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+        var r = this._createRESTMessage('Update Goal', endpoint);
+        r.setHttpMethod('PATCH');
+
+        // Build request payload to match CareIQ API expectations
+        var payload = {
+            label: label,
+            tooltip: tooltip || '',
+            alternative_wording: alternativeWording || '',
+            required: required || false,
+            custom_attributes: customAttributes || {}
+        };
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'UpdateGoal');
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateGoal - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
