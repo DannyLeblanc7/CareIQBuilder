@@ -815,6 +815,27 @@ deleteGoal: function(goalId) {
     }
 },
 
+deleteIntervention: function(goalId, interventionId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the delete intervention endpoint: /builder/goal/{goalId}/intervention/{interventionId}
+        var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId) + '/intervention/' + encodeURIComponent(interventionId));
+        var r = this._createRESTMessage('Delete Intervention', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteIntervention');
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteIntervention - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
 getGoalDetails: function(goalId) {
     try {
         var config = this._getConfig();
@@ -863,6 +884,77 @@ updateGoal: function(goalId, label, tooltip, alternativeWording, required, custo
         return response.getBody();
     } catch (e) {
         this._logError('UpdateGoal - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+// BUILDER - INTERVENTION OPERATIONS
+
+getGoalInterventions: function(guidelineTemplateId, goalId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the goal interventions endpoint: /builder/guideline-template/{gtId}/goal/{goalId}/interventions
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/goal/' + encodeURIComponent(goalId) + '/interventions');
+        var r = this._createRESTMessage('Get Goal Interventions', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetGoalInterventions');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetGoalInterventions - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+addInterventionToGoal: function(goalId, interventionText, category, guidelineTemplateId, tooltip, alternativeWording, interventionId, libraryId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the intervention creation endpoint: /builder/intervention
+        var endpoint = this._buildEndpoint('/builder/intervention');
+        var r = this._createRESTMessage('Add Intervention', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request payload to match CareIQ API expectations
+        var payload = {
+            guideline_template_id: guidelineTemplateId,
+            label: interventionText,
+            tooltip: tooltip || '',
+            alternative_wording: alternativeWording || '',
+            custom_attributes: {},
+            available: false,
+            required: false,
+            sort_order: 0,
+            category: category,
+            goal_id: goalId
+        };
+
+        // Add intervention_id if linking to existing intervention (vs creating new)
+        if (interventionId) {
+            payload.intervention_id = interventionId;
+        }
+
+        // Add library_id if linking to library intervention
+        if (libraryId) {
+            payload.library_id = libraryId;
+        }
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'AddIntervention');
+        return response.getBody();
+    } catch (e) {
+        this._logError('AddIntervention - Error: ' + e);
         return '{"error": "' + e.message + '"}';
     }
 },

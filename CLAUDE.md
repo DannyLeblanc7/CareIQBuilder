@@ -1096,6 +1096,49 @@ if (problemId && state.currentAssessmentId) {
 
 **This pattern bypasses ServiceNow HTTP effect meta parameter issues and provides reliable refresh behavior.**
 
+## CRITICAL PATTERN: Intervention Auto-Refresh (WORKING SOLUTION ✅)
+**PROBLEM**: After adding interventions, they don't appear in the UI even though backend creation succeeds and auto-refresh is called.
+**ROOT CAUSE**: HTTP effect meta parameters don't work reliably in ServiceNow UI Framework - goalId comes through as `undefined`.
+
+### Working Solution Pattern (State-Based Refresh):
+1. **Store Context Before API Call**: In intervention save action, store the goalId in state before making HTTP call
+2. **Success Handler Uses Stored State**: Success handler uses stored state rather than meta parameters
+3. **Targeted Refresh**: Call `LOAD_GOAL_INTERVENTIONS` with stored goalId
+4. **Clear After Use**: Clean up stored ID after successful refresh
+
+### Implementation Example (Interventions):
+```javascript
+// 1. SAVE_INTERVENTION_TO_GOAL - Store goalId before API call
+updateState({
+    lastAddedInterventionGoalId: goalId  // Store for success handler
+});
+dispatch('MAKE_ADD_INTERVENTION_REQUEST', {requestBody, meta: {...}});
+
+// 2. ADD_INTERVENTION_SUCCESS - Use stored ID to refresh
+const goalId = state.lastAddedInterventionGoalId;
+if (goalId && state.currentAssessmentId) {
+    updateState({ lastAddedInterventionGoalId: null }); // Clear after use
+    dispatch('LOAD_GOAL_INTERVENTIONS', {
+        goalId: goalId,
+        guidelineTemplateId: state.currentAssessmentId
+    });
+}
+```
+
+### Key Requirements:
+- **State field**: Add `lastAddedInterventionGoalId` to track context
+- **Store before HTTP call**: Save goalId before dispatching API request
+- **Use in success**: Success handler uses stored state, not meta parameters
+- **Clear after use**: Clean up stored ID after successful refresh
+- **Targeted API**: Call specific refresh API, not full modal refresh
+
+### Results:
+- ✅ **Interventions appear immediately** after creation without manual refresh button
+- ✅ **Bypasses meta parameter issues** in ServiceNow UI Framework
+- ✅ **Reliable refresh behavior** every time
+
+**This pattern should be applied to all PGI creation operations that need auto-refresh.**
+
 # CRITICAL FILE RECOVERY RULES - NEVER BREAK THESE
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER copy backup files over current files.

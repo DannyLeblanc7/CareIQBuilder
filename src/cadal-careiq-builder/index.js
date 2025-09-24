@@ -4166,8 +4166,9 @@ const view = (state, {updateState, dispatch}) => {
 																						const isEditing = state.editingGoalId === goal.id;
 																						const isLoading = state.goalDetailsLoading === goal.id;
 
-																						return (
-																							<div key={goalIndex} className="goal-item" style={{
+																						return [
+																							// Goal Item
+																							<div key={`goal-${goalIndex}`} className="goal-item" style={{
 																								display: 'flex',
 																								alignItems: 'center',
 																								marginBottom: '8px',
@@ -4306,7 +4307,18 @@ const view = (state, {updateState, dispatch}) => {
 																										</button>
 																									</div>
 																								] : [
-																									// Normal goal display
+																									// Normal goal display with expansion icon
+																									<span
+																										key="expansion-icon"
+																										className="expansion-icon"
+																										onclick={() => dispatch('TOGGLE_GOAL_EXPANSION', {
+																											goalId: goal.id
+																										})}
+																										title="Click to expand/collapse interventions"
+																										style={{cursor: 'pointer', marginRight: '8px', fontSize: '12px'}}
+																									>
+																										{state.expandedGoals[goal.id] ? '▼' : '▶'}
+																									</span>,
 																									<span
 																										key="goal-label"
 																										className="goal-label"
@@ -4336,9 +4348,361 @@ const view = (state, {updateState, dispatch}) => {
 																										✕
 																									</button>
 																								]}
-																							</div>
-																						);
-																					})}
+																							</div>,
+
+																							// Interventions Display - Show when goal is expanded (similar to goals under problems)
+																							state.expandedGoals[goal.id] && (
+																								<div key={`interventions-${goalIndex}`} className="interventions-container" style={{marginLeft: '24px', marginTop: '12px', marginBottom: '16px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px', backgroundColor: '#fafbfc', borderRadius: '6px', padding: '12px'}}>
+																									{/* Interventions Header */}
+																									<div style={{marginBottom: '12px', fontSize: '14px', color: '#374151', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px'}}>
+																										Interventions
+																										<button
+																											style={{
+																												background: '#3b82f6',
+																												color: 'white',
+																												border: 'none',
+																												borderRadius: '4px',
+																												padding: '4px 8px',
+																												fontSize: '12px',
+																												cursor: 'pointer',
+																												fontWeight: '500'
+																											}}
+																											title="Refresh interventions"
+																											onclick={() => {
+																												dispatch('LOAD_GOAL_INTERVENTIONS', {
+																													goalId: goal.id,
+																													guidelineTemplateId: state.currentAssessmentId
+																												});
+																											}}
+																										>
+																											🔄 Refresh
+																										</button>
+																									</div>
+
+																									{/* Existing Interventions */}
+																									{(() => {
+																										// Check loading state first
+																										if (state.interventionsLoading[goal.id]) {
+																											return (
+																												<div style={{fontSize: '14px', color: '#6b7280', fontStyle: 'italic', marginBottom: '12px', padding: '8px', backgroundColor: '#f3f4f6', borderRadius: '4px'}}>
+																													Loading interventions...
+																												</div>
+																											);
+																										}
+
+																										// Check if we have loaded interventions data for this goal
+																										const goalInterventions = state.goalInterventions[goal.id];
+																										if (goalInterventions && goalInterventions.length > 0) {
+																											return (
+																												<div className="existing-interventions" style={{marginBottom: '12px'}}>
+																													{goalInterventions.map((intervention, interventionIndex) => (
+																														<div key={interventionIndex} className="intervention-item" style={{
+																															display: 'flex',
+																															alignItems: 'center',
+																															marginBottom: '8px',
+																															fontSize: '14px',
+																															padding: '8px 12px',
+																															backgroundColor: '#ffffff',
+																															border: '1px solid #e5e7eb',
+																															borderRadius: '6px',
+																															boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+																														}}>
+																															<span
+																																className="intervention-label"
+																																style={{flex: 1, color: '#374151', fontWeight: '500'}}
+																															>
+																																{intervention.label}
+																															</span>
+																															<span
+																																className="intervention-category"
+																																style={{
+																																	marginLeft: '8px',
+																																	fontSize: '12px',
+																																	padding: '2px 6px',
+																																	backgroundColor: '#e0f2fe',
+																																	color: '#0369a1',
+																																	borderRadius: '4px',
+																																	fontWeight: '500'
+																																}}
+																															>
+																																{intervention.category}
+																															</span>
+																															<button
+																																className="delete-intervention-btn"
+																																style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																																title="Delete intervention"
+																																onclick={() => dispatch('DELETE_INTERVENTION', {
+																																	answerId: state.relationshipModalAnswerId,
+																																	interventionId: intervention.id,
+																																	interventionName: intervention.label,
+																																	goalId: goal.id
+																																})}
+																															>
+																																✕
+																															</button>
+																														</div>
+																													))}
+																												</div>
+																											);
+																										}
+
+																										// Show no interventions message only if we've tried to load (not loading and no data)
+																										if (goalInterventions !== undefined && goalInterventions.length === 0) {
+																											return (
+																												<div style={{fontSize: '14px', color: '#9ca3af', fontStyle: 'italic', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '4px', textAlign: 'center'}}>
+																													No interventions linked to this goal yet.
+																												</div>
+																											);
+																										}
+
+																										// Default: haven't loaded yet, show placeholder
+																										return (
+																											<div style={{fontSize: '14px', color: '#9ca3af', fontStyle: 'italic', marginBottom: '12px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '4px', textAlign: 'center'}}>
+																												Click to load interventions...
+																											</div>
+																										);
+																									})()}
+
+																									{/* Add New Intervention */}
+																									<div className="add-intervention" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px'}}>
+																										<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
+																											Add New Intervention
+																										</div>
+																										<div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+																											<div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+																												<div style={{flex: 1, position: 'relative'}}>
+																													<input
+																														type="text"
+																														placeholder="Search for interventions or type to create new..."
+																														value={state.interventionTypeaheadText[goal.id] || ''}
+																														style={{
+																															width: '100%',
+																															fontSize: '14px',
+																															padding: '10px 12px',
+																															border: '1px solid #d1d5db',
+																															borderRadius: '6px',
+																															backgroundColor: '#ffffff',
+																															outline: 'none',
+																															transition: 'border-color 0.2s'
+																														}}
+																														on={{
+																															input: (e) => {
+																																const value = e.target.value;
+																																updateState({
+																																	interventionTypeaheadText: {
+																																		...state.interventionTypeaheadText,
+																																		[goal.id]: value
+																																	}
+																																});
+
+																																// Trigger search if 3+ characters
+																																if (value.length >= 3) {
+																																	dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+																																		searchText: value,
+																																		type: 'intervention',
+																																		goalId: goal.id  // Pass goalId for context
+																																	});
+																																} else {
+																																	updateState({
+																																		interventionTypeaheadResults: {
+																																			...state.interventionTypeaheadResults,
+																																			[goal.id]: []
+																																		}
+																																	});
+																																}
+																															},
+																															blur: (e) => {
+																																// Hide results after delay to allow item selection
+																																setTimeout(() => {
+																																	updateState({
+																																		interventionTypeaheadResults: {
+																																			...state.interventionTypeaheadResults,
+																																			[goal.id]: []
+																																		},
+																																		// Clear intervention search context after delay
+																																		currentInterventionSearchContext: null
+																																	});
+																																}, 150);
+																															},
+																															keydown: (e) => {
+																																if (e.key === 'Escape') {
+																																	updateState({
+																																		interventionTypeaheadText: {
+																																			...state.interventionTypeaheadText,
+																																			[goal.id]: ''
+																																		},
+																																		interventionTypeaheadResults: {
+																																			...state.interventionTypeaheadResults,
+																																			[goal.id]: []
+																																		},
+																																		selectedInterventionData: {
+																																			...state.selectedInterventionData,
+																																			[goal.id]: null
+																																		},
+																																		currentInterventionSearchContext: null
+																																	});
+																																}
+																															}
+																														}}
+																													/>
+
+																													{/* Typeahead Results Dropdown */}
+																													{state.interventionTypeaheadResults && state.interventionTypeaheadResults[goal.id] && state.interventionTypeaheadResults[goal.id].length > 0 && (
+																														<div style={{
+																															position: 'absolute',
+																															top: '100%',
+																															left: 0,
+																															right: 0,
+																															backgroundColor: 'white',
+																															border: '1px solid #d1d5db',
+																															borderRadius: '6px',
+																															boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+																															maxHeight: '200px',
+																															overflowY: 'auto',
+																															zIndex: 1000
+																														}}>
+																															{state.interventionTypeaheadResults[goal.id].map((intervention, interventionIdx) => (
+																																<div
+																																	key={interventionIdx}
+																																	style={{
+																																		padding: '8px 12px',
+																																		cursor: 'pointer',
+																																		fontSize: '14px',
+																																		borderBottom: interventionIdx < state.interventionTypeaheadResults[goal.id].length - 1 ? '1px solid #e5e7eb' : 'none'
+																																	}}
+																																	on={{
+																																		click: () => {
+																																			updateState({
+																																				interventionTypeaheadText: {
+																																					...state.interventionTypeaheadText,
+																																					[goal.id]: intervention.label || intervention.name
+																																				},
+																																				interventionTypeaheadResults: {
+																																					...state.interventionTypeaheadResults,
+																																					[goal.id]: []
+																																				},
+																																				selectedInterventionData: {
+																																					...state.selectedInterventionData,
+																																					[goal.id]: intervention
+																																				}
+																																			});
+																																		}
+																																	}}
+																																>
+																																	<div style={{fontWeight: '500'}}>{intervention.label || intervention.name}</div>
+																																	{intervention.category && (
+																																		<div style={{fontSize: '12px', color: '#6b7280', marginTop: '2px'}}>
+																																			Category: {intervention.category}
+																																		</div>
+																																	)}
+																																</div>
+																															))}
+																														</div>
+																													)}
+																												</div>
+																												<select
+																													style={{
+																														fontSize: '14px',
+																														padding: '10px 12px',
+																														border: '1px solid #d1d5db',
+																														borderRadius: '6px',
+																														backgroundColor: '#ffffff'
+																													}}
+																													onchange={(e) => {
+																														updateState({
+																															interventionCategorySelection: {
+																																...state.interventionCategorySelection,
+																																[goal.id]: e.target.value
+																															}
+																														});
+																													}}
+																												>
+																													<option value="assist" selected={!state.interventionCategorySelection || !state.interventionCategorySelection[goal.id] || state.interventionCategorySelection[goal.id] === 'assist'}>Assist</option>
+																													<option value="send" selected={state.interventionCategorySelection && state.interventionCategorySelection[goal.id] === 'send'}>Send</option>
+																													<option value="educate" selected={state.interventionCategorySelection && state.interventionCategorySelection[goal.id] === 'educate'}>Educate</option>
+																													<option value="coordinate" selected={state.interventionCategorySelection && state.interventionCategorySelection[goal.id] === 'coordinate'}>Coordinate</option>
+																													<option value="reconcile" selected={state.interventionCategorySelection && state.interventionCategorySelection[goal.id] === 'reconcile'}>Reconcile</option>
+																												</select>
+																												<button
+																													className="create-relationship-btn"
+																													style={{
+																														fontSize: '14px',
+																														padding: '10px 16px',
+																														backgroundColor: '#10b981',
+																														color: 'white',
+																														border: 'none',
+																														borderRadius: '6px',
+																														cursor: 'pointer',
+																														fontWeight: '500'
+																													}}
+																													title="Save intervention"
+																													onclick={(e) => {
+																														e.stopPropagation();
+																														const interventionText = state.interventionTypeaheadText[goal.id];
+																														const selectedIntervention = state.selectedInterventionData[goal.id];
+																														const selectedCategory = state.interventionCategorySelection && state.interventionCategorySelection[goal.id] ? state.interventionCategorySelection[goal.id] : 'assist';
+
+																														if (!interventionText || interventionText.trim().length === 0) {
+																															return; // Don't save empty interventions
+																														}
+
+																														dispatch('SAVE_INTERVENTION_TO_GOAL', {
+																															goalId: goal.id,
+																															interventionText: interventionText.trim(),
+																															category: selectedCategory,
+																															selectedIntervention: selectedIntervention, // null if new intervention, object if existing
+																															answerId: state.relationshipModalAnswerId
+																														});
+																													}}
+																												>
+																													✓
+																												</button>
+																												<button
+																													className="cancel-relationship-btn"
+																													style={{
+																														fontSize: '14px',
+																														padding: '10px 16px',
+																														backgroundColor: '#ef4444',
+																														color: 'white',
+																														border: 'none',
+																														borderRadius: '6px',
+																														cursor: 'pointer',
+																														fontWeight: '500'
+																													}}
+																													title="Cancel"
+																													onclick={(e) => {
+																														e.stopPropagation();
+																														// Clear intervention input and selection
+																														updateState({
+																															interventionTypeaheadText: {
+																																...state.interventionTypeaheadText,
+																																[goal.id]: ''
+																															},
+																															interventionTypeaheadResults: {
+																																...state.interventionTypeaheadResults,
+																																[goal.id]: []
+																															},
+																															selectedInterventionData: {
+																																...state.selectedInterventionData,
+																																[goal.id]: null
+																															},
+																															interventionCategorySelection: {
+																																...state.interventionCategorySelection,
+																																[goal.id]: 'assist' // Reset to default
+																															},
+																															currentInterventionSearchContext: null
+																														});
+																													}}
+																												>
+																													✕
+																												</button>
+																											</div>
+																										</div>
+																									</div>
+																								</div>
+																							)
+																						];
+																					}).flat()}
 																				</div>
 																			);
 																		}
@@ -5169,7 +5533,16 @@ createCustomElement('cadal-careiq-builder', {
 		goalDetailsLoading: null,                  // ID of goal whose details are being loaded
 		goalDetailsFallback: null,                 // Fallback goal data if API fails
 		editingGoalProblemId: null,                // Problem ID containing the goal being edited
-		lastEditedGoalProblemId: null             // Problem ID for the last edited goal (for success handler)
+		lastEditedGoalProblemId: null,             // Problem ID for the last edited goal (for success handler)
+
+		// Intervention editing state (same pattern as goals)
+		editingInterventionId: null,               // ID of intervention currently being edited
+		editingInterventionData: null,             // Intervention data being edited
+		interventionDetailsLoading: null,          // ID of intervention whose details are being loaded
+		interventionDetailsFallback: null,         // Fallback intervention data if API fails
+		editingInterventionGoalId: null,           // Goal ID containing the intervention being edited
+		lastEditedInterventionGoalId: null,        // Goal ID for the last edited intervention (for success handler)
+		currentInterventionsLoadingGoalId: null   // Track which goal is currently loading interventions
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -5203,7 +5576,7 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState} = coeffects;
 			// Increase threshold to catch dev tools scenarios (1342px in your case)
 			const isMobile = window.innerWidth <= 1400;
-			console.log('Mobile view check - window.innerWidth:', window.innerWidth, 'isMobile:', isMobile);
+			//console.log('Mobile view check - window.innerWidth:', window.innerWidth, 'isMobile:', isMobile);
 			updateState({
 				isMobileView: isMobile
 			});
@@ -7563,6 +7936,17 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
+		'MAKE_DELETE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-intervention', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_INTERVENTION_SUCCESS',
+			errorActionType: 'DELETE_INTERVENTION_ERROR',
+			metaParam: 'meta'
+		}),
+
 		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-goals', {
 			method: 'POST',
 			dataParam: 'requestBody',
@@ -7582,6 +7966,29 @@ createCustomElement('cadal-careiq-builder', {
 			},
 			successActionType: 'ADD_GOAL_SUCCESS',
 			errorActionType: 'ADD_GOAL_ERROR',
+			metaParam: 'meta'
+		}),
+
+		// Intervention API endpoints (following goals pattern)
+		'MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-interventions', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'LOAD_GOAL_INTERVENTIONS_SUCCESS',
+			errorActionType: 'LOAD_GOAL_INTERVENTIONS_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_INTERVENTION_SUCCESS',
+			errorActionType: 'ADD_INTERVENTION_ERROR',
 			metaParam: 'meta'
 		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
@@ -8869,6 +9276,185 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'SAVE_INTERVENTION_TO_GOAL': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {goalId, interventionText, category, selectedIntervention, answerId} = action.payload;
+
+			console.log('=== SAVE_INTERVENTION_TO_GOAL ===');
+			console.log('Goal ID:', goalId);
+			console.log('Intervention text:', interventionText);
+			console.log('Category:', category);
+			console.log('Selected intervention:', selectedIntervention);
+			console.log('Answer ID:', answerId);
+
+			// Show saving message
+			const savingMessage = {
+				type: 'info',
+				message: selectedIntervention ? `Linking existing intervention "${interventionText}" to goal...` : `Creating new intervention "${interventionText}"...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					savingMessage
+				],
+				// Also add to modal messages if modal is open
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
+			});
+
+			// Clear input immediately for better UX
+			updateState({
+				interventionTypeaheadText: {
+					...state.interventionTypeaheadText,
+					[goalId]: ''
+				},
+				interventionTypeaheadResults: {
+					...state.interventionTypeaheadResults,
+					[goalId]: []
+				},
+				selectedInterventionData: {
+					...state.selectedInterventionData,
+					[goalId]: null
+				},
+				interventionCategorySelection: {
+					...state.interventionCategorySelection,
+					[goalId]: 'assist' // Reset to default
+				}
+			});
+
+			// CRITICAL: Store goalId in state for success handler refresh (meta params don't work reliably)
+			updateState({
+				lastAddedInterventionGoalId: goalId
+			});
+
+			// Prepare request body for intervention creation/linking
+			const requestBody = JSON.stringify({
+				goalId: goalId,
+				interventionText: interventionText,
+				category: category,
+				interventionId: selectedIntervention ? selectedIntervention.id : null, // null means create new
+				guidelineTemplateId: state.currentAssessmentId,  // Required by backend
+				tooltip: selectedIntervention ? selectedIntervention.tooltip : '',
+				alternativeWording: selectedIntervention ? selectedIntervention.alternative_wording : '',
+				libraryId: selectedIntervention ? selectedIntervention.master_id : null  // Library reference for existing interventions
+			});
+
+			dispatch('MAKE_ADD_INTERVENTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					goalId: goalId,
+					interventionText: interventionText,
+					category: category,
+					answerId: answerId
+				}
+			});
+		},
+
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'ADD_INTERVENTION_SUCCESS',
+			errorActionType: 'ADD_INTERVENTION_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_INTERVENTION_SUCCESS ===');
+			console.log('Response:', action.payload);
+
+			// Get original data from meta
+			const meta = action.meta || {};
+			const {answerId, interventionText, goalId} = meta;
+
+			console.log('Intervention processing for answer:', answerId, 'intervention:', interventionText, 'goalId:', goalId);
+			console.log('Meta information:', meta);
+
+			// Show success or backend message
+			let systemMessage = `Intervention "${interventionText}" processed! Refreshing data...`;
+			let messageType = 'success';
+
+			// Surface any backend detail messages to user (like duplicate warnings)
+			if (action.payload && action.payload.detail) {
+				systemMessage = action.payload.detail;
+				// Classify message type based on content
+				if (systemMessage.toLowerCase().includes('duplicate') ||
+					systemMessage.toLowerCase().includes('already')) {
+					messageType = 'warning'; // Informational, not error
+				}
+			}
+
+			const newMessage = {
+				type: messageType,
+				message: systemMessage,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					newMessage
+				],
+				// Also add to modal messages if modal is open
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					newMessage
+				] : state.modalSystemMessages
+			});
+
+			// If we're in a modal context, refresh the relationships for immediate feedback
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				console.log('Refreshing relationships for modal:', answerId);
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
+					answerId: answerId
+				});
+
+				// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
+				// This follows the same pattern as goal editing success
+				if (goalId && state.currentAssessmentId) {
+					console.log('Refreshing interventions for specific goal:', goalId);
+					dispatch('LOAD_GOAL_INTERVENTIONS', {
+						goalId: goalId,
+						guidelineTemplateId: state.currentAssessmentId
+					});
+				}
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'ADD_INTERVENTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('=== ADD_INTERVENTION_ERROR ===');
+			console.error('Error:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to save intervention: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
 		'DELETE_GOAL': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, goalId, goalName, problemId} = action.payload;
@@ -8990,6 +9576,143 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
+		'DELETE_INTERVENTION': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, interventionId, interventionName, goalId} = action.payload;
+
+			console.log('=== DELETE_INTERVENTION ACTION TRIGGERED ===');
+			console.log('Deleting intervention:', interventionName, 'ID:', interventionId, 'from goal:', goalId);
+
+			// Store goalId for success handler refresh (using working state-based pattern)
+			updateState({
+				lastDeletedInterventionGoalId: goalId
+			});
+
+			// AUTO-DELETE: Immediately call API
+			const requestBody = JSON.stringify({
+				interventionId: interventionId,
+				goalId: goalId
+			});
+
+			console.log('=== DELETE INTERVENTION REQUEST BODY DEBUG ===');
+			console.log('Raw request body string:', requestBody);
+			console.log('Parsed request body:', JSON.parse(requestBody));
+
+			dispatch('MAKE_DELETE_INTERVENTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					interventionId: interventionId,
+					interventionName: interventionName,
+					answerId: answerId,
+					goalId: goalId
+				}
+			});
+
+			// Show deleting message (both windows)
+			const deletingMessage = {
+				type: 'info',
+				message: `Deleting intervention "${interventionName}"...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					deletingMessage
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					deletingMessage
+				] : state.modalSystemMessages
+			});
+		},
+
+		'DELETE_INTERVENTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== DELETE_INTERVENTION_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			const meta = action.meta || {};
+			const {interventionName, answerId} = meta;
+
+			// Show success message (both windows)
+			const successMessage = {
+				type: 'success',
+				message: `Intervention "${interventionName}" deleted successfully! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					successMessage
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
+			});
+
+			// CRITICAL: Refresh intervention data using stored goalId (same pattern as add)
+			const goalId = state.lastDeletedInterventionGoalId;
+			console.log('DELETE_INTERVENTION_SUCCESS - Goal ID from stored state:', goalId);
+			console.log('DELETE_INTERVENTION_SUCCESS - Assessment ID:', state.currentAssessmentId);
+			if (goalId && state.currentAssessmentId) {
+				console.log('Auto-refreshing interventions for goal after delete:', goalId);
+				// Clear the stored ID after use
+				updateState({
+					lastDeletedInterventionGoalId: null
+				});
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			} else {
+				console.log('PROBLEM: Cannot auto-refresh after delete - missing stored goalId or assessmentId');
+			}
+
+			// If modal is open, refresh the relationship data
+			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+				dispatch('LOAD_ANSWER_RELATIONSHIPS', {answerId: answerId});
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'DELETE_INTERVENTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('DELETE_INTERVENTION_ERROR:', action.payload);
+
+			const meta = action.meta || {};
+			const {interventionName} = meta;
+
+			// Show error message (both windows)
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to delete intervention "${interventionName}": ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					errorMessage
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
+			});
+		},
+
 		'LOAD_PROBLEM_GOALS_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
@@ -9017,12 +9740,13 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			const {searchText, type, problemId, isPreSaveCheck} = action.payload;
+			const {searchText, type, problemId, goalId, isPreSaveCheck} = action.payload;
 
 			console.log('=== GENERIC_TYPEAHEAD_SEARCH ===');
 			console.log('Search text:', searchText);
 			console.log('Content type:', type);
 			console.log('Problem ID:', problemId);
+			console.log('Goal ID:', goalId);
 			console.log('Is pre-save check:', isPreSaveCheck);
 
 			if (!searchText || (searchText.length < 3 && !isPreSaveCheck)) {
@@ -9032,6 +9756,14 @@ createCustomElement('cadal-careiq-builder', {
 						goalTypeaheadResults: {
 							...state.goalTypeaheadResults,
 							[problemId]: []
+						}
+					});
+				} else if (type === 'intervention' && goalId) {
+					// Clear intervention typeahead results for specific goal
+					updateState({
+						interventionTypeaheadResults: {
+							...state.interventionTypeaheadResults,
+							[goalId]: []
 						}
 					});
 				} else {
@@ -9055,18 +9787,33 @@ createCustomElement('cadal-careiq-builder', {
 						isPreSaveCheck: isPreSaveCheck || false
 					}
 				});
+			} else if (type === 'intervention' && goalId) {
+				updateState({
+					interventionTypeaheadLoading: {
+						...state.interventionTypeaheadLoading,
+						[goalId]: true
+					},
+					// Store current intervention search context
+					currentInterventionSearchContext: {
+						contentType: type,
+						goalId: goalId,
+						searchText: searchText,
+						isPreSaveCheck: isPreSaveCheck || false
+					}
+				});
 			} else {
 				updateState({
 					relationshipTypeaheadLoading: true
-					// DON'T clear goal search context for non-goal searches
-					// Only clear goal context when goal searches are explicitly cancelled
+					// DON'T clear goal/intervention search context for non-goal/intervention searches
+					// Only clear context when searches are explicitly cancelled
 				});
 			}
 
 			const requestBody = JSON.stringify({
 				searchText: searchText,
 				contentType: type,
-				...(problemId && {problemId: problemId})
+				...(problemId && {problemId: problemId}),
+				...(goalId && {goalId: goalId})
 			});
 
 			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
@@ -9074,7 +9821,8 @@ createCustomElement('cadal-careiq-builder', {
 				meta: {
 					searchText: searchText,
 					contentType: type,
-					problemId: problemId
+					problemId: problemId,
+					goalId: goalId
 				}
 			});
 		},
@@ -9101,9 +9849,11 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
+			const interventionSearchContext = state.currentInterventionSearchContext;
 			const preSaveGoalContext = state.preSaveGoalContext;
 			const preSaveProblemContext = state.preSaveProblemContext;
 			console.log('Stored goal search context:', goalSearchContext);
+			console.log('Stored intervention search context:', interventionSearchContext);
 			console.log('Stored pre-save goal context:', preSaveGoalContext);
 			console.log('Stored pre-save problem context:', preSaveProblemContext);
 
@@ -9233,6 +9983,22 @@ createCustomElement('cadal-careiq-builder', {
 					}
 					// DON'T clear context - let it be cleared by blur/escape events
 				});
+			} else if (interventionSearchContext && interventionSearchContext.contentType === 'intervention' && interventionSearchContext.goalId) {
+				const goalId = interventionSearchContext.goalId;
+				console.log('Routing to intervention typeahead for goal:', goalId);
+
+				// Update intervention typeahead state for specific goal - DON'T clear context yet
+				updateState({
+					interventionTypeaheadResults: {
+						...state.interventionTypeaheadResults,
+						[goalId]: results
+					},
+					interventionTypeaheadLoading: {
+						...state.interventionTypeaheadLoading,
+						[goalId]: false
+					}
+					// DON'T clear context - let it be cleared by blur/escape events
+				});
 			} else {
 				console.log('Routing to relationship typeahead');
 				// Default to relationship typeahead
@@ -9251,6 +10017,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
+			const interventionSearchContext = state.currentInterventionSearchContext;
 
 			// Handle goal-specific error states
 			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
@@ -9271,6 +10038,28 @@ createCustomElement('cadal-careiq-builder', {
 						{
 							type: 'error',
 							message: `Failed to search goals: ${action.payload?.error || 'Unknown error'}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			} else if (interventionSearchContext && interventionSearchContext.contentType === 'intervention' && interventionSearchContext.goalId) {
+				const goalId = interventionSearchContext.goalId;
+				updateState({
+					interventionTypeaheadResults: {
+						...state.interventionTypeaheadResults,
+						[goalId]: []
+					},
+					interventionTypeaheadLoading: {
+						...state.interventionTypeaheadLoading,
+						[goalId]: false
+					},
+					// Clear context after use
+					currentInterventionSearchContext: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to search interventions: ${action.payload?.error || 'Unknown error'}`,
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -14521,7 +15310,18 @@ createCustomElement('cadal-careiq-builder', {
 				goalTypeaheadResults: {},   // Track results per problemId
 				goalTypeaheadLoading: {},   // Track loading per problemId
 				selectedGoalData: {},       // Track selected goal per problemId
-				currentGoalSearchContext: null  // Store current goal search context
+				currentGoalSearchContext: null,  // Store current goal search context
+
+				// Initialize intervention state tracking (same pattern as goals)
+				expandedGoals: {},          // Track which goals are expanded to show interventions
+				goalInterventions: {},      // Store interventions data by goalId
+				interventionsLoading: {},   // Track loading state by goalId
+				// Intervention typeahead state
+				interventionTypeaheadText: {},      // Track input text per goalId
+				interventionTypeaheadResults: {},   // Track results per goalId
+				interventionTypeaheadLoading: {},   // Track loading per goalId
+				selectedInterventionData: {},       // Track selected intervention per goalId
+				currentInterventionSearchContext: null  // Store current intervention search context
 			});
 
 			// Auto-load relationships if they don't exist yet
@@ -14565,6 +15365,220 @@ createCustomElement('cadal-careiq-builder', {
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		// Intervention Action Handlers (following goals pattern)
+		'LOAD_GOAL_INTERVENTIONS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {goalId, guidelineTemplateId} = action.payload;
+
+			console.log('=== LOAD_GOAL_INTERVENTIONS ACTION TRIGGERED ===');
+			console.log('Loading interventions for goal:', goalId);
+			console.log('Guideline Template ID:', guidelineTemplateId);
+
+			// Set loading state and store current loading goalId for success handler
+			updateState({
+				interventionsLoading: {
+					...state.interventionsLoading,
+					[goalId]: true
+				},
+				currentInterventionsLoadingGoalId: goalId  // Store for SUCCESS handler
+			});
+
+			// Request body for get goal interventions API
+			const requestBody = JSON.stringify({
+				goalId: goalId,
+				guidelineTemplateId: guidelineTemplateId
+			});
+
+			dispatch('MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					goalId: goalId,
+					guidelineTemplateId: guidelineTemplateId
+				}
+			});
+		},
+
+		'LOAD_GOAL_INTERVENTIONS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== LOAD_GOAL_INTERVENTIONS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Use stored goalId from state instead of meta (meta not working reliably)
+			const goalId = state.currentInterventionsLoadingGoalId;
+			console.log('Using stored goalId from state:', goalId);
+
+			// Parse the response to get interventions data
+			const interventionsData = action.payload?.interventions || [];
+
+			updateState({
+				interventionsLoading: {
+					...state.interventionsLoading,
+					[goalId]: false
+				},
+				goalInterventions: {
+					...state.goalInterventions,
+					[goalId]: interventionsData
+				},
+				currentInterventionsLoadingGoalId: null  // Clear stored ID
+			});
+
+			console.log('Loaded', interventionsData.length, 'interventions for goal:', goalId);
+		},
+
+		'LOAD_GOAL_INTERVENTIONS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('LOAD_GOAL_INTERVENTIONS_ERROR:', action.payload);
+
+			// Use stored goalId from state instead of meta
+			const goalId = state.currentInterventionsLoadingGoalId;
+
+			updateState({
+				interventionsLoading: {
+					...state.interventionsLoading,
+					[goalId]: false
+				},
+				currentInterventionsLoadingGoalId: null,  // Clear stored ID
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to load interventions for goal: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_INTERVENTION_SUCCESS ===');
+			console.log('Response:', action.payload);
+
+			// Show success message
+			let systemMessage = 'Intervention created successfully! Refreshing data...';
+			let messageType = 'success';
+
+			// Surface any backend detail messages to user
+			if (action.payload && action.payload.detail) {
+				systemMessage = action.payload.detail;
+				if (systemMessage.toLowerCase().includes('duplicate') ||
+					systemMessage.toLowerCase().includes('already')) {
+					messageType = 'warning';
+				}
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: messageType,
+						message: systemMessage,
+						timestamp: new Date().toISOString()
+					}
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: messageType,
+						message: systemMessage,
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+
+			// Clear typeahead state after successful intervention creation
+			const answerId = state.relationshipModalAnswerId;
+			if (answerId) {
+				updateState({
+					interventionTypeaheadText: {},
+					interventionTypeaheadResults: {},
+					selectedInterventionData: {},
+					currentInterventionSearchContext: null
+				});
+			}
+
+			// CRITICAL: Refresh intervention data using stored goalId (meta params unreliable in ServiceNow)
+			const goalId = state.lastAddedInterventionGoalId;
+			console.log('ADD_INTERVENTION_SUCCESS - Goal ID from stored state:', goalId);
+			console.log('ADD_INTERVENTION_SUCCESS - Assessment ID:', state.currentAssessmentId);
+			if (goalId && state.currentAssessmentId) {
+				console.log('Auto-refreshing interventions for goal:', goalId);
+				// Clear the stored ID after use
+				updateState({
+					lastAddedInterventionGoalId: null
+				});
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			} else {
+				console.log('PROBLEM: Cannot auto-refresh - missing stored goalId or assessmentId');
+			}
+
+			// Also refresh section questions to update badge counts
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
+		},
+
+		'ADD_INTERVENTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('ADD_INTERVENTION_ERROR:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+		},
+
+		'TOGGLE_GOAL_EXPANSION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {goalId} = action.payload;
+
+			console.log('Toggling expansion for goal:', goalId);
+
+			// Toggle the expansion state for this goal
+			const isCurrentlyExpanded = state.expandedGoals[goalId];
+			const newExpansionState = !isCurrentlyExpanded;
+
+			updateState({
+				expandedGoals: {
+					...state.expandedGoals,
+					[goalId]: newExpansionState
+				}
+			});
+
+			// If expanding and interventions not loaded yet, load them
+			if (newExpansionState && !state.goalInterventions[goalId] && !state.interventionsLoading[goalId]) {
+				console.log('Goal expanded and interventions not loaded yet - loading interventions for:', goalId);
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
 				});
 			}
 		},
