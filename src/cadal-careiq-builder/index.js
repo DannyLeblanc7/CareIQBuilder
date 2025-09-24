@@ -3672,41 +3672,56 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 												/>
 
+												{/* Check/X buttons - always visible when guideline selected */}
 												{state.selectedGuideline && (
-													<div className="section-edit-buttons" style={{display: 'flex', gap: '4px'}}>
+													<div style={{display: 'flex', gap: '8px', marginLeft: '8px'}}>
 														<button
-															className="section-edit-save-btn"
-															style={{fontSize: '1.4em'}}
-															on={{
-																click: () => {
-																	dispatch('ADD_GUIDELINE_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		guidelineId: state.selectedGuideline.master_id || state.selectedGuideline.id,
-																		guidelineName: state.selectedGuideline.label || state.selectedGuideline.name
-																	});
+															className="confirm-relationship-btn"
+															style={{
+																fontSize: '14px',
+																padding: '10px 16px',
+																backgroundColor: '#10b981',
+																color: 'white',
+																border: 'none',
+																borderRadius: '6px',
+																cursor: 'pointer',
+																fontWeight: '500'
+															}}
+															onclick={() => {
+																dispatch('ADD_GUIDELINE_RELATIONSHIP', {
+																	answerId: state.relationshipModalAnswerId,
+																	guidelineId: state.selectedGuideline.master_id || state.selectedGuideline.id,
+																	guidelineName: state.selectedGuideline.label || state.selectedGuideline.name
+																});
 
-																	// Clear the selection after saving
-																	updateState({
-																		selectedGuideline: null,
-																		relationshipTypeaheadText: ''
-																	});
-																}
+																// Clear the selection after saving
+																updateState({
+																	selectedGuideline: null,
+																	relationshipTypeaheadText: ''
+																});
 															}}
 															title="Save guideline relationship"
 														>
 															✓
 														</button>
 														<button
-															className="section-edit-cancel-btn"
-															style={{fontSize: '1.4em'}}
-															on={{
-																click: () => {
-																	// Clear the selection without saving
-																	updateState({
-																		selectedGuideline: null,
-																		relationshipTypeaheadText: ''
-																	});
-																}
+															className="cancel-relationship-btn"
+															style={{
+																fontSize: '14px',
+																padding: '10px 16px',
+																backgroundColor: '#ef4444',
+																color: 'white',
+																border: 'none',
+																borderRadius: '6px',
+																cursor: 'pointer',
+																fontWeight: '500'
+															}}
+															onclick={() => {
+																// Clear the selection without saving
+																updateState({
+																	selectedGuideline: null,
+																	relationshipTypeaheadText: ''
+																});
 															}}
 															title="Cancel"
 														>
@@ -3722,16 +3737,22 @@ const view = (state, {updateState, dispatch}) => {
 														<div
 															key={guideline.id}
 															className="typeahead-item"
-															on={{
-																click: () => {
-																	// Just populate the input and store the selected guideline
-																	updateState({
-																		relationshipTypeaheadText: guideline.label || guideline.name,
-																		selectedGuideline: guideline,
-																		relationshipTypeaheadResults: [] // Hide dropdown
-																	});
-																}
+															onclick={() => {
+																// Just populate the input and store the selected guideline
+																updateState({
+																	relationshipTypeaheadText: guideline.label || guideline.name,
+																	selectedGuideline: guideline,
+																	relationshipTypeaheadResults: [] // Hide dropdown
+																});
 															}}
+															style={{
+																cursor: 'pointer',
+																padding: '8px 12px',
+																borderBottom: '1px solid #e5e7eb',
+																backgroundColor: '#ffffff'
+															}}
+															onmouseenter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+															onmouseleave={(e) => e.target.style.backgroundColor = '#ffffff'}
 														>
 															{guideline.label || guideline.name}
 														</div>
@@ -3821,41 +3842,56 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 												/>
 
+												{/* Check/X buttons - always visible when question selected */}
 												{state.selectedQuestion && (
-													<div className="section-edit-buttons" style={{display: 'flex', gap: '4px'}}>
+													<div style={{display: 'flex', gap: '8px', marginLeft: '8px'}}>
 														<button
-															className="section-edit-save-btn"
-															style={{fontSize: '1.4em'}}
-															on={{
-																click: () => {
-																	dispatch('ADD_QUESTION_RELATIONSHIP', {
-																		answerId: state.relationshipModalAnswerId,
-																		questionId: state.selectedQuestion.ids.id,
-																		questionLabel: state.selectedQuestion.label
-																	});
+															className="confirm-relationship-btn"
+															style={{
+																fontSize: '14px',
+																padding: '10px 16px',
+																backgroundColor: '#10b981',
+																color: 'white',
+																border: 'none',
+																borderRadius: '6px',
+																cursor: 'pointer',
+																fontWeight: '500'
+															}}
+															onclick={() => {
+																dispatch('ADD_QUESTION_RELATIONSHIP', {
+																	answerId: state.relationshipModalAnswerId,
+																	questionId: state.selectedQuestion.ids.id,
+																	questionLabel: state.selectedQuestion.label
+																});
 
-																	// Clear the selection after saving
-																	updateState({
-																		selectedQuestion: null,
-																		relationshipTypeaheadText: ''
-																	});
-																}
+																// Clear the selection after saving
+																updateState({
+																	selectedQuestion: null,
+																	relationshipTypeaheadText: ''
+																});
 															}}
 															title="Save question relationship"
 														>
 															✓
 														</button>
 														<button
-															className="section-edit-cancel-btn"
-															style={{fontSize: '1.4em'}}
-															on={{
-																click: () => {
-																	// Clear the selection without saving
-																	updateState({
-																		selectedQuestion: null,
-																		relationshipTypeaheadText: ''
-																	});
-																}
+															className="cancel-relationship-btn"
+															style={{
+																fontSize: '14px',
+																padding: '10px 16px',
+																backgroundColor: '#ef4444',
+																color: 'white',
+																border: 'none',
+																borderRadius: '6px',
+																cursor: 'pointer',
+																fontWeight: '500'
+															}}
+															onclick={() => {
+																// Clear the selection without saving
+																updateState({
+																	selectedQuestion: null,
+																	relationshipTypeaheadText: ''
+																});
 															}}
 															title="Cancel"
 														>
@@ -3871,16 +3907,22 @@ const view = (state, {updateState, dispatch}) => {
 														<div
 															key={question.ids.id}
 															className="typeahead-item"
-															on={{
-																click: () => {
-																	// Just populate the input and store the selected question
-																	updateState({
-																		relationshipTypeaheadText: question.label,
-																		selectedQuestion: question,
-																		relationshipTypeaheadResults: [] // Hide dropdown
-																	});
-																}
+															onclick={() => {
+																// Just populate the input and store the selected question
+																updateState({
+																	relationshipTypeaheadText: question.label,
+																	selectedQuestion: question,
+																	relationshipTypeaheadResults: [] // Hide dropdown
+																});
 															}}
+															style={{
+																cursor: 'pointer',
+																padding: '8px 12px',
+																borderBottom: '1px solid #e5e7eb',
+																backgroundColor: '#ffffff'
+															}}
+															onmouseenter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+															onmouseleave={(e) => e.target.style.backgroundColor = '#ffffff'}
 														>
 															{question.label}
 														</div>
@@ -4408,6 +4450,16 @@ const view = (state, {updateState, dispatch}) => {
 												{/* Check/X buttons - always visible */}
 												<button
 													className="confirm-relationship-btn"
+													style={{
+														fontSize: '14px',
+														padding: '10px 16px',
+														backgroundColor: '#10b981',
+														color: 'white',
+														border: 'none',
+														borderRadius: '6px',
+														cursor: 'pointer',
+														fontWeight: '500'
+													}}
 													onclick={() => {
 														const problemText = state.relationshipTypeaheadText;
 														if (!problemText || problemText.trim() === '') {
@@ -4437,6 +4489,16 @@ const view = (state, {updateState, dispatch}) => {
 												</button>
 												<button
 													className="cancel-relationship-btn"
+													style={{
+														fontSize: '14px',
+														padding: '10px 16px',
+														backgroundColor: '#ef4444',
+														color: 'white',
+														border: 'none',
+														borderRadius: '6px',
+														cursor: 'pointer',
+														fontWeight: '500'
+													}}
 													onclick={() => {
 														updateState({
 															relationshipTypeaheadText: '',
@@ -4446,7 +4508,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✕
+													✗
 												</button>
 											</div>
 
@@ -4556,6 +4618,16 @@ const view = (state, {updateState, dispatch}) => {
 												{/* Check/X buttons - always visible */}
 												<button
 													className="confirm-relationship-btn"
+													style={{
+														fontSize: '14px',
+														padding: '10px 16px',
+														backgroundColor: '#10b981',
+														color: 'white',
+														border: 'none',
+														borderRadius: '6px',
+														cursor: 'pointer',
+														fontWeight: '500'
+													}}
 													onclick={() => {
 														const barrierText = state.relationshipTypeaheadText;
 														if (!barrierText || barrierText.trim() === '') {
@@ -4585,6 +4657,16 @@ const view = (state, {updateState, dispatch}) => {
 												</button>
 												<button
 													className="cancel-relationship-btn"
+													style={{
+														fontSize: '14px',
+														padding: '10px 16px',
+														backgroundColor: '#ef4444',
+														color: 'white',
+														border: 'none',
+														borderRadius: '6px',
+														cursor: 'pointer',
+														fontWeight: '500'
+													}}
 													onclick={() => {
 														updateState({
 															relationshipTypeaheadText: '',
@@ -4594,7 +4676,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✕
+													✗
 												</button>
 											</div>
 
@@ -4642,6 +4724,94 @@ const view = (state, {updateState, dispatch}) => {
 												</div>
 											)}
 										</div>
+									</div>
+								)}
+							</div>
+
+							{/* Modal System Messages Window */}
+							<div className="modal-system-messages" style={{
+								borderTop: '1px solid #e0e0e0',
+								backgroundColor: '#f8f9fa'
+							}}>
+								{/* Header with toggle */}
+								<div
+									className="system-messages-header"
+									style={{
+										display: 'flex',
+										justifyContent: 'space-between',
+										alignItems: 'center',
+										padding: '8px 12px',
+										cursor: 'pointer',
+										borderBottom: state.modalSystemMessagesCollapsed ? 'none' : '1px solid #e0e0e0',
+										backgroundColor: '#f1f3f4'
+									}}
+									on={{click: () => dispatch('TOGGLE_MODAL_SYSTEM_MESSAGES')}}
+								>
+									<span style={{fontWeight: '500', fontSize: '14px'}}>
+										System Messages ({state.modalSystemMessages?.length || 0})
+									</span>
+									<span style={{fontSize: '12px'}}>
+										{state.modalSystemMessagesCollapsed ? '▶' : '▼'}
+									</span>
+								</div>
+
+								{/* Messages content - only show when not collapsed */}
+								{!state.modalSystemMessagesCollapsed && (
+									<div
+										className="system-messages-content"
+										style={{
+											height: '60px',  // About 2 lines at 14px font
+											overflowY: 'auto',
+											padding: '8px 12px',
+											backgroundColor: '#ffffff'
+										}}
+									>
+										{state.modalSystemMessages?.length > 0 ? (
+											<div>
+												{state.modalSystemMessages.map((msg, index) => (
+													<div
+														key={index}
+														className={`system-message ${msg.type}`}
+														style={{
+															padding: '4px 0',
+															borderBottom: index < state.modalSystemMessages.length - 1 ? '1px solid #f0f0f0' : 'none',
+															fontSize: '12px',
+															lineHeight: '1.3'
+														}}
+													>
+														<span className={`message-type ${msg.type}`} style={{
+															fontWeight: 'bold',
+															color: msg.type === 'success' ? '#28a745' :
+																   msg.type === 'error' ? '#dc3545' :
+																   msg.type === 'warning' ? '#ffc107' : '#17a2b8',
+															marginRight: '8px'
+														}}>
+															{msg.type === 'success' ? '✓' :
+															 msg.type === 'error' ? '✗' :
+															 msg.type === 'warning' ? '⚠' : 'ℹ'}
+														</span>
+														<span>{msg.message}</span>
+														<span style={{
+															float: 'right',
+															color: '#888',
+															fontSize: '10px'
+														}}>
+															{new Date(msg.timestamp).toLocaleTimeString()}
+														</span>
+													</div>
+												))}
+											</div>
+										) : (
+											<div style={{
+												color: '#888',
+												fontStyle: 'italic',
+												fontSize: '12px',
+												textAlign: 'center',
+												padding: '16px 0'
+											}}>
+												No messages while modal is open
+											</div>
+										)}
 									</div>
 								)}
 							</div>
@@ -4799,7 +4969,13 @@ createCustomElement('cadal-careiq-builder', {
 		relationshipModalAnswerId: null,           // Which answer is being edited
 		relationshipModalActiveTab: 'guidelines',  // Current active tab
 		selectedGuideline: null,                   // Selected guideline for check/x buttons
-		selectedQuestion: null                     // Selected question for check/x buttons
+		selectedQuestion: null,                    // Selected question for check/x buttons
+		modalSystemMessages: [],                   // System messages that occur while modal is open
+		modalSystemMessagesCollapsed: true,        // Toggle for modal system messages visibility
+
+		// Pre-save context for problems (prevents duplicates)
+		preSaveProblemContext: null,               // Context for pre-save exact match checks
+		pendingProblemSave: null                   // Pending problem save data during exact match check
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -7370,15 +7546,18 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Barrier relationship added successfully:', barrierName, 'to answer:', answerId);
 
 			// Show success message
+			const successMessage = {
+				type: 'success',
+				message: `Successfully added barrier "${barrierName}"! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Successfully added barrier "${barrierName}"! Refreshing data...`,
-						timestamp: new Date().toISOString()
-					}
-				],
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages,
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
@@ -7407,15 +7586,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('ADD_BARRIER_RELATIONSHIP_ERROR:', action.payload);
 
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to add barrier relationship: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add barrier relationship: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -7453,15 +7635,22 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Problem relationship added successfully:', problemName, 'to answer:', answerId);
 
 			// Show success message
+			const successMessage = {
+				type: 'success',
+				message: `Successfully added problem "${problemName}"! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Successfully added problem "${problemName}"! Refreshing data...`,
-						timestamp: new Date().toISOString()
-					}
+					successMessage
 				],
+				// Also add to modal messages if modal is open
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages,
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
@@ -7490,15 +7679,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('ADD_PROBLEM_RELATIONSHIP_ERROR:', action.payload);
 
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to add problem relationship: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add problem relationship: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -7508,15 +7700,18 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('=== DELETE_BARRIER_RELATIONSHIP_SUCCESS ===');
 			console.log('API Response:', action.payload);
 
+			const successMessage = {
+				type: 'success',
+				message: `Barrier relationship deleted successfully! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Barrier relationship deleted successfully! Refreshing data...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Refresh the modal answer relationships to show updated data
@@ -7535,15 +7730,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('DELETE_BARRIER_RELATIONSHIP_ERROR:', action.payload);
 
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to delete barrier relationship: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to delete barrier relationship: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -7666,15 +7864,18 @@ createCustomElement('cadal-careiq-builder', {
 			if (action.payload === null || action.payload === undefined) {
 				console.log('API returned 204 No Content - this is expected for successful PATCH operations');
 
+				const successMessage = {
+					type: 'success',
+					message: 'Problem updated successfully! Refreshing data...',
+					timestamp: new Date().toISOString()
+				};
+
 				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'success',
-							message: 'Problem updated successfully! Refreshing data...',
-							timestamp: new Date().toISOString()
-						}
-					]
+					systemMessages: [...(state.systemMessages || []), successMessage],
+					modalSystemMessages: state.relationshipModalOpen ? [
+						...(state.modalSystemMessages || []),
+						successMessage
+					] : state.modalSystemMessages
 				});
 
 				// Refresh the modal answer relationships to show updated data
@@ -7689,28 +7890,34 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if the response contains an error
 			if (action.payload?.error) {
 				console.error('API returned error in success response:', action.payload.error);
+				const errorMessage = {
+					type: 'error',
+					message: `Failed to save problem edits: ${action.payload.error}`,
+					timestamp: new Date().toISOString()
+				};
+
 				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: `Failed to save problem edits: ${action.payload.error}`,
-							timestamp: new Date().toISOString()
-						}
-					]
+					systemMessages: [...(state.systemMessages || []), errorMessage],
+					modalSystemMessages: state.relationshipModalOpen ? [
+						...(state.modalSystemMessages || []),
+						errorMessage
+					] : state.modalSystemMessages
 				});
 				return;
 			}
 
+			const successMessage = {
+				type: 'success',
+				message: 'Problem updated successfully! Refreshing data...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: 'Problem updated successfully! Refreshing data...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Refresh the modal answer relationships to show updated data
@@ -7726,15 +7933,18 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('SAVE_PROBLEM_EDITS_ERROR:', action.payload);
 
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to update problem: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to update problem: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -8066,14 +8276,19 @@ createCustomElement('cadal-careiq-builder', {
 					tooltip: ''
 				},
 				problemDetailsFallback: null,
-				systemMessages: [
-					...(state.systemMessages || []),
+				systemMessages: [...(state.systemMessages || []), {
+					type: 'warning',
+					message: 'Could not load full problem details. Using basic information for editing.',
+					timestamp: new Date().toISOString()
+				}],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
 					{
 						type: 'warning',
 						message: 'Could not load full problem details. Using basic information for editing.',
 						timestamp: new Date().toISOString()
 					}
-				]
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -8130,15 +8345,18 @@ createCustomElement('cadal-careiq-builder', {
 				console.log('API returned 204 No Content - this is expected for successful DELETE operations');
 			}
 
+			const successMessage = {
+				type: 'success',
+				message: `Problem relationship deleted successfully! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Problem relationship deleted successfully! Refreshing data...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Refresh the modal answer relationships to show updated data
@@ -8168,15 +8386,18 @@ createCustomElement('cadal-careiq-builder', {
 			const meta = action.meta || {};
 			const {problemName} = meta;
 
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to delete problem "${problemName}": ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to delete problem "${problemName}": ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -8255,15 +8476,22 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Answer ID:', answerId);
 
 			// Show saving message
+			const savingMessage = {
+				type: 'info',
+				message: selectedGoal ? `Linking existing goal "${goalText}" to problem...` : `Creating new goal "${goalText}"...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: selectedGoal ? `Linking existing goal "${goalText}" to problem...` : `Creating new goal "${goalText}"...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+					savingMessage
+				],
+				// Also add to modal messages if modal is open
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
 			});
 
 			// Clear input immediately for better UX
@@ -8361,15 +8589,22 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			}
 
+			const newMessage = {
+				type: messageType,
+				message: systemMessage,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: messageType,
-						message: systemMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
+					newMessage
+				],
+				// Also add to modal messages if modal is open
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					newMessage
+				] : state.modalSystemMessages
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -8651,15 +8886,17 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
-			const preSaveContext = state.preSaveGoalContext;
+			const preSaveGoalContext = state.preSaveGoalContext;
+			const preSaveProblemContext = state.preSaveProblemContext;
 			console.log('Stored goal search context:', goalSearchContext);
-			console.log('Stored pre-save context:', preSaveContext);
+			console.log('Stored pre-save goal context:', preSaveGoalContext);
+			console.log('Stored pre-save problem context:', preSaveProblemContext);
 
 			console.log('Found results:', results.length);
 
-			// Check if this is a pre-save exact match check
-			if (preSaveContext && preSaveContext.isPreSaveCheck) {
-				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS ===');
+			// Check if this is a pre-save exact match check for goals
+			if (preSaveGoalContext && preSaveGoalContext.isPreSaveCheck) {
+				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (GOALS) ===');
 				console.log('Checking for exact matches in results...');
 
 				// Look for exact match
@@ -8706,6 +8943,59 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					preSaveGoalContext: null,
 					pendingGoalSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a pre-save exact match check for problems
+			if (preSaveProblemContext && preSaveProblemContext.isPreSaveCheck) {
+				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (PROBLEMS) ===');
+				console.log('Checking for exact matches in results...');
+
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					console.log('EXACT MATCH FOUND:', exactMatch);
+					console.log('Using library problem with master_id:', exactMatch.master_id);
+
+					// Use the exact match as selectedProblem with library data
+					const selectedProblem = {
+						id: exactMatch.id,
+						name: exactMatch.name || exactMatch.label,
+						label: exactMatch.label || exactMatch.name,
+						master_id: exactMatch.master_id
+					};
+
+					// Get pending save data and proceed with library problem
+					const pendingProblemSave = state.pendingProblemSave;
+					if (pendingProblemSave) {
+						console.log('Proceeding with library problem save...');
+						dispatch('ADD_PROBLEM_RELATIONSHIP', {
+							answerId: pendingProblemSave.answerId,
+							problemId: selectedProblem.id,
+							problemName: selectedProblem.name || selectedProblem.label,
+							problemMasterId: selectedProblem.master_id
+						});
+					}
+				} else {
+					console.log('NO EXACT MATCH FOUND - proceeding as new problem creation');
+
+					// No exact match, proceed with new problem creation
+					const pendingProblemSave = state.pendingProblemSave;
+					if (pendingProblemSave) {
+						dispatch('CREATE_NEW_PROBLEM_AFTER_CHECK', {
+							answerId: pendingProblemSave.answerId,
+							problemName: pendingProblemSave.problemName
+						});
+					}
+				}
+
+				// Clear pre-save context and pending data
+				updateState({
+					preSaveProblemContext: null,
+					pendingProblemSave: null
 				});
 
 				return; // Exit early - this was a pre-save check, not a UI typeahead
@@ -10317,11 +10607,69 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('Creating new problem:', problemName, 'for answer:', answerId);
 			console.log('Full payload:', action.payload);
 
+			// Show saving message
+			const savingMessage = {
+				type: 'info',
+				message: `Creating new problem "${problemName}"...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
+			});
+
+			// Clear input immediately for better UX
+			updateState({
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedProblemData: null
+			});
+
+			// ALWAYS do pre-save typeahead check for exact matches to prevent duplicates
+			console.log('=== PRE-SAVE EXACT MATCH CHECK FOR PROBLEMS ===');
+			console.log('Searching for exact match of:', problemName);
+
+			// Store original save data for after the check
+			updateState({
+				pendingProblemSave: {
+					answerId: answerId,
+					problemName: problemName
+				},
+				// Store pre-save context separately from UI context to prevent clearing
+				preSaveProblemContext: {
+					contentType: 'problem',
+					answerId: answerId,
+					searchText: problemName,
+					isPreSaveCheck: true
+				}
+			});
+
+			// Search for exact matches using generic typeahead
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: problemName,
+				type: 'problem',
+				answerId: answerId,
+				isPreSaveCheck: true  // Flag to identify this as pre-save check
+			});
+		},
+
+		'CREATE_NEW_PROBLEM_AFTER_CHECK': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, problemName} = action.payload;
+
+			console.log('=== CREATE_NEW_PROBLEM_AFTER_CHECK ===');
+			console.log('Answer ID:', answerId);
+			console.log('Problem name:', problemName);
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
 
-			// AUTO-SAVE: Immediately call API (no problemId means new problem)
+			// Prepare request body for problem creation
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				problemName: problemName,
@@ -10338,16 +10686,19 @@ createCustomElement('cadal-careiq-builder', {
 				requestBody: requestBody
 			});
 
-			// Show system message about auto-save
+			// Show system message about creating new problem
+			const creatingMessage = {
+				type: 'info',
+				message: 'Creating new problem and saving to backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Creating new problem and saving to backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), creatingMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					creatingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -13669,6 +14020,8 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipModalOpen: true,
 				relationshipModalAnswerId: answerId,
 				relationshipModalActiveTab: 'guidelines',
+				modalSystemMessages: [],  // Initialize empty modal messages
+				modalSystemMessagesCollapsed: true,  // Start collapsed
 				// Clear any existing typeahead state to prevent contamination
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
@@ -13796,6 +14149,13 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('CLOSE_RELATIONSHIP_MODAL');
 
 			// TODO: Implement actual save logic to backend when needed
+		},
+
+		'TOGGLE_MODAL_SYSTEM_MESSAGES': (coeffects) => {
+			const {updateState, state} = coeffects;
+			updateState({
+				modalSystemMessagesCollapsed: !state.modalSystemMessagesCollapsed
+			});
 		},
 
 	},
