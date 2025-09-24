@@ -9326,6 +9326,55 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
+			// If selectedIntervention already exists (user picked from dropdown), skip pre-save check
+			if (selectedIntervention) {
+				console.log('Intervention already selected from dropdown - proceeding directly');
+				dispatch('SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK', {
+					goalId: goalId,
+					interventionText: interventionText,
+					category: category,
+					selectedIntervention: selectedIntervention,
+					answerId: answerId
+				});
+				return;
+			}
+
+			console.log('=== PRE-SAVE EXACT MATCH CHECK ===');
+			console.log('Searching for exact match of:', interventionText);
+
+			// Store original save data for after the check
+			updateState({
+				pendingInterventionSave: {
+					goalId: goalId,
+					interventionText: interventionText,
+					category: category,
+					selectedIntervention: selectedIntervention,
+					answerId: answerId
+				},
+				preSaveInterventionContext: {
+					contentType: 'intervention',
+					goalId: goalId,
+					searchText: interventionText,
+					isPreSaveCheck: true  // Flag to identify this as pre-save check
+				}
+			});
+
+			// Search for exact match using generic typeahead
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: interventionText,
+				type: 'intervention',
+				goalId: goalId,
+				isPreSaveCheck: true  // Flag to identify this as pre-save check
+			});
+		},
+
+		'SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {goalId, interventionText, category, selectedIntervention, answerId} = action.payload;
+
+			console.log('=== SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK ===');
+			console.log('Final save with intervention:', selectedIntervention);
+
 			// CRITICAL: Store goalId in state for success handler refresh (meta params don't work reliably)
 			updateState({
 				lastAddedInterventionGoalId: goalId
@@ -9961,6 +10010,122 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					preSaveProblemContext: null,
 					pendingProblemSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a pre-save exact match check for interventions
+			const preSaveInterventionContext = state.preSaveInterventionContext;
+			if (preSaveInterventionContext && preSaveInterventionContext.isPreSaveCheck) {
+				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (INTERVENTIONS) ===');
+				console.log('Checking for exact matches in results...');
+
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					console.log('EXACT MATCH FOUND:', exactMatch);
+					console.log('Using library intervention with master_id:', exactMatch.master_id);
+
+					// Use the exact match as selectedIntervention with library data
+					const selectedIntervention = {
+						id: exactMatch.id,
+						name: exactMatch.name || exactMatch.label,
+						label: exactMatch.label || exactMatch.name,
+						master_id: exactMatch.master_id,
+						tooltip: exactMatch.tooltip,
+						alternative_wording: exactMatch.alternative_wording,
+						category: exactMatch.category
+					};
+
+					// Get pending save data and proceed with library intervention
+					const pendingInterventionSave = state.pendingInterventionSave;
+					if (pendingInterventionSave) {
+						console.log('Proceeding with library intervention save...');
+						dispatch('SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK', {
+							goalId: pendingInterventionSave.goalId,
+							interventionText: pendingInterventionSave.interventionText,
+							category: pendingInterventionSave.category,
+							selectedIntervention: selectedIntervention,  // Use exact match
+							answerId: pendingInterventionSave.answerId
+						});
+					}
+				} else {
+					console.log('NO EXACT MATCH FOUND - proceeding as new intervention');
+
+					// No exact match, proceed with original intervention (new intervention creation)
+					const pendingInterventionSave = state.pendingInterventionSave;
+					if (pendingInterventionSave) {
+						dispatch('SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK', {
+							goalId: pendingInterventionSave.goalId,
+							interventionText: pendingInterventionSave.interventionText,
+							category: pendingInterventionSave.category,
+							selectedIntervention: pendingInterventionSave.selectedIntervention,  // Original selection (null for new)
+							answerId: pendingInterventionSave.answerId
+						});
+					}
+				}
+
+				// Clear pre-save context and pending data
+				updateState({
+					preSaveInterventionContext: null,
+					pendingInterventionSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a pre-save exact match check for sections
+			const preSaveSectionContext = state.preSaveSectionContext;
+			if (preSaveSectionContext && preSaveSectionContext.isPreSaveCheck) {
+				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (SECTIONS) ===');
+				console.log('Checking for exact matches in results...');
+
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					console.log('EXACT MATCH FOUND:', exactMatch);
+					console.log('Using library section with master_id:', exactMatch.master_id);
+
+					// Get pending save data and proceed with library section
+					const pendingSectionSave = state.pendingSectionSave;
+					if (pendingSectionSave) {
+						console.log('Proceeding with library section save...');
+
+						// Update state to indicate library section selection
+						updateState({
+							selectedSectionLibraryId: exactMatch.master_id
+						});
+
+						dispatch('PROCEED_WITH_SECTION_SAVE', {
+							sectionId: pendingSectionSave.sectionId,
+							sectionLabel: pendingSectionSave.sectionLabel
+						});
+					}
+				} else {
+					console.log('NO EXACT MATCH FOUND - proceeding as new section');
+
+					// No exact match, proceed with original section (new section creation)
+					const pendingSectionSave = state.pendingSectionSave;
+					if (pendingSectionSave) {
+						// Clear library selection since this is a new section
+						updateState({
+							selectedSectionLibraryId: null
+						});
+
+						dispatch('PROCEED_WITH_SECTION_SAVE', {
+							sectionId: pendingSectionSave.sectionId,
+							sectionLabel: pendingSectionSave.sectionLabel
+						});
+					}
+				}
+
+				// Clear pre-save context and pending data
+				updateState({
+					preSaveSectionContext: null,
+					pendingSectionSave: null
 				});
 
 				return; // Exit early - this was a pre-save check, not a UI typeahead
@@ -12334,13 +12499,40 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 			
-			// No duplicate found, proceed with saving
-			dispatch('PROCEED_WITH_SECTION_SAVE', {
+			// No duplicate found, now check for library matches before saving
+			dispatch('CHECK_SECTION_LIBRARY_MATCH', {
 				sectionId,
 				sectionLabel
 			});
 		},
 
+		'CHECK_SECTION_LIBRARY_MATCH': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+
+			console.log('=== CHECK_SECTION_LIBRARY_MATCH ===');
+			console.log('Searching for exact library match of:', sectionLabel);
+
+			// Store original save data for after the library check
+			updateState({
+				pendingSectionSave: {
+					sectionId: sectionId,
+					sectionLabel: sectionLabel
+				},
+				preSaveSectionContext: {
+					contentType: 'section',
+					searchText: sectionLabel,
+					isPreSaveCheck: true  // Flag to identify this as pre-save check
+				}
+			});
+
+			// Search for exact match using generic typeahead
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: sectionLabel,
+				type: 'section',
+				isPreSaveCheck: true  // Flag to identify this as pre-save check
+			});
+		},
 
 		'PROCEED_WITH_SECTION_SAVE': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
@@ -15311,6 +15503,8 @@ createCustomElement('cadal-careiq-builder', {
 				goalTypeaheadLoading: {},   // Track loading per problemId
 				selectedGoalData: {},       // Track selected goal per problemId
 				currentGoalSearchContext: null,  // Store current goal search context
+				preSaveGoalContext: null,       // Store pre-save goal context
+				pendingGoalSave: null,          // Store pending goal save data
 
 				// Initialize intervention state tracking (same pattern as goals)
 				expandedGoals: {},          // Track which goals are expanded to show interventions
@@ -15321,7 +15515,13 @@ createCustomElement('cadal-careiq-builder', {
 				interventionTypeaheadResults: {},   // Track results per goalId
 				interventionTypeaheadLoading: {},   // Track loading per goalId
 				selectedInterventionData: {},       // Track selected intervention per goalId
-				currentInterventionSearchContext: null  // Store current intervention search context
+				currentInterventionSearchContext: null,  // Store current intervention search context
+				preSaveInterventionContext: null,       // Store pre-save intervention context
+				pendingInterventionSave: null,          // Store pending intervention save data
+
+				// Section pre-save state
+				preSaveSectionContext: null,            // Store pre-save section context
+				pendingSectionSave: null                // Store pending section save data
 			});
 
 			// Auto-load relationships if they don't exist yet
