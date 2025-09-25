@@ -416,6 +416,15 @@ const view = (state, {updateState, dispatch}) => {
 							<h2>
 								{state.currentAssessment ? state.currentAssessment.title : 'Assessment Builder'}
 							</h2>
+							{state.currentAssessment && (
+								<button
+									className="view-details-btn"
+									onclick={() => dispatch('OPEN_ASSESSMENT_DETAILS')}
+									title="View assessment details"
+								>
+									View Details
+								</button>
+							)}
 						</div>
 						<div className="builder-controls">
 							<button
@@ -3102,6 +3111,255 @@ const view = (state, {updateState, dispatch}) => {
 								Create New Version
 							</button>
 						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Assessment Details Panel */}
+			{state.assessmentDetailsPanel?.isOpen && (
+				<div className="assessment-details-overlay" onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}>
+					<div className="assessment-details-panel" onclick={(e) => e.stopPropagation()}>
+						<div className="panel-header">
+							<h3>Assessment Details</h3>
+							<button
+								className="panel-close"
+								onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}
+							>
+								×
+							</button>
+						</div>
+						<div className="panel-body">
+							<div className="form-columns">
+								<div className="form-column">
+									<div className="form-group">
+										<label>Use Case:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.useCase || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'useCase',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.useCase}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Version Title:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.versionTitle || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'versionTitle',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.versionTitle}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Use Case Category:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<select
+												className="form-input"
+												value={state.assessmentDetailsPanel.useCaseCategory || ''}
+												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'useCaseCategory',
+													value: e.target.value
+												})}
+											>
+												<option value="">Select Category</option>
+												{(state.useCaseCategories || []).map(category => (
+													<option
+														key={category.id}
+														value={category.id}
+														selected={category.id === state.assessmentDetailsPanel.useCaseCategory}
+													>
+														{category.name}
+													</option>
+												))}
+											</select>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.useCaseCategoryName}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Usage:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.usage || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'usage',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.usage}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Content Source:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.contentSource || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'contentSource',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.contentSource}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Code/Policy Number:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.policyNumber || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'policyNumber',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.policyNumber}</div>
+										)}
+									</div>
+								</div>
+								<div className="form-column">
+									<div className="form-group">
+										<label>Effective Date:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="date"
+												className="form-input"
+												value={state.assessmentDetailsPanel.effectiveDate || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'effectiveDate',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.effectiveDate}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>End Date:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="date"
+												className="form-input"
+												value={state.assessmentDetailsPanel.endDate || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'endDate',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.endDate}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Review Date:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="date"
+												className="form-input"
+												value={state.assessmentDetailsPanel.reviewDate || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'reviewDate',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.reviewDate}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Next Review Date:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="date"
+												className="form-input"
+												value={state.assessmentDetailsPanel.nextReviewDate || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'nextReviewDate',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.nextReviewDate}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Response Logging:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<div className="checkbox-group">
+												<input
+													type="checkbox"
+													id="responseLogging"
+													checked={state.assessmentDetailsPanel.responseLogging || false}
+													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+														field: 'responseLogging',
+														value: e.target.checked
+													})}
+												/>
+												<label htmlFor="responseLogging">Enable response logging</label>
+											</div>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.responseLogging ? 'Enabled' : 'Disabled'}</div>
+										)}
+									</div>
+									<div className="form-group">
+										<label>Allow MCG Content:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<div className="checkbox-group">
+												<input
+													type="checkbox"
+													id="allowMcgContent"
+													checked={state.assessmentDetailsPanel.allowMcgContent || false}
+													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+														field: 'allowMcgContent',
+														value: e.target.checked
+													})}
+												/>
+												<label htmlFor="allowMcgContent">Allow MCG content</label>
+											</div>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.allowMcgContent ? 'Allowed' : 'Not Allowed'}</div>
+										)}
+									</div>
+								</div>
+							</div>
+						</div>
+						{state.assessmentDetailsPanel.isEditable && (
+							<div className="panel-footer">
+								<button
+									className="btn-cancel"
+									onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}
+								>
+									Cancel
+								</button>
+								<button
+									className="btn-save"
+									onclick={() => dispatch('SAVE_ASSESSMENT_DETAILS')}
+								>
+									Save Changes
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -6199,6 +6457,16 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'CREATE_VERSION_ERROR'
 		}),
 
+		'MAKE_UPDATE_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-assessment', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'UPDATE_ASSESSMENT_SUCCESS',
+			errorActionType: 'UPDATE_ASSESSMENT_ERROR'
+		}),
+
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('=== CREATE_ASSESSMENT_SUCCESS DEBUG ===');
@@ -6396,6 +6664,191 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			dispatch('MAKE_CREATE_VERSION_REQUEST', {requestBody: requestBody});
+		},
+
+		'OPEN_ASSESSMENT_DETAILS': (coeffects) => {
+			const {updateState, state} = coeffects;
+
+			// Open the details panel with current assessment data
+			updateState({
+				assessmentDetailsPanel: {
+					isOpen: true,
+					useCase: state.currentAssessment?.use_case || '',
+					versionTitle: state.currentAssessment?.title || '',
+					useCaseCategory: state.currentAssessment?.use_case_category?.id || '',
+					useCaseCategoryName: state.currentAssessment?.use_case_category?.name || '',
+					usage: state.currentAssessment?.usage || '',
+					contentSource: state.currentAssessment?.content_source || '',
+					policyNumber: state.currentAssessment?.policy_number || '',
+					effectiveDate: state.currentAssessment?.effective_date || '',
+					endDate: state.currentAssessment?.end_date || '',
+					reviewDate: state.currentAssessment?.review_date || '',
+					nextReviewDate: state.currentAssessment?.next_review_date || '',
+					responseLogging: state.currentAssessment?.response_logging || false,
+					allowMcgContent: state.currentAssessment?.allow_mcg_content || false,
+					isEditable: state.currentAssessment?.status === 'draft'
+				}
+			});
+		},
+
+		'CLOSE_ASSESSMENT_DETAILS': (coeffects) => {
+			const {updateState} = coeffects;
+
+			updateState({
+				assessmentDetailsPanel: {
+					isOpen: false,
+					useCase: '',
+					versionTitle: '',
+					useCaseCategory: '',
+					useCaseCategoryName: '',
+					usage: '',
+					contentSource: '',
+					policyNumber: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: false,
+					allowMcgContent: false,
+					isEditable: false
+				}
+			});
+		},
+
+		'UPDATE_ASSESSMENT_DETAIL_FIELD': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {field, value} = action.payload;
+
+			updateState({
+				assessmentDetailsPanel: {
+					...state.assessmentDetailsPanel,
+					[field]: value
+				}
+			});
+		},
+
+		'SAVE_ASSESSMENT_DETAILS': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const panelData = state.assessmentDetailsPanel;
+
+			// Close panel and show saving message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving assessment details...',
+						timestamp: new Date().toISOString()
+					}
+				],
+				assessmentDetailsPanel: {
+					...panelData,
+					isOpen: false
+				}
+			});
+
+			// Make API call to save assessment details
+			const requestBody = JSON.stringify({
+				assessmentId: state.currentAssessmentId,
+				versionTitle: panelData.versionTitle,
+				useCaseCategory: panelData.useCaseCategory,
+				usage: panelData.usage,
+				contentSource: panelData.contentSource,
+				policyNumber: panelData.policyNumber,
+				effectiveDate: panelData.effectiveDate,
+				endDate: panelData.endDate,
+				reviewDate: panelData.reviewDate,
+				nextReviewDate: panelData.nextReviewDate,
+				responseLogging: panelData.responseLogging,
+				allowMcgContent: panelData.allowMcgContent
+			});
+
+			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
+		},
+
+		'UPDATE_ASSESSMENT_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Assessment details saved successfully',
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Reset panel state
+				assessmentDetailsPanel: {
+					isOpen: false,
+					useCase: '',
+					versionTitle: '',
+					useCaseCategory: '',
+					useCaseCategoryName: '',
+					usage: '',
+					contentSource: '',
+					policyNumber: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: false,
+					allowMcgContent: false,
+					isEditable: false
+				}
+			});
+
+			// Refresh assessment data to reflect server changes
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId,
+					assessmentTitle: state.currentAssessment?.title || 'Assessment'
+				});
+			}
+		},
+
+		'UPDATE_ASSESSMENT_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			// Extract error message from backend response
+			let errorMessage = 'Failed to save assessment details';
+			if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				],
+				// Reset panel state
+				assessmentDetailsPanel: {
+					isOpen: false,
+					useCase: '',
+					versionTitle: '',
+					useCaseCategory: '',
+					useCaseCategoryName: '',
+					usage: '',
+					contentSource: '',
+					policyNumber: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: false,
+					allowMcgContent: false,
+					isEditable: false
+				}
+			});
 		},
 
 		'CREATE_VERSION_SUCCESS': (coeffects) => {

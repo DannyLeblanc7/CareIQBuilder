@@ -998,3 +998,61 @@ createVersion: function(assessmentId, versionName, effectiveDate) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+updateAssessment: function(requestData) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the update assessment endpoint
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(requestData.assessmentId));
+        var r = this._createRESTMessage('Update Assessment', endpoint);
+
+        // Set method to PATCH
+        r.setHttpMethod('PATCH');
+
+        // Set up the payload
+        var payload = {};
+
+        // Map form fields to API payload
+        if (requestData.effectiveDate) payload.effective_date = requestData.effectiveDate;
+        if (requestData.endDate) payload.end_date = requestData.endDate;
+        if (requestData.reviewDate) payload.review_date = requestData.reviewDate;
+        if (requestData.nextReviewDate) payload.next_review_date = requestData.nextReviewDate;
+        if (requestData.useCaseCategory) payload.use_case_category_id = requestData.useCaseCategory;
+        if (requestData.usage) payload.usage = requestData.usage;
+        if (requestData.policyNumber) payload.policy_number = requestData.policyNumber;
+        if (requestData.versionTitle) payload.version_name = requestData.versionTitle;
+        if (requestData.contentSource) payload.content_source = requestData.contentSource;
+
+        // Handle boolean fields
+        if (requestData.allowMcgContent !== undefined) {
+            payload.mcg_content_enabled = requestData.allowMcgContent;
+        }
+        payload.select_all_enabled = false; // Default as shown in example
+
+        // Handle response logging settings
+        if (requestData.responseLogging !== undefined) {
+            payload.settings = {
+                store_responses: requestData.responseLogging ? "enabled" : "use_default"
+            };
+        }
+
+        this._logError('Update Assessment - Endpoint: ' + endpoint);
+        this._logError('Update Assessment - Payload: ' + JSON.stringify(payload));
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'UpdateAssessment');
+        this._logError('Update Assessment - Response: ' + response.getBody());
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateAssessment - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
