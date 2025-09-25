@@ -321,7 +321,14 @@ const view = (state, {updateState, dispatch}) => {
 											{isExpanded && versions && (
 												<div className="version-list">
 													{versions.map(version => (
-														<div key={version.id} className="version-card">
+														<div
+															key={version.id}
+															className="version-card clickable"
+															onclick={() => dispatch('OPEN_ASSESSMENT_BUILDER', {
+																assessmentId: version.id,
+																assessmentTitle: version.title
+															})}
+														>
 															<div className="version-header">
 																<span className="version-title">Version {version.version}</span>
 																<span className={`version-status ${version.status}`}>
@@ -443,11 +450,22 @@ const view = (state, {updateState, dispatch}) => {
 								</button>,
 								// Individual save buttons will be shown per question instead of holistic save
 							] : null}
-							{state.currentAssessment?.status === 'published' ? (
-								<span className="published-indicator">
+							{state.currentAssessment?.status === 'published' ? [
+								<span key="published-indicator" className="published-indicator">
 									📋 Published Version - Read Only
-								</span>
-							) : null}
+								</span>,
+								<button
+									key="create-new-version-btn"
+									className="create-new-version-btn"
+									onclick={() => dispatch('CREATE_NEW_VERSION', {
+										assessmentId: state.currentAssessmentId,
+										assessmentTitle: state.currentAssessment?.title,
+										currentVersion: state.currentAssessment?.version
+									})}
+								>
+									Create New Version
+								</button>
+							] : null}
 							<button 
 								className="close-builder-btn"
 								onclick={() => dispatch('CLOSE_ASSESSMENT_BUILDER')}
@@ -3028,7 +3046,66 @@ const view = (state, {updateState, dispatch}) => {
 					</div>
 				</div>
 			)}
-			
+
+			{/* Create New Version Modal */}
+			{state.createVersionModal?.isOpen && (
+				<div className="modal-overlay">
+					<div className="create-version-modal">
+						<div className="modal-header">
+							<div className="modal-title-group">
+								<h3>{state.createVersionModal.assessmentTitle}</h3>
+								<p className="modal-subtitle">Policy: {state.createVersionModal.policyNumber}</p>
+							</div>
+						</div>
+						<div className="modal-body">
+							<div className="form-group">
+								<label htmlFor="versionName">Version Name:</label>
+								<input
+									id="versionName"
+									type="text"
+									className="form-input"
+									value={state.createVersionModal.versionName || ''}
+									oninput={(e) => dispatch('UPDATE_VERSION_MODAL_FIELD', {
+										field: 'versionName',
+										value: e.target.value
+									})}
+									placeholder="Enter version name"
+									autoFocus
+								/>
+							</div>
+							<div className="form-group">
+								<label htmlFor="effectiveDate">Effective Date:</label>
+								<input
+									id="effectiveDate"
+									type="date"
+									className="form-input"
+									value={state.createVersionModal.effectiveDate || ''}
+									oninput={(e) => dispatch('UPDATE_VERSION_MODAL_FIELD', {
+										field: 'effectiveDate',
+										value: e.target.value
+									})}
+								/>
+							</div>
+						</div>
+						<div className="modal-footer">
+							<button
+								className="btn-cancel"
+								onclick={() => dispatch('CANCEL_CREATE_VERSION')}
+							>
+								Cancel
+							</button>
+							<button
+								className="btn-save"
+								onclick={() => dispatch('SUBMIT_CREATE_VERSION')}
+								disabled={!state.createVersionModal.versionName || !state.createVersionModal.effectiveDate}
+							>
+								Create New Version
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Edit Modal */}
 			{state.modalOpen && (
 				<div className="modal-overlay" style={{
@@ -6112,6 +6189,16 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'CREATE_ASSESSMENT_ERROR'
 		}),
 
+		'MAKE_CREATE_VERSION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-version', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'CREATE_VERSION_SUCCESS',
+			errorActionType: 'CREATE_VERSION_ERROR'
+		}),
+
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('=== CREATE_ASSESSMENT_SUCCESS DEBUG ===');
@@ -6222,6 +6309,173 @@ createCustomElement('cadal-careiq-builder', {
 					...state.newAssessmentForm,
 					isCreating: false
 				},
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_NEW_VERSION': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {assessmentId, assessmentTitle, currentVersion} = action.payload;
+
+			// Open the modal with pre-populated data - use full assessment title as version name
+			updateState({
+				createVersionModal: {
+					isOpen: true,
+					assessmentId: assessmentId,
+					assessmentTitle: assessmentTitle,
+					policyNumber: state.currentAssessment?.policy_number || '',
+					versionName: assessmentTitle || '',
+					effectiveDate: state.currentAssessment?.effective_date || ''
+				}
+			});
+		},
+
+		'UPDATE_VERSION_MODAL_FIELD': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {field, value} = action.payload;
+
+			updateState({
+				createVersionModal: {
+					...state.createVersionModal,
+					[field]: value
+				}
+			});
+		},
+
+		'CANCEL_CREATE_VERSION': (coeffects) => {
+			const {updateState} = coeffects;
+
+			updateState({
+				createVersionModal: {
+					isOpen: false,
+					assessmentId: null,
+					assessmentTitle: '',
+					policyNumber: '',
+					versionName: '',
+					effectiveDate: ''
+				}
+			});
+		},
+
+		'SUBMIT_CREATE_VERSION': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const modalData = state.createVersionModal;
+
+			// Close modal and show loading message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: `Creating new version "${modalData.versionName}"...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				createVersionModal: {
+					isOpen: false,
+					assessmentId: null,
+					assessmentTitle: '',
+					policyNumber: '',
+					versionName: '',
+					effectiveDate: ''
+				}
+			});
+
+			// Make API call to create version
+			const requestBody = JSON.stringify({
+				assessmentId: state.currentAssessmentId,
+				versionName: modalData.versionName,
+				effectiveDate: modalData.effectiveDate
+			});
+
+			dispatch('MAKE_CREATE_VERSION_REQUEST', {requestBody: requestBody});
+		},
+
+		'CREATE_VERSION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			// Debug logging to see the actual response structure
+			console.log('=== CREATE_VERSION_SUCCESS DEBUG ===');
+			console.log('Full action payload:', action.payload);
+			console.log('Payload type:', typeof action.payload);
+			console.log('Payload keys:', action.payload ? Object.keys(action.payload) : 'null');
+			console.log('=====================================');
+
+			// Check if this is actually an error response disguised as success
+			if (action.payload && (action.payload.detail || action.payload.error)) {
+				const errorMessage = action.payload.detail || action.payload.error;
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: errorMessage,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Parse the response to get the new version ID
+			let newVersionId = null;
+			if (action.payload && action.payload.id) {
+				newVersionId = action.payload.id;
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'New version created successfully',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Open the new version in the builder
+			if (newVersionId) {
+				dispatch('OPEN_ASSESSMENT_BUILDER', {
+					assessmentId: newVersionId,
+					assessmentTitle: 'Assessment' // Will be fetched fresh
+				});
+			} else {
+				// Fallback if no ID returned - show error
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Version created but could not open - no ID returned',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
+		},
+
+		'CREATE_VERSION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			// Extract error message from backend response
+			let errorMessage = 'Failed to create new version';
+			if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			}
+
+			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{

@@ -958,3 +958,43 @@ addInterventionToGoal: function(goalId, interventionText, category, guidelineTem
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// VERSION OPERATIONS
+
+createVersion: function(assessmentId, versionName, effectiveDate) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the create version endpoint
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(assessmentId) + '/status');
+        var r = this._createRESTMessage('Create Version', endpoint);
+
+        // Set method to POST (for status endpoint)
+        r.setHttpMethod('POST');
+
+        // Set up the payload
+        var payload = {
+            status: "draft",
+            effective_date: effectiveDate,
+            version_name: versionName
+        };
+
+        this._logError('Create Version - Endpoint: ' + endpoint);
+        this._logError('Create Version - Payload: ' + JSON.stringify(payload));
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'CreateVersion');
+        this._logError('Create Version - Response: ' + response.getBody());
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('CreateVersion - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
