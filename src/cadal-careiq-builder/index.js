@@ -498,7 +498,7 @@ const view = (state, {updateState, dispatch}) => {
 					)}
 					
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
-						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''}`}>
+						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''} ${state.questionsPanelExpanded ? 'questions-expanded' : ''}`}>
 							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`}>
 								<div className="sections-header">
 									<div className="sections-title-container">
@@ -934,13 +934,24 @@ const view = (state, {updateState, dispatch}) => {
 								)}
 							</div>
 							
-							<div className="questions-panel">
-								<h3>
-									{state.selectedSectionLabel ?
-										`Questions - ${state.selectedSectionLabel}` :
-										'Questions & Problems'
-									}
-								</h3>
+							<div className={`questions-panel ${state.questionsPanelExpanded ? 'expanded' : ''}`}>
+								<div className="questions-header">
+									<div className="questions-title-container">
+										<button
+											className="expand-questions-btn"
+											onclick={() => dispatch('TOGGLE_QUESTIONS_PANEL')}
+											title={state.questionsPanelExpanded ? 'Collapse questions panel' : 'Expand questions panel'}
+										>
+											<span className={state.questionsPanelExpanded ? 'expand-icon expanded' : 'expand-icon'}>⤢</span>
+										</button>
+										<h3>
+											{state.selectedSectionLabel ?
+												`Questions - ${state.selectedSectionLabel}` :
+												'Questions & Problems'
+											}
+										</h3>
+									</div>
+								</div>
 
 								{state.selectedScoringModel && (
 									<div className="scoring-model-indicator" style={{
@@ -6261,6 +6272,7 @@ createCustomElement('cadal-careiq-builder', {
 		creatingScoringModel: false, // Loading state for creating scoring model
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
+		questionsPanelExpanded: false, // Toggle for expanded questions panel
 		// Add relationship state
 		addingRelationship: null, // answerId when adding relationship to that answer
 		selectedRelationshipType: null, // 'question', 'problem', 'barrier', 'guideline'
@@ -6414,6 +6426,13 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state} = coeffects;
 			updateState({
 				sectionsPanelExpanded: !state.sectionsPanelExpanded
+			});
+		},
+
+		'TOGGLE_QUESTIONS_PANEL': (coeffects) => {
+			const {updateState, state} = coeffects;
+			updateState({
+				questionsPanelExpanded: !state.questionsPanelExpanded
 			});
 		},
 		
