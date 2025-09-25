@@ -1228,3 +1228,45 @@ deleteScoringModel: function(guidelineTemplateId, modelId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+saveScoringModelValue: function(scoringModelId, guidelineTemplateId, label, scoringType, answerId, value) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/scoring_model/' + encodeURIComponent(scoringModelId));
+        var r = this._createRESTMessage('Save Scoring Model Value', endpoint);
+        r.setHttpMethod('PATCH');
+
+        // Build the payload with the single answer value
+        var payload = {
+            guideline_template_id: guidelineTemplateId,
+            label: label,
+            scoring_type: scoringType,
+            values: [
+                {
+                    answer_id: answerId,
+                    value: value
+                }
+            ]
+        };
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'SaveScoringModelValue');
+
+        // Handle 204 No Content response
+        if (response.getStatusCode() === 204) {
+            return '{"success": true, "message": "Scoring model value saved successfully"}';
+        }
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('SaveScoringModelValue - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

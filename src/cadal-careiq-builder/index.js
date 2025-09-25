@@ -960,12 +960,48 @@ const view = (state, {updateState, dispatch}) => {
 							
 							<div className="questions-panel">
 								<h3>
-									{state.selectedSectionLabel ? 
-										`Questions - ${state.selectedSectionLabel}` : 
+									{state.selectedSectionLabel ?
+										`Questions - ${state.selectedSectionLabel}` :
 										'Questions & Problems'
 									}
 								</h3>
-								
+
+								{state.selectedScoringModel && (
+									<div className="scoring-model-indicator" style={{
+										padding: '8px 12px',
+										backgroundColor: '#e3f2fd',
+										border: '1px solid #2196f3',
+										borderRadius: '4px',
+										marginBottom: '16px',
+										fontSize: '14px',
+										fontWeight: '500',
+										color: '#1976d2',
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'space-between'
+									}}>
+										<span>📊 Now editing: {state.selectedScoringModel.label}</span>
+										<button
+											className="exit-scoring-btn"
+											onclick={() => dispatch('EXIT_SCORING_MODE')}
+											title="Exit scoring mode"
+											style={{
+												background: 'none',
+												border: 'none',
+												color: '#1976d2',
+												cursor: 'pointer',
+												padding: '2px',
+												borderRadius: '2px',
+												display: 'flex',
+												alignItems: 'center',
+												justifyContent: 'center'
+											}}
+										>
+											<XIcon />
+										</button>
+									</div>
+								)}
+
 								{state.questionsLoading && (
 									<div className="questions-loading">
 										🔄 Loading questions...
@@ -1573,6 +1609,60 @@ const view = (state, {updateState, dispatch}) => {
 																						</div>
 																					)}
 																				</div>
+
+																				{/* Score input box for Single Select and Multiselect questions when scoring model is selected */}
+																				{state.selectedScoringModel && (question.type === 'Single Select' || question.type === 'Multiselect') && (
+																					<div className="score-input-container" style={{
+																						marginLeft: '8px',
+																						display: 'flex',
+																						alignItems: 'center',
+																						gap: '4px'
+																					}}>
+																						<label style={{
+																							fontSize: '12px',
+																							color: '#666',
+																							whiteSpace: 'nowrap'
+																						}}>
+																							Score:
+																						</label>
+																						<input
+																							type="number"
+																							className="answer-score-input"
+																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
+																							placeholder="0"
+																							style={{
+																								width: '60px',
+																								padding: '4px 6px',
+																								border: '1px solid #ccc',
+																								borderRadius: '3px',
+																								fontSize: '12px',
+																								textAlign: 'center'
+																							}}
+																							oninput={(e) => {
+																								const score = e.target.value;
+																								dispatch('UPDATE_ANSWER_SCORE', {
+																									answerId: answer.ids.id,
+																									score: score
+																								});
+																							}}
+																							onblur={(e) => {
+																								// Auto-save the score when user finishes editing
+																								const score = e.target.value;
+																								dispatch('SAVE_ANSWER_SCORE', {
+																									answerId: answer.ids.id,
+																									score: score
+																								});
+																							}}
+																							onclick={(e) => {
+																								e.stopPropagation();
+																							}}
+																							onmousedown={(e) => {
+																								e.stopPropagation();
+																							}}
+																						/>
+																					</div>
+																				)}
+
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
@@ -2355,6 +2445,60 @@ const view = (state, {updateState, dispatch}) => {
 																						</div>
 																					)}
 																				</div>
+
+																				{/* Score input box for Single Select and Multiselect questions when scoring model is selected */}
+																				{state.selectedScoringModel && (question.type === 'Single Select' || question.type === 'Multiselect') && (
+																					<div className="score-input-container" style={{
+																						marginLeft: '8px',
+																						display: 'flex',
+																						alignItems: 'center',
+																						gap: '4px'
+																					}}>
+																						<label style={{
+																							fontSize: '12px',
+																							color: '#666',
+																							whiteSpace: 'nowrap'
+																						}}>
+																							Score:
+																						</label>
+																						<input
+																							type="number"
+																							className="answer-score-input"
+																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
+																							placeholder="0"
+																							style={{
+																								width: '60px',
+																								padding: '4px 6px',
+																								border: '1px solid #ccc',
+																								borderRadius: '3px',
+																								fontSize: '12px',
+																								textAlign: 'center'
+																							}}
+																							oninput={(e) => {
+																								const score = e.target.value;
+																								dispatch('UPDATE_ANSWER_SCORE', {
+																									answerId: answer.ids.id,
+																									score: score
+																								});
+																							}}
+																							onblur={(e) => {
+																								// Auto-save the score when user finishes editing
+																								const score = e.target.value;
+																								dispatch('SAVE_ANSWER_SCORE', {
+																									answerId: answer.ids.id,
+																									score: score
+																								});
+																							}}
+																							onclick={(e) => {
+																								e.stopPropagation();
+																							}}
+																							onmousedown={(e) => {
+																								e.stopPropagation();
+																							}}
+																						/>
+																					</div>
+																				)}
+
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
@@ -6107,7 +6251,8 @@ const view = (state, {updateState, dispatch}) => {
 											) : (
 												<div className="scoring-models-list">
 													{state.scoringModels.map((model, index) => (
-														<div key={model.id || index} className="scoring-model-item">
+														<div key={model.id || index} className="scoring-model-item"
+															onclick={() => dispatch('SELECT_SCORING_MODEL', { model: model })}>
 															<div className="model-row">
 																<div className="model-info">
 																	<div className="model-name">
@@ -6119,10 +6264,13 @@ const view = (state, {updateState, dispatch}) => {
 																</div>
 																<button
 																	className="delete-model-btn"
-																	onclick={() => dispatch('DELETE_SCORING_MODEL', {
-																		modelId: model.id,
-																		modelLabel: model.label
-																	})}
+																	onclick={(e) => {
+																		e.stopPropagation();
+																		dispatch('DELETE_SCORING_MODEL', {
+																			modelId: model.id,
+																			modelLabel: model.label
+																		});
+																	}}
 																	title={`Delete scoring model: ${model.label}`}
 																>
 																	<XIcon />
@@ -6194,6 +6342,7 @@ createCustomElement('cadal-careiq-builder', {
 		scoringPanelOpen: false, // Toggle for scoring models side panel
 		scoringModels: null, // Array of scoring models for current assessment
 		scoringModelsLoading: false, // Loading state for scoring models
+		selectedScoringModel: null, // Currently selected scoring model for editing
 		showCreateScoringModel: false, // Toggle for create scoring model form
 		newScoringModelLabel: '', // Label input for new scoring model
 		creatingScoringModel: false, // Loading state for creating scoring model
@@ -8086,6 +8235,10 @@ createCustomElement('cadal-careiq-builder', {
 					console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Secondary input type:', answer.secondary_input_type);
 					if (answer.triggered_questions && answer.triggered_questions.length > 0) {
 						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Triggers:', answer.triggered_questions);
+					}
+					// Debug: log scoring data if it exists
+					if (answer.scoring) {
+						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}) SCORING:`, answer.scoring);
 					}
 				});
 			});
@@ -10249,6 +10402,17 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
+		'MAKE_SAVE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-scoring-model', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'SAVE_SCORING_MODEL_SUCCESS',
+			errorActionType: 'SAVE_SCORING_MODEL_ERROR',
+			metaParam: 'meta'
+		}),
+
 		'DELETE_SCORING_MODEL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const modelLabel = action.meta?.modelLabel || 'Scoring model';
@@ -10286,6 +10450,79 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: `Failed to delete ${modelLabel}: ` + (action.payload?.error || 'Unknown error'),
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SAVE_SCORING_MODEL_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const originalRequest = action.payload?.originalRequest || {};
+
+			console.log('Scoring model value saved successfully:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Score saved successfully',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SAVE_SCORING_MODEL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('Failed to save scoring model value:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'SELECT_SCORING_MODEL': (coeffects) => {
+			const {updateState, state} = coeffects;
+			const {model} = coeffects.action.payload;
+
+			console.log('Selecting scoring model for editing:', model);
+
+			updateState({
+				selectedScoringModel: model,
+				scoringPanelOpen: false, // Close the scoring panel
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Now editing scores for: ${model.label}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'EXIT_SCORING_MODE': (coeffects) => {
+			const {updateState, state} = coeffects;
+
+			console.log('Exiting scoring mode');
+
+			updateState({
+				selectedScoringModel: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Exited scoring mode',
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -15183,6 +15420,103 @@ createCustomElement('cadal-careiq-builder', {
 						label: newLabel
 					}
 				}
+			});
+		},
+
+		'UPDATE_ANSWER_SCORE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {answerId, score} = action.payload;
+
+			if (!state.selectedScoringModel) {
+				console.warn('No scoring model selected, cannot update score');
+				return;
+			}
+
+			const selectedModelId = state.selectedScoringModel.id;
+			console.log('Updating answer score:', answerId, 'Model:', selectedModelId, 'New score:', score);
+
+			// Update the answer score in the scoring object for the selected model
+			const updatedQuestions = {
+				...state.currentQuestions,
+				questions: state.currentQuestions.questions.map(question => ({
+					...question,
+					answers: question.answers?.map(answer => {
+						if (answer.ids.id === answerId) {
+							return {
+								...answer,
+								scoring: {
+									...answer.scoring,
+									[selectedModelId]: score || null
+								}
+							};
+						}
+						return answer;
+					}) || []
+				}))
+			};
+
+			updateState({
+				currentQuestions: updatedQuestions
+			});
+		},
+
+		'SAVE_ANSWER_SCORE': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {answerId, score} = action.payload;
+
+			if (!state.selectedScoringModel) {
+				console.warn('No scoring model selected, cannot save score');
+				return;
+			}
+
+			if (!state.careiqConfig || !state.accessToken) {
+				console.warn('Missing configuration or token, cannot save score');
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save score: Missing configuration',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+			const selectedModel = state.selectedScoringModel;
+
+			console.log('Auto-saving answer score:', {
+				answerId,
+				score,
+				scoringModelId: selectedModel.id,
+				scoringModelLabel: selectedModel.label
+			});
+
+			// Convert score to string as required by API
+			const scoreString = score ? String(score) : "";
+
+			// Build request payload - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				app: config.app,
+				scoring_model_id: selectedModel.id,
+				guideline_template_id: state.currentAssessmentId,
+				label: selectedModel.label,
+				scoring_type: selectedModel.scoring_type,
+				answer_id: answerId,
+				value: scoreString
+			});
+
+			console.log('Save scoring model request body:', requestBody);
+
+			dispatch('MAKE_SAVE_SCORING_MODEL_REQUEST', {
+				requestBody: requestBody,
+				meta: { answerId: answerId, score: score }
 			});
 		},
 
