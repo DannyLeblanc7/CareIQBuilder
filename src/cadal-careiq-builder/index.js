@@ -1277,34 +1277,64 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Date" selected={question.type === 'Date'}>Date</option>
 																	<option value="Numeric" selected={question.type === 'Numeric'}>Numeric</option>
 																</select>
-																{question.isUnsaved && (
-																	<button
-																		className="save-question-btn"
-																		title="Save Question"
+																{question.isUnsaved && [
+																	<div
+																		key="save-cancel-buttons"
 																		style={{
-																			backgroundColor: '#28a745',
-																			color: 'white',
-																			border: 'none',
-																			borderRadius: '3px',
-																			padding: '4px 8px',
+																			display: 'flex',
+																			flexDirection: 'column',
+																			gap: '2px',
 																			marginRight: '5px',
-																			cursor: 'pointer',
-																			fontSize: '12px',
 																			...(state.isMobileView ? {
 																				flexShrink: '0',
-																				minWidth: '40px',
 																				marginBottom: '0.5rem'
 																			} : {})
 																		}}
-																		onclick={() => {
-																			dispatch('SAVE_QUESTION_IMMEDIATELY', {
-																				questionId: question.ids.id
-																			});
-																		}}
 																	>
-																		💾 Save
-																	</button>
-																)}
+																		<button
+																			className="save-question-btn"
+																			title="Save Question"
+																			style={{
+																				backgroundColor: '#28a745',
+																				color: 'white',
+																				border: 'none',
+																				borderRadius: '3px',
+																				padding: '4px 8px',
+																				cursor: 'pointer',
+																				fontSize: '12px',
+																				width: '100%'
+																			}}
+																			onclick={() => {
+																				dispatch('SAVE_QUESTION_IMMEDIATELY', {
+																					questionId: question.ids.id
+																				});
+																			}}
+																		>
+																			💾 Save
+																		</button>
+																		<button
+																			className="cancel-question-btn"
+																			title="Cancel Changes"
+																			style={{
+																				backgroundColor: '#6c757d',
+																				color: 'white',
+																				border: 'none',
+																				borderRadius: '3px',
+																				padding: '4px 8px',
+																				cursor: 'pointer',
+																				fontSize: '11px',
+																				width: '100%'
+																			}}
+																			onclick={() => {
+																				dispatch('CANCEL_QUESTION_CHANGES', {
+																					questionId: question.ids.id
+																				});
+																			}}
+																		>
+																			↶ Cancel
+																		</button>
+																	</div>
+																]}
 																<button
 																	className="delete-question-btn"
 																	title="Delete Question"
@@ -11053,6 +11083,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
 			const interventionSearchContext = state.currentInterventionSearchContext;
+			const questionSearchContext = state.currentQuestionSearchContext;
 			const preSaveGoalContext = state.preSaveGoalContext;
 			const preSaveProblemContext = state.preSaveProblemContext;
 			// Check if this is a pre-save exact match check for goals
@@ -11270,6 +11301,60 @@ createCustomElement('cadal-careiq-builder', {
 					}
 					// DON'T clear context - let it be cleared by blur/escape events
 				});
+			} else if (questionSearchContext && questionSearchContext.contentType === 'question') {
+				// Question typeahead using generic endpoint with stored context pattern
+				// Apply same filtering logic as original QUESTION_SEARCH_SUCCESS
+				if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
+					// Filter out the current question (the one this answer belongs to)
+					const answerId = state.relationshipModalAnswerId;
+					const currentQuestionId = state.currentQuestions?.questions?.find(q =>
+						q.answers?.some(a => a.ids.id === answerId)
+					)?.ids?.id;
+
+					// Also filter out questions that already have relationships with this answer
+					const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
+
+					const filteredResults = results.filter(question => {
+						// Don't show the current question
+						if (question.id === currentQuestionId) {
+							return false;
+						}
+						// Don't show questions that already have relationships
+						if (existingQuestionIds.includes(question.id)) {
+							return false;
+						}
+						return true;
+					});
+
+					updateState({
+						relationshipTypeaheadResults: filteredResults,
+						relationshipTypeaheadLoading: false
+					});
+				} else {
+					// Regular question typeahead (not in relationship modal)
+					updateState({
+						questionTypeaheadResults: results,
+						questionTypeaheadLoading: false
+					});
+				}
+				// DON'T clear context - let it be cleared by blur/escape events like goals/interventions
+			} else if (state.currentAnswerSearchQuestionId) {
+				// Answer typeahead using generic endpoint
+				// Apply same filtering logic as original ANSWER_SEARCH_SUCCESS
+				if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
+					// This is for relationship modal - use relationship typeahead state
+					updateState({
+						relationshipTypeaheadResults: results,
+						relationshipTypeaheadLoading: false
+					});
+				} else {
+					// Regular answer typeahead (not in relationship modal)
+					updateState({
+						answerTypeaheadResults: results,
+						answerTypeaheadLoading: false,
+						answerTypeaheadVisible: true
+					});
+				}
 			} else {
 				// Default to relationship typeahead
 				updateState({
@@ -11286,6 +11371,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
 			const interventionSearchContext = state.currentInterventionSearchContext;
+			const questionSearchContext = state.currentQuestionSearchContext;
 
 			// Handle goal-specific error states
 			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
@@ -11332,6 +11418,38 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					]
 				});
+			} else if (questionSearchContext && questionSearchContext.contentType === 'question') {
+				// Question search error with stored context pattern
+				updateState({
+					questionTypeaheadResults: [],
+					questionTypeaheadLoading: false,
+					currentQuestionSearchSectionId: null,
+					currentQuestionSearchContext: null, // Clear context after use
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Error searching questions: ${action.payload?.error || 'Unknown error'}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			} else if (state.currentAnswerSearchQuestionId) {
+				// Answer search error
+				updateState({
+					answerTypeaheadResults: [],
+					answerTypeaheadLoading: false,
+					answerTypeaheadVisible: false,
+					currentAnswerSearchQuestionId: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Error searching answers: ${action.payload?.error || 'Unknown error'}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
 			} else {
 				updateState({
 					relationshipTypeaheadResults: [],
@@ -11359,15 +11477,6 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-'MAKE_QUESTION_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/question-typeahead', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'QUESTION_SEARCH_SUCCESS',
-			errorActionType: 'QUESTION_SEARCH_ERROR'
-		}),
 
 		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-library-question', {
 			method: 'POST',
@@ -11380,15 +11489,6 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ANSWER_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'ANSWER_SEARCH_SUCCESS',
-			errorActionType: 'ANSWER_SEARCH_ERROR'
-		}),
 
 		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/library-answer-details', {
 			method: 'POST',
@@ -11401,63 +11501,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'QUESTION_SEARCH_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			const results = action.payload.results || [];
-			// Check if this is for relationship modal or inline editing
-			if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
-				// Filter out the current question (the one this answer belongs to)
-				const answerId = state.relationshipModalAnswerId;
-				const currentQuestionId = state.currentQuestions?.questions?.find(q =>
-					q.answers?.some(a => a.ids.id === answerId)
-				)?.ids?.id;
 
-				// Also filter out questions that already have relationships with this answer
-				const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
-
-				const filteredResults = results.filter(question => {
-					// Don't show the current question
-					if (question.id === currentQuestionId) {
-						return false;
-					}
-					// Don't show already related questions
-					if (existingQuestionIds.includes(question.id)) {
-						return false;
-					}
-					return true;
-				});
-				updateState({
-					relationshipTypeaheadResults: filteredResults,
-					relationshipTypeaheadLoading: false
-				});
-			} else {
-				// Inline editing context - use existing logic
-				updateState({
-					questionTypeaheadResults: results,
-					questionTypeaheadLoading: false
-				});
-			}
-		},
-
-		'QUESTION_SEARCH_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-
-			console.error('QUESTION_SEARCH_ERROR:', action.payload);
-
-			updateState({
-				questionTypeaheadResults: [],
-				questionTypeaheadLoading: false,
-				currentQuestionSearchSectionId: null,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Error searching questions: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
 		'LIBRARY_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
@@ -11508,35 +11552,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'ANSWER_SEARCH_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			const results = action.payload.results || [];
-			updateState({
-				answerTypeaheadResults: results,
-				answerTypeaheadLoading: false,
-				answerTypeaheadVisible: true
-			});
-		},
 
-		'ANSWER_SEARCH_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-
-			console.error('ANSWER_SEARCH_ERROR:', action.payload);
-
-			updateState({
-				answerTypeaheadResults: [],
-				answerTypeaheadLoading: false,
-				answerTypeaheadVisible: false,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Error searching answers: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
 		'LIBRARY_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
@@ -12030,14 +12046,30 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, sectionId} = action.payload;
 			const requestBody = JSON.stringify({
-				searchText: searchText
+				searchText: searchText,
+				contentType: 'question'
 			});
+
+			// Use same pattern as goals/interventions for reliable context storage
+			const questionSearchContext = {
+				contentType: 'question',
+				sectionId: sectionId,
+				searchText: searchText
+			};
 
 			updateState({
 				questionTypeaheadLoading: true,
-				currentQuestionSearchSectionId: sectionId
+				currentQuestionSearchSectionId: sectionId,
+				currentQuestionSearchContext: questionSearchContext  // Store context like goals/interventions
 			});
-			dispatch('MAKE_QUESTION_SEARCH_REQUEST', {requestBody: requestBody});
+			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					searchText: searchText,
+					contentType: 'question',
+					sectionId: sectionId
+				}
+			});
 		},
 
 		'QUESTION_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
@@ -15769,6 +15801,63 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
+		'CANCEL_QUESTION_CHANGES': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+
+			// Find the original question data to restore from
+			// Option 1: If we have a server backup, use it
+			// Option 2: Reload the section to get fresh data
+			// For now, let's reload the section to get the original data
+
+			if (confirm('Are you sure you want to cancel all changes to this question? This will reload the current data from the server.')) {
+				// Clear any question-specific change tracking
+				const updatedQuestionChanges = {...state.questionChanges};
+				const updatedAnswerChanges = {...state.answerChanges};
+
+				// Remove changes related to this question
+				delete updatedQuestionChanges[questionId];
+
+				// Remove answer changes related to this question
+				Object.keys(updatedAnswerChanges).forEach(answerId => {
+					const answerChange = updatedAnswerChanges[answerId];
+					// Check if this answer change belongs to the question being canceled
+					const belongsToQuestion = state.currentQuestions.questions
+						.find(q => q.ids.id === questionId)
+						?.answers?.some(a => a.ids.id === answerId);
+
+					if (belongsToQuestion || answerChange.question_id === questionId) {
+						delete updatedAnswerChanges[answerId];
+					}
+				});
+
+				updateState({
+					questionChanges: updatedQuestionChanges,
+					answerChanges: updatedAnswerChanges,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'warning',
+							message: 'Question changes cancelled. Refreshing section data from server...',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Reload section to get fresh data from server
+				if (state.selectedSection) {
+					dispatch('FETCH_SECTION_QUESTIONS', {
+						sectionId: state.selectedSection,
+						sectionLabel: state.selectedSectionLabel
+					});
+				}
+			}
+		},
+
 		// Typeahead functionality for sections
 		'SECTION_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
@@ -15892,7 +15981,8 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, answerId} = action.payload;
 			const requestBody = JSON.stringify({
-				searchText: searchText
+				searchText: searchText,
+				contentType: 'answer'
 			});
 
 			updateState({
@@ -15900,8 +15990,13 @@ createCustomElement('cadal-careiq-builder', {
 				currentAnswerSearchQuestionId: answerId
 			});
 
-			dispatch('MAKE_ANSWER_SEARCH_REQUEST', {
-				requestBody: requestBody
+			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					searchText: searchText,
+					contentType: 'answer',
+					answerId: answerId
+				}
 			});
 		},
 
