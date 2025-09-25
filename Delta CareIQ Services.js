@@ -999,6 +999,60 @@ addInterventionToGoal: function(goalId, interventionText, category, guidelineTem
     }
 },
 
+getInterventionDetails: function(interventionId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/intervention/' + encodeURIComponent(interventionId));
+        var r = this._createRESTMessage('Get Intervention Details', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetInterventionDetails');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetInterventionDetails - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+updateIntervention: function(interventionId, label, tooltip, alternativeWording, category, goalId, required, customAttributes) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/intervention/' + encodeURIComponent(interventionId));
+        var r = this._createRESTMessage('Update Intervention', endpoint);
+        r.setHttpMethod('PATCH');
+
+        // Build request payload to match CareIQ API expectations
+        var payload = {
+            label: label,
+            tooltip: tooltip || '',
+            alternative_wording: alternativeWording || '',
+            category: category || 'assist',
+            goal_id: goalId,
+            required: required || false,
+            custom_attributes: customAttributes || {}
+        };
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'UpdateIntervention');
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateIntervention - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
 // VERSION OPERATIONS
 
 createVersion: function(assessmentId, versionName, effectiveDate) {

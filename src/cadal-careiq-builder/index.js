@@ -304,6 +304,20 @@ const view = (state, {updateState, dispatch}) => {
 															{isExpanded ? '−' : '+'}
 														</span>
 													</div>
+
+													{/* Test SVG Icons */}
+													<div style={{display: 'flex', gap: '8px', alignItems: 'center', marginLeft: '12px'}}>
+														<button style={{background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+															<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
+																<path attrs={{d: "M13.485 3.429a1 1 0 0 1 0 1.414L6.707 11.62a1 1 0 0 1-1.414 0L2.515 8.843a1 1 0 1 1 1.414-1.414L6 9.5a1 1 0 0 1 0 0l6.071-6.071a1 1 0 0 1 1.414 0z"}} />
+															</svg>
+														</button>
+														<button style={{background: '#ef4444', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+															<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
+																<path attrs={{d: "M3.646 3.646a1 1 0 0 1 1.414 0L8 6.586l2.94-2.94a1 1 0 1 1 1.414 1.414L9.414 8l2.94 2.94a1 1 0 0 1-1.414 1.414L8 9.414l-2.94 2.94a1 1 0 0 1-1.414-1.414L6.586 8 3.646 5.06a1 1 0 0 1 0-1.414z"}} />
+															</svg>
+														</button>
+													</div>
 												</div>
 												<div className="assessment-card-body">
 													<p className="assessment-policy">Policy: {assessment.policy_number}</p>
@@ -4798,29 +4812,8 @@ const view = (state, {updateState, dispatch}) => {
 																							state.expandedGoals[goal.id] && (
 																								<div key={`interventions-${goalIndex}`} className="interventions-container" style={{marginLeft: '24px', marginTop: '12px', marginBottom: '16px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px', backgroundColor: '#fafbfc', borderRadius: '6px', padding: '12px'}}>
 																									{/* Interventions Header */}
-																									<div style={{marginBottom: '12px', fontSize: '14px', color: '#374151', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px'}}>
+																									<div style={{marginBottom: '12px', fontSize: '14px', color: '#374151', fontWeight: '600'}}>
 																										Interventions
-																										<button
-																											style={{
-																												background: '#3b82f6',
-																												color: 'white',
-																												border: 'none',
-																												borderRadius: '4px',
-																												padding: '4px 8px',
-																												fontSize: '12px',
-																												cursor: 'pointer',
-																												fontWeight: '500'
-																											}}
-																											title="Refresh interventions"
-																											onclick={() => {
-																												dispatch('LOAD_GOAL_INTERVENTIONS', {
-																													goalId: goal.id,
-																													guidelineTemplateId: state.currentAssessmentId
-																												});
-																											}}
-																										>
-																											🔄 Refresh
-																										</button>
 																									</div>
 
 																									{/* Existing Interventions */}
@@ -4839,53 +4832,228 @@ const view = (state, {updateState, dispatch}) => {
 																										if (goalInterventions && goalInterventions.length > 0) {
 																											return (
 																												<div className="existing-interventions" style={{marginBottom: '12px'}}>
-																													{goalInterventions.map((intervention, interventionIndex) => (
-																														<div key={interventionIndex} className="intervention-item" style={{
-																															display: 'flex',
-																															alignItems: 'center',
-																															marginBottom: '8px',
-																															fontSize: '14px',
-																															padding: '8px 12px',
-																															backgroundColor: '#ffffff',
-																															border: '1px solid #e5e7eb',
-																															borderRadius: '6px',
-																															boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-																														}}>
-																															<span
-																																className="intervention-label"
-																																style={{flex: 1, color: '#374151', fontWeight: '500'}}
-																															>
-																																{intervention.label}
-																															</span>
-																															<span
-																																className="intervention-category"
-																																style={{
-																																	marginLeft: '8px',
-																																	fontSize: '12px',
-																																	padding: '2px 6px',
-																																	backgroundColor: '#e0f2fe',
-																																	color: '#0369a1',
-																																	borderRadius: '4px',
-																																	fontWeight: '500'
-																																}}
-																															>
-																																{intervention.category}
-																															</span>
-																															<button
-																																className="delete-intervention-btn"
-																																style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
-																																title="Delete intervention"
-																																onclick={() => dispatch('DELETE_INTERVENTION', {
-																																	answerId: state.relationshipModalAnswerId,
-																																	interventionId: intervention.id,
-																																	interventionName: intervention.label,
-																																	goalId: goal.id
-																																})}
-																															>
-																																✕
-																															</button>
-																														</div>
-																													))}
+																													{goalInterventions.map((intervention, interventionIndex) => {
+																														// Check if this intervention is being edited
+																														const isEditing = state.editingInterventionId === intervention.id;
+																														const isLoading = state.interventionDetailsLoading === intervention.id;
+
+																														return isEditing ? (
+																															// Edit form for intervention
+																															<div key={interventionIndex} className="intervention-edit-form" style={{
+																																marginBottom: '12px',
+																																padding: '12px',
+																																backgroundColor: '#f9fafb',
+																																border: '2px solid #3b82f6',
+																																borderRadius: '6px'
+																															}}>
+																																<div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+																																	<div>
+																																		<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																																			Intervention Text
+																																		</label>
+																																		<input
+																																			type="text"
+																																			value={state.editingInterventionData?.label || ''}
+																																			oninput={(e) => {
+																																				updateState({
+																																					editingInterventionData: {
+																																						...state.editingInterventionData,
+																																						label: e.target.value
+																																					}
+																																				});
+																																			}}
+																																			style={{
+																																				width: '100%',
+																																				padding: '8px',
+																																				border: '1px solid #d1d5db',
+																																				borderRadius: '4px',
+																																				fontSize: '14px'
+																																			}}
+																																			placeholder="Enter intervention text"
+																																		/>
+																																	</div>
+																																	<div>
+																																		<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																																			Alternative Wording
+																																		</label>
+																																		<input
+																																			type="text"
+																																			value={state.editingInterventionData?.alternative_wording || ''}
+																																			oninput={(e) => {
+																																				updateState({
+																																					editingInterventionData: {
+																																						...state.editingInterventionData,
+																																						alternative_wording: e.target.value
+																																					}
+																																				});
+																																			}}
+																																			style={{
+																																				width: '100%',
+																																				padding: '8px',
+																																				border: '1px solid #d1d5db',
+																																				borderRadius: '4px',
+																																				fontSize: '14px'
+																																			}}
+																																			placeholder="Enter alternative wording"
+																																		/>
+																																	</div>
+																																	<div>
+																																		<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																																			Tooltip
+																																		</label>
+																																		<input
+																																			type="text"
+																																			value={state.editingInterventionData?.tooltip || ''}
+																																			oninput={(e) => {
+																																				updateState({
+																																					editingInterventionData: {
+																																						...state.editingInterventionData,
+																																						tooltip: e.target.value
+																																					}
+																																				});
+																																			}}
+																																			style={{
+																																				width: '100%',
+																																				padding: '8px',
+																																				border: '1px solid #d1d5db',
+																																				borderRadius: '4px',
+																																				fontSize: '14px'
+																																			}}
+																																			placeholder="Enter tooltip text"
+																																		/>
+																																	</div>
+																																	<div>
+																																		<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px'}}>
+																																			Category
+																																		</label>
+																																		<select
+																																			value={state.editingInterventionData?.category || 'assist'}
+																																			onchange={(e) => {
+																																				updateState({
+																																					editingInterventionData: {
+																																						...state.editingInterventionData,
+																																						category: e.target.value
+																																					}
+																																				});
+																																			}}
+																																			style={{
+																																				width: '100%',
+																																				padding: '8px',
+																																				border: '1px solid #d1d5db',
+																																				borderRadius: '4px',
+																																				fontSize: '14px'
+																																			}}
+																																		>
+																																			<option value="assist">Assist</option>
+																																			<option value="coordinate">Coordinate</option>
+																																			<option value="educate">Educate</option>
+																																			<option value="send">Send</option>
+																																			<option value="reconcile">Reconcile</option>
+																																		</select>
+																																	</div>
+																																	<div style={{display: 'flex', gap: '8px', marginTop: '8px'}}>
+																																		<button
+																																			style={{
+																																				fontSize: '12px',
+																																				padding: '8px 12px',
+																																				backgroundColor: '#10b981',
+																																				color: 'white',
+																																				border: 'none',
+																																				borderRadius: '4px',
+																																				cursor: 'pointer',
+																																				fontWeight: '500'
+																																			}}
+																																			onclick={() => {
+																																				dispatch('SAVE_INTERVENTION_EDITS', {
+																																					interventionId: intervention.id,
+																																					interventionData: state.editingInterventionData
+																																				});
+																																			}}
+																																			title="Save intervention changes"
+																																		>
+																																			✓
+																																		</button>
+																																		<button
+																																			style={{
+																																				fontSize: '12px',
+																																				padding: '8px 12px',
+																																				backgroundColor: '#6b7280',
+																																				color: 'white',
+																																				border: 'none',
+																																				borderRadius: '4px',
+																																				cursor: 'pointer',
+																																				fontWeight: '500'
+																																			}}
+																																			onclick={() => {
+																																				updateState({
+																																					editingInterventionId: null,
+																																					editingInterventionData: null,
+																																					editingInterventionGoalId: null
+																																				});
+																																			}}
+																																			title="Cancel"
+																																		>
+																																			✗
+																																		</button>
+																																	</div>
+																																</div>
+																															</div>
+																														) : (
+																															// Normal intervention display
+																															<div key={interventionIndex} className="intervention-item" style={{
+																																display: 'flex',
+																																alignItems: 'center',
+																																marginBottom: '8px',
+																																fontSize: '14px',
+																																padding: '8px 12px',
+																																backgroundColor: '#ffffff',
+																																border: '1px solid #e5e7eb',
+																																borderRadius: '6px',
+																																boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+																															}}>
+																																<span
+																																	className="intervention-label"
+																																	style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
+																																	title="Double-click to edit intervention"
+																																	ondblclick={() => {
+																																		dispatch('GET_INTERVENTION_DETAILS', {
+																																			interventionId: intervention.id,
+																																			goalId: goal.id
+																																		});
+																																	}}
+																																>
+																																	{isLoading ? 'Loading...' : intervention.label}
+																																</span>
+																																<span
+																																	className="intervention-category"
+																																	style={{
+																																		marginLeft: '8px',
+																																		fontSize: '12px',
+																																		padding: '2px 6px',
+																																		backgroundColor: '#e0f2fe',
+																																		color: '#0369a1',
+																																		borderRadius: '4px',
+																																		fontWeight: '500'
+																																	}}
+																																>
+																																	{intervention.category}
+																																</span>
+																																<button
+																																	className="delete-intervention-btn"
+																																	style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																																	title="Delete intervention"
+																																	onclick={() => dispatch('DELETE_INTERVENTION', {
+																																		answerId: state.relationshipModalAnswerId,
+																																		interventionId: intervention.id,
+																																		interventionName: intervention.label,
+																																		goalId: goal.id
+																																	})}
+																																>
+																																	✕
+																																</button>
+																															</div>
+																														);
+																													})}
 																												</div>
 																											);
 																										}
@@ -8899,6 +9067,27 @@ createCustomElement('cadal-careiq-builder', {
 			},
 			successActionType: 'UPDATE_GOAL_SUCCESS',
 			errorActionType: 'UPDATE_GOAL_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'MAKE_GET_INTERVENTION_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-intervention-details', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GET_INTERVENTION_DETAILS_SUCCESS',
+			errorActionType: 'GET_INTERVENTION_DETAILS_ERROR'
+		}),
+
+		'MAKE_UPDATE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-intervention', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'UPDATE_INTERVENTION_SUCCESS',
+			errorActionType: 'UPDATE_INTERVENTION_ERROR',
 			metaParam: 'meta'
 		}),
 
@@ -13117,6 +13306,231 @@ createCustomElement('cadal-careiq-builder', {
 			const errorMessage = {
 				type: 'error',
 				message: `Failed to update goal: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), errorMessage],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
+			});
+		},
+
+		// Intervention editing action handlers (same pattern as goals)
+		'GET_INTERVENTION_DETAILS': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {interventionId, goalId} = action.payload;
+
+			console.log('=== GET_INTERVENTION_DETAILS ACTION TRIGGERED ===');
+			console.log('Fetching details for intervention:', interventionId);
+			console.log('Goal ID:', goalId);
+
+			// Show loading state for the specific intervention and store goal ID
+			updateState({
+				editingInterventionId: interventionId,
+				editingInterventionData: null, // Clear previous data while loading
+				interventionDetailsLoading: interventionId,
+				editingInterventionGoalId: goalId // Store the goal ID for later use
+			});
+
+			// Store fallback data in case the API call fails
+			const fallbackData = {
+				label: `Intervention ${interventionId}`,
+				alternative_wording: '',
+				tooltip: '',
+				category: 'assist'
+			};
+
+			// Store fallback data in case the API call fails
+			updateState({
+				interventionDetailsFallback: fallbackData
+			});
+
+			// Prepare the request body for the API call
+			const requestBody = JSON.stringify({
+				interventionId: interventionId
+			});
+
+			console.log('Sending GET_INTERVENTION_DETAILS request:', requestBody);
+
+			// Make the API call
+			dispatch('MAKE_GET_INTERVENTION_DETAILS_REQUEST', {
+				requestBody: requestBody
+			});
+		},
+
+		'GET_INTERVENTION_DETAILS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== GET_INTERVENTION_DETAILS_SUCCESS ===');
+			console.log('API Response:', action.payload);
+
+			// Clear loading state
+			updateState({
+				interventionDetailsLoading: null
+			});
+
+			// Check if we got valid intervention data
+			if (action.payload && (action.payload.label || action.payload.name)) {
+				// Use the detailed data from the API
+				updateState({
+					editingInterventionData: {
+						label: action.payload.label || action.payload.name || '',
+						alternative_wording: action.payload.alternative_wording || '',
+						tooltip: action.payload.tooltip || '',
+						category: action.payload.category || 'assist'
+					}
+				});
+			} else {
+				// Fallback to cached data if API didn't return proper details
+				console.warn('API returned incomplete intervention details, using fallback data');
+				updateState({
+					editingInterventionData: state.interventionDetailsFallback || {
+						label: '',
+						alternative_wording: '',
+						tooltip: '',
+						category: 'assist'
+					},
+					interventionDetailsFallback: null
+				});
+			}
+
+			console.log('Intervention editing data set:', state.editingInterventionData);
+		},
+
+		'GET_INTERVENTION_DETAILS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('GET_INTERVENTION_DETAILS_ERROR:', action.payload);
+
+			// Clear loading state and use fallback data
+			updateState({
+				interventionDetailsLoading: null,
+				editingInterventionData: state.interventionDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: '',
+					category: 'assist'
+				},
+				interventionDetailsFallback: null,
+				systemMessages: [...(state.systemMessages || []), {
+					type: 'warning',
+					message: 'Could not load full intervention details. Using basic information for editing.',
+					timestamp: new Date().toISOString()
+				}],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'warning',
+						message: 'Could not load full intervention details. Using basic information for editing.',
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+		},
+
+		'SAVE_INTERVENTION_EDITS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {interventionId, interventionData} = action.payload;
+
+			console.log('=== SAVE_INTERVENTION_EDITS ACTION TRIGGERED ===');
+			console.log('Saving edits for intervention:', interventionId);
+			console.log('Intervention data:', interventionData);
+
+			// Store goal ID before clearing it
+			const goalId = state.editingInterventionGoalId;
+
+			// Clear editing state and show system message, but store goal ID for success handler
+			updateState({
+				editingInterventionId: null,
+				editingInterventionData: null,
+				editingInterventionGoalId: null,
+				lastEditedInterventionGoalId: goalId, // Store for success handler
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving intervention changes to backend...',
+						timestamp: new Date().toISOString()
+					}
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'info',
+						message: 'Saving intervention changes to backend...',
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+
+			// Prepare the request body for the update
+			const requestBody = JSON.stringify({
+				interventionId: interventionId,
+				label: interventionData.label,
+				alternative_wording: interventionData.alternative_wording,
+				tooltip: interventionData.tooltip,
+				category: interventionData.category,
+				goal_id: goalId
+			});
+
+			console.log('Sending UPDATE_INTERVENTION request:', requestBody);
+
+			// Make the API call
+			dispatch('MAKE_UPDATE_INTERVENTION_REQUEST', {
+				requestBody: requestBody,
+				meta: {goalId: goalId} // Pass goalId for success handler
+			});
+		},
+
+		'UPDATE_INTERVENTION_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== UPDATE_INTERVENTION_SUCCESS ===');
+			console.log('Full action payload:', action.payload);
+
+			// Extract goal ID from stored state (using working pattern from goals)
+			const goalId = state.lastEditedInterventionGoalId;
+
+			if (goalId && state.currentAssessmentId) {
+				updateState({ lastEditedInterventionGoalId: null }); // Clear after use
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			}
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Intervention updated successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				],
+				modalSystemMessages: state.relationshipModalOpen ? [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'success',
+						message: 'Intervention updated successfully! Refreshing data...',
+						timestamp: new Date().toISOString()
+					}
+				] : state.modalSystemMessages
+			});
+		},
+
+		'UPDATE_INTERVENTION_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('UPDATE_INTERVENTION_ERROR:', action.payload);
+
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to update intervention: ${action.payload?.error || 'Unknown error'}`,
 				timestamp: new Date().toISOString()
 			};
 
