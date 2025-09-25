@@ -42,7 +42,6 @@ const paginateAssessments = (assessments, currentPage, pageSize) => {
 
 // Load CareIQ config using dispatch action
 const loadCareIQConfig = (dispatch) => {
-	console.log('Dispatching LOAD_CAREIQ_CONFIG action...');
 	dispatch('LOAD_CAREIQ_CONFIG');
 };
 
@@ -71,55 +70,36 @@ const calculateVisibleQuestions = (selectedAnswers, currentQuestions, answerRela
 			visibleQuestions.push(question.ids.id); // Use correct UUID path
 		}
 	});
-	
-	console.log('calculateVisibleQuestions - Starting with non-hidden questions:', visibleQuestions.length);
-	console.log('calculateVisibleQuestions - Selected answers:', selectedAnswers);
-	console.log('calculateVisibleQuestions - Available relationships:', Object.keys(answerRelationships));
-	
 	// Add questions that should be shown based on triggered_questions relationships
 	Object.keys(selectedAnswers).forEach(questionId => {
 		const selectedAnswerIds = selectedAnswers[questionId];
-		console.log('Processing question:', questionId, 'with selected answers:', selectedAnswerIds);
-		
 		selectedAnswerIds.forEach(answerId => {
 			// Find the answer in the questions using correct UUID paths
 			const question = currentQuestions.find(q => q.ids.id === questionId);
 			const answer = question?.answers?.find(a => a.ids.id === answerId);
-			
-			console.log('Found question:', question?.label, 'Found answer:', answer?.label);
-			
 			// First check if the answer has triggered_questions in the section data
 			if (answer?.triggered_questions && Array.isArray(answer.triggered_questions)) {
-				console.log('Found triggered_questions in section data for answer:', answer.label, answer.triggered_questions);
 				answer.triggered_questions.forEach(triggeredQuestionId => {
 					if (!visibleQuestions.includes(triggeredQuestionId)) {
-						console.log('Adding triggered question to visible list:', triggeredQuestionId);
 						visibleQuestions.push(triggeredQuestionId);
 					}
 				});
 			}
 			// Otherwise, check if we have relationship data for this answer
 			else if (answerRelationships[answerId] && answerRelationships[answerId].questions?.questions?.length > 0) {
-				console.log('Found triggered questions in relationships data for answer:', answer?.label);
 				answerRelationships[answerId].questions.questions.forEach(triggeredQuestion => {
 					if (!visibleQuestions.includes(triggeredQuestion.id)) {
-						console.log('Adding triggered question from relationships:', triggeredQuestion.id, triggeredQuestion.label);
 						visibleQuestions.push(triggeredQuestion.id);
 					}
 				});
 			} else {
-				console.log('No triggered_questions found for answer:', answer?.label);
 			}
 		});
 	});
-	
-	console.log('calculateVisibleQuestions - Final visible questions:', visibleQuestions);
 	return visibleQuestions;
 };
 
 const view = (state, {updateState, dispatch}) => {
-	console.log('Component rendered with state:', state);
-
 	// Reusable SVG Icons
 	const CheckIcon = () => (
 		<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
@@ -137,7 +117,6 @@ const view = (state, {updateState, dispatch}) => {
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
 		systemWindows.forEach(window => {
-			console.log('Scrolling system window to bottom, scrollHeight:', window.scrollHeight);
 			window.scrollTop = window.scrollHeight;
 		});
 	}, 10); // Reduced delay for better responsiveness
@@ -161,11 +140,9 @@ const view = (state, {updateState, dispatch}) => {
 						className="system-window"
 					hook={{
 						insert: (vnode) => {
-							console.log('System window inserted, scrolling to bottom');
 							vnode.elm.scrollTop = vnode.elm.scrollHeight;
 						},
 						update: (oldVnode, vnode) => {
-							console.log('System window updated, scrolling to bottom');
 							setTimeout(() => {
 								vnode.elm.scrollTop = vnode.elm.scrollHeight;
 							}, 5);
@@ -903,7 +880,6 @@ const view = (state, {updateState, dispatch}) => {
 																					color: '#666'
 																				}}
 																				ondragstart={(e) => {
-																					console.log('Section drag start from handle:', {sectionId: subsection.id});
 																					const sectionIndex = section.subsections.indexOf(subsection);
 																					dispatch('DRAG_SECTION_START', {
 																						sectionId: subsection.id,
@@ -1027,21 +1003,13 @@ const view = (state, {updateState, dispatch}) => {
 											})
 											.map((question, qIndex) => {
 												const isEditable = state.builderMode && state.currentAssessment?.status === 'draft';
-												// console.log('Question render debug:', {
-												//	builderMode: state.builderMode,
-												//	assessmentStatus: state.currentAssessment?.status,
-												//	isEditable: isEditable,
-												//	questionId: question.ids.id,
-												//	voice: question.voice,
-												//	label: question.label
-												// });
+												// 
 											return (
 											<div 
 												key={question.ids.id} 
 												className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`} 
 												draggable={false}
 												onclick={() => {
-													console.log('Question clicked! Editable:', isEditable, 'Draggable:', isEditable);
 												}}
 												ondragend={isEditable ? (e) => {
 													e.currentTarget.classList.remove('dragging');
@@ -1056,17 +1024,9 @@ const view = (state, {updateState, dispatch}) => {
 												ondrop={isEditable ? (e) => {
 													e.preventDefault();
 													e.currentTarget.classList.remove('drag-over');
-													
-													console.log('Question drop event:', {targetIndex: qIndex});
-													
 													try {
 														const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
-														console.log('Drop data:', dragData);
 														if (dragData.type === 'question') {
-															console.log('Dispatching REORDER_QUESTIONS:', {
-																sourceIndex: dragData.sourceIndex,
-																targetIndex: qIndex
-															});
 															dispatch('REORDER_QUESTIONS', {
 																sourceIndex: dragData.sourceIndex,
 																targetIndex: qIndex
@@ -1084,7 +1044,6 @@ const view = (state, {updateState, dispatch}) => {
 															title="Drag to reorder"
 															draggable={true}
 															ondragstart={(e) => {
-																console.log('Question drag start from handle:', {questionId: question.ids.id, sourceIndex: qIndex});
 																e.dataTransfer.setData('text/plain', JSON.stringify({
 																	type: 'question',
 																	questionId: question.ids.id,
@@ -1132,7 +1091,6 @@ const view = (state, {updateState, dispatch}) => {
 																		flexShrink: '0'
 																	} : {}}
 																	onchange={(e) => {
-																		console.log('Question voice changed to:', e.target.value);
 																		dispatch('UPDATE_QUESTION_VOICE', {
 																			questionId: question.ids.id,
 																			newVoice: e.target.value
@@ -1287,7 +1245,6 @@ const view = (state, {updateState, dispatch}) => {
 																		type="checkbox" 
 																		checked={question.required}
 																		onchange={(e) => {
-																			console.log('Question required changed to:', e.target.checked);
 																			dispatch('UPDATE_QUESTION_REQUIRED', {
 																				questionId: question.ids.id,
 																				required: e.target.checked
@@ -1305,7 +1262,6 @@ const view = (state, {updateState, dispatch}) => {
 																<select className="question-type-select" style={state.isMobileView ? {
 																	flexShrink: '0'
 																} : {}} onchange={(e) => {
-																	console.log('Question type changed to:', e.target.value);
 																	dispatch('UPDATE_QUESTION_TYPE', {
 																		questionId: question.ids.id,
 																		newType: e.target.value
@@ -1430,14 +1386,6 @@ const view = (state, {updateState, dispatch}) => {
 																	onclick={(e) => {
 																		if (isEditable) {
 																			e.stopPropagation();
-																			console.log('Answer option clicked!', answer.ids.id);
-																			console.log('This answer option is draggable:', e.currentTarget.draggable);
-																			console.log('Debug attributes:');
-																			console.log('  data-debugeditable:', e.currentTarget.getAttribute('data-debugeditable'));
-																			console.log('  data-debugbuildermode:', e.currentTarget.getAttribute('data-debugbuildermode'));
-																			console.log('  data-debugstatus:', e.currentTarget.getAttribute('data-debugstatus'));
-																			console.log('  isEditable value:', isEditable);
-																			console.log('Try holding mouse down and DRAGGING this entire answer box');
 																		}
 																	}}
 																	ondragend={isEditable ? (e) => {
@@ -1476,7 +1424,6 @@ const view = (state, {updateState, dispatch}) => {
 																				title="Drag to reorder"
 																				draggable={true}
 																				ondragstart={(e) => {
-																					console.log('Answer drag start from handle:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
 																					e.dataTransfer.setData('text/plain', JSON.stringify({
 																						type: 'answer',
 																						questionId: question.ids.id,
@@ -1751,14 +1698,6 @@ const view = (state, {updateState, dispatch}) => {
 																									<button 
 																										className="delete-triggered-question-btn"
 																										onclick={(e) => {
-																											console.log('=== TRASH CAN CLICKED ===');
-																											console.log('Deleting triggered question:', triggeredId);
-																											console.log('From answer:', answer.ids.id);
-																											console.log('isEditable check:', {
-																												builderMode: state.builderMode,
-																												assessmentStatus: state.currentAssessment?.status,
-																												isEditable: isEditable
-																											});
 																											e.stopPropagation();
 																											dispatch('REMOVE_TRIGGERED_QUESTION', {
 																												answerId: answer.ids.id,
@@ -1806,9 +1745,6 @@ const view = (state, {updateState, dispatch}) => {
 																										<button 
 																											className="remove-trigger-btn remove-guideline-btn"
 																											onclick={(e) => {
-																												console.log('=== REMOVING GUIDELINE RELATIONSHIP ===');
-																												console.log('Removing guideline:', relationship.targetId);
-																												console.log('From answer:', answer.ids.id);
 																												e.stopPropagation();
 																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
 																													answerId: answer.ids.id,
@@ -1930,9 +1866,6 @@ const view = (state, {updateState, dispatch}) => {
 																											<button 
 																												className="delete-relationship-btn"
 																												onclick={(e) => {
-																													console.log('=== RELATIONSHIP TRASH CAN CLICKED ===');
-																													console.log('Deleting question:', question.id, question.label);
-																													console.log('From answer:', answer.ids.id);
 																													e.stopPropagation();
 																													dispatch('REMOVE_TRIGGERED_QUESTION', {
 																														answerId: answer.ids.id,
@@ -2039,11 +1972,6 @@ const view = (state, {updateState, dispatch}) => {
 																															key={question.ids?.id || index}
 																															className="typeahead-item"
 																															onclick={(e) => {
-																																console.log('=== TYPEAHEAD ITEM CLICKED ===');
-																																console.log('Question clicked:', question);
-																																console.log('Answer ID:', answer.ids.id);
-																																console.log('Question ID:', question.ids?.id);
-																																console.log('Question label:', question.label);
 																																e.stopPropagation();
 																																e.preventDefault();
 																																dispatch('SELECT_RELATIONSHIP_QUESTION', {
@@ -2096,11 +2024,6 @@ const view = (state, {updateState, dispatch}) => {
 																															key={guideline.id || index}
 																															className="typeahead-item"
 																															onclick={(e) => {
-																																console.log('=== GUIDELINE TYPEAHEAD ITEM CLICKED ===');
-																																console.log('Guideline clicked:', guideline);
-																																console.log('Answer ID:', answer.ids.id);
-																																console.log('Guideline ID:', guideline.id);
-																																console.log('Guideline name:', guideline.name);
 																																e.stopPropagation();
 																																e.preventDefault();
 																																dispatch('SELECT_RELATIONSHIP_GUIDELINE', {
@@ -2130,9 +2053,6 @@ const view = (state, {updateState, dispatch}) => {
 																											<button 
 																												className="confirm-relationship-btn"
 																												onclick={(e) => {
-																													console.log('=== CHECKMARK BUTTON CLICKED ===');
-																													console.log('Answer ID:', answer.ids.id);
-																													console.log('Selected relationship question:', state.selectedRelationshipQuestion);
 																													e.stopPropagation();
 																													e.preventDefault();
 																													dispatch('CONFIRM_ADD_RELATIONSHIP', {
@@ -2266,14 +2186,6 @@ const view = (state, {updateState, dispatch}) => {
 																	onclick={(e) => {
 																		if (isEditable) {
 																			e.stopPropagation();
-																			console.log('Answer option clicked!', answer.ids.id);
-																			console.log('This answer option is draggable:', e.currentTarget.draggable);
-																			console.log('Debug attributes:');
-																			console.log('  data-debugeditable:', e.currentTarget.getAttribute('data-debugeditable'));
-																			console.log('  data-debugbuildermode:', e.currentTarget.getAttribute('data-debugbuildermode'));
-																			console.log('  data-debugstatus:', e.currentTarget.getAttribute('data-debugstatus'));
-																			console.log('  isEditable value:', isEditable);
-																			console.log('Try holding mouse down and DRAGGING this entire answer box');
 																		}
 																	}}
 																	ondragend={isEditable ? (e) => {
@@ -2312,7 +2224,6 @@ const view = (state, {updateState, dispatch}) => {
 																				title="Drag to reorder"
 																				draggable={true}
 																				ondragstart={(e) => {
-																					console.log('Answer drag start from handle:', {questionId: question.ids.id, answerId: answer.ids.id, sourceIndex: aIndex});
 																					e.dataTransfer.setData('text/plain', JSON.stringify({
 																						type: 'answer',
 																						questionId: question.ids.id,
@@ -2539,7 +2450,6 @@ const view = (state, {updateState, dispatch}) => {
 																							type="checkbox" 
 																							checked={answer.mutually_exclusive}
 																							onchange={(e) => {
-																								console.log('Answer mutually_exclusive changed to:', e.target.checked);
 																								dispatch('UPDATE_ANSWER_MUTUALLY_EXCLUSIVE', {
 																									answerId: answer.ids.id,
 																									mutually_exclusive: e.target.checked
@@ -2607,14 +2517,6 @@ const view = (state, {updateState, dispatch}) => {
 																									<button 
 																										className="delete-triggered-question-btn"
 																										onclick={(e) => {
-																											console.log('=== TRASH CAN CLICKED ===');
-																											console.log('Deleting triggered question:', triggeredId);
-																											console.log('From answer:', answer.ids.id);
-																											console.log('isEditable check:', {
-																												builderMode: state.builderMode,
-																												assessmentStatus: state.currentAssessment?.status,
-																												isEditable: isEditable
-																											});
 																											e.stopPropagation();
 																											dispatch('REMOVE_TRIGGERED_QUESTION', {
 																												answerId: answer.ids.id,
@@ -2662,9 +2564,6 @@ const view = (state, {updateState, dispatch}) => {
 																										<button 
 																											className="remove-trigger-btn remove-guideline-btn"
 																											onclick={(e) => {
-																												console.log('=== REMOVING GUIDELINE RELATIONSHIP ===');
-																												console.log('Removing guideline:', relationship.targetId);
-																												console.log('From answer:', answer.ids.id);
 																												e.stopPropagation();
 																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
 																													answerId: answer.ids.id,
@@ -2786,9 +2685,6 @@ const view = (state, {updateState, dispatch}) => {
 																											<button 
 																												className="delete-relationship-btn"
 																												onclick={(e) => {
-																													console.log('=== RELATIONSHIP TRASH CAN CLICKED ===');
-																													console.log('Deleting question:', question.id, question.label);
-																													console.log('From answer:', answer.ids.id);
 																													e.stopPropagation();
 																													dispatch('REMOVE_TRIGGERED_QUESTION', {
 																														answerId: answer.ids.id,
@@ -2895,11 +2791,6 @@ const view = (state, {updateState, dispatch}) => {
 																															key={question.ids?.id || index}
 																															className="typeahead-item"
 																															onclick={(e) => {
-																																console.log('=== TYPEAHEAD ITEM CLICKED ===');
-																																console.log('Question clicked:', question);
-																																console.log('Answer ID:', answer.ids.id);
-																																console.log('Question ID:', question.ids?.id);
-																																console.log('Question label:', question.label);
 																																e.stopPropagation();
 																																e.preventDefault();
 																																dispatch('SELECT_RELATIONSHIP_QUESTION', {
@@ -2952,11 +2843,6 @@ const view = (state, {updateState, dispatch}) => {
 																															key={guideline.id || index}
 																															className="typeahead-item"
 																															onclick={(e) => {
-																																console.log('=== GUIDELINE TYPEAHEAD ITEM CLICKED ===');
-																																console.log('Guideline clicked:', guideline);
-																																console.log('Answer ID:', answer.ids.id);
-																																console.log('Guideline ID:', guideline.id);
-																																console.log('Guideline name:', guideline.name);
 																																e.stopPropagation();
 																																e.preventDefault();
 																																dispatch('SELECT_RELATIONSHIP_GUIDELINE', {
@@ -2986,9 +2872,6 @@ const view = (state, {updateState, dispatch}) => {
 																											<button 
 																												className="confirm-relationship-btn"
 																												onclick={(e) => {
-																													console.log('=== CHECKMARK BUTTON CLICKED ===');
-																													console.log('Answer ID:', answer.ids.id);
-																													console.log('Selected relationship question:', state.selectedRelationshipQuestion);
 																													e.stopPropagation();
 																													e.preventDefault();
 																													dispatch('CONFIRM_ADD_RELATIONSHIP', {
@@ -6463,7 +6346,6 @@ createCustomElement('cadal-careiq-builder', {
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
 			const {dispatch} = coeffects;
-			console.log('Component bootstrapped - auto-loading CareIQ config');
 			dispatch('LOAD_CAREIQ_CONFIG');
 			dispatch('CHECK_MOBILE_VIEW');
 			
@@ -6492,7 +6374,7 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState} = coeffects;
 			// Increase threshold to catch dev tools scenarios (1342px in your case)
 			const isMobile = window.innerWidth <= 1400;
-			//console.log('Mobile view check - window.innerWidth:', window.innerWidth, 'isMobile:', isMobile);
+			//
 			updateState({
 				isMobileView: isMobile
 			});
@@ -6524,8 +6406,6 @@ createCustomElement('cadal-careiq-builder', {
 		
 		'CAREIQ_CONFIG_FETCH_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch} = coeffects;
-			console.log('HTTP Effect Success:', action.payload);
-			
 			// Map the results to our config object
 			const props = {};
 			if (action.payload.result) {
@@ -6534,33 +6414,21 @@ createCustomElement('cadal-careiq-builder', {
 					props[key] = prop.value;
 				});
 			}
-			
-			console.log('Mapped properties:', props);
-			
 			// Check which required properties are missing
 			const required = ['apikey', 'app', 'id', 'otoken', 'region', 'version'];
 			const missing = required.filter(key => !props[key] || props[key].trim() === '');
 			
 			if (missing.length > 0) {
-				console.log('Setting loading to false - missing properties');
 				updateState({
 					loading: false,
 					error: `Missing system properties: ${missing.map(p => 'x_1628056_careiq.careiq.platform.' + p).join(', ')}`
 				});
 			} else {
-				console.log('Config loaded - keeping loading state until token exchange completes');
 				updateState({
 					error: null,
 					careiqConfig: props
 				});
 				// Automatically exchange token after config success
-				console.log('About to dispatch EXCHANGE_TOKEN with config:', {
-					region: props.region,
-					version: props.version,
-					apikey: props.apikey ? '***' : 'missing',
-					otoken: props.otoken ? '***' : 'missing',
-					id: props.id ? '***' : 'missing'
-				});
 				dispatch('EXCHANGE_TOKEN', {config: props});
 			}
 		},
@@ -6568,7 +6436,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CAREIQ_CONFIG_FETCH_ERROR': (coeffects) => {
 			const {action, updateState} = coeffects;
 			console.error('HTTP Effect Error:', action.payload);
-			console.log('Setting loading to false - error');
 			updateState({
 				loading: false,
 				error: 'Failed to fetch system properties: ' + (action.payload?.message || 'Unknown error')
@@ -6578,15 +6445,6 @@ createCustomElement('cadal-careiq-builder', {
 		'EXCHANGE_TOKEN': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {config} = action.payload;
-			
-			console.log('EXCHANGE_TOKEN handler called with config:', {
-				region: config.region,
-				version: config.version,
-				apikey: config.apikey ? '***' : 'missing',
-				otoken: config.otoken ? '***' : 'missing',
-				id: config.id ? '***' : 'missing'
-			});
-			
 			const requestBody = JSON.stringify({
 				app: config.app,
 				region: config.region,
@@ -6595,9 +6453,6 @@ createCustomElement('cadal-careiq-builder', {
 				otoken: config.otoken,
 				client_id: config.id
 			});
-			
-			console.log('Request body to send:', requestBody);
-			
 			// Dispatch the HTTP effect with the request body data
 			dispatch('MAKE_TOKEN_REQUEST', {requestBody: requestBody});
 		},
@@ -6614,24 +6469,20 @@ createCustomElement('cadal-careiq-builder', {
 
 		'TOKEN_EXCHANGE_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			console.log('Token Exchange Success - Full Response:', action.payload);
 			// Use either access_token (real) or mock_access_token (debug)
 			const token = action.payload.access_token || action.payload.mock_access_token;
-			console.log('Access Token:', token);
 			updateState({
 				loading: false,
 				accessToken: token
 			});
 			
 			// Automatically fetch use case categories after token success
-			console.log('About to dispatch FETCH_USE_CASE_CATEGORIES with config and token');
 			dispatch('FETCH_USE_CASE_CATEGORIES', {
 				config: state.careiqConfig,
 				accessToken: token
 			});
 			
 			// Automatically fetch assessments after token success
-			console.log('About to dispatch FETCH_ASSESSMENTS');
 			dispatch('FETCH_ASSESSMENTS', {
 				offset: 0,
 				limit: 200,
@@ -6651,9 +6502,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_USE_CASE_CATEGORIES': (coeffects) => {
 			const {action, dispatch, updateState} = coeffects;
 			const {config, accessToken} = action.payload;
-			
-			console.log('FETCH_USE_CASE_CATEGORIES handler called');
-			
 			updateState({categoriesLoading: true});
 			
 			const requestBody = JSON.stringify({
@@ -6663,9 +6511,6 @@ createCustomElement('cadal-careiq-builder', {
 				accessToken: accessToken,
 				useCase: 'CM'
 			});
-			
-			console.log('Use Case Categories request body:', requestBody);
-			
 			dispatch('MAKE_USE_CASE_CATEGORIES_REQUEST', {requestBody: requestBody});
 		},
 
@@ -6682,27 +6527,17 @@ createCustomElement('cadal-careiq-builder', {
 
 		'USE_CASE_CATEGORIES_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('USE_CASE_CATEGORIES_FETCH_START - HTTP request started');
 			updateState({categoriesLoading: true});
 		},
 
 		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			// console.log('USE_CASE_CATEGORIES_SUCCESS - Full Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Response keys:', Object.keys(action.payload || {}));
-			
+			// 
 			// Check if response has use_case_categories
 			const categories = action.payload?.use_case_categories;
-			console.log('Categories found:', categories);
-			console.log('Categories type:', typeof categories);
-			console.log('Categories length:', Array.isArray(categories) ? categories.length : 'not array');
-
 			// Log each category for UUID debugging
 			if (Array.isArray(categories)) {
 				categories.forEach((category, index) => {
-					console.log(`Category ${index}:`, category);
-					console.log(`Category ${index} keys:`, Object.keys(category || {}));
 				});
 			}
 			
@@ -6733,9 +6568,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_ASSESSMENTS': (coeffects) => {
 			const {action, dispatch, updateState} = coeffects;
 			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
-
-			console.log('FETCH_ASSESSMENTS handler called');
-
 			updateState({assessmentsLoading: true});
 
 			const requestBody = JSON.stringify({
@@ -6746,9 +6578,6 @@ createCustomElement('cadal-careiq-builder', {
 				latestVersionOnly: latestVersionOnly,
 				searchValue: searchValue
 			});
-
-			console.log('Assessments request body:', requestBody);
-
 			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -6765,22 +6594,17 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('ASSESSMENTS_FETCH_START - HTTP request started');
 			updateState({assessmentsLoading: true});
 		},
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
-			// console.log('ASSESSMENTS_SUCCESS - Full Response:', action.payload);
+			// 
 			
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
 			const offset = action.payload?.offset || 0;
 			const limit = action.payload?.limit || 10;
-			
-			console.log('Assessments found:', assessments.length);
-			console.log('Total assessments:', total);
-			
 			// Check if this is a version fetch request
 			const isVersionFetch = state.currentRequest?.isVersionFetch;
 			const targetAssessmentId = state.currentRequest?.targetAssessmentId;
@@ -6840,7 +6664,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_NEW_ASSESSMENT': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('Create new assessment clicked');
 			updateState({
 				newAssessmentModalOpen: true,
 				// Reset form to defaults
@@ -6881,8 +6704,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_NEW_ASSESSMENT': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
-			console.log('Save new assessment:', state.newAssessmentForm);
-
 			// Validate required fields
 			const form = state.newAssessmentForm;
 			if (!form.guidelineName || !form.useCaseCategory) {
@@ -6924,34 +6745,15 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_ASSESSMENT_API': (coeffects) => {
 			const {action, dispatch, state} = coeffects;
 			const {assessmentData} = action.payload;
-
-			console.log('=== CREATE_ASSESSMENT_API DEBUG ===');
-			console.log('Creating assessment with form data:', assessmentData);
-			console.log('Current config:', state.careiqConfig);
-			console.log('Current access token available:', !!state.accessToken);
-			console.log('Available use case categories:', state.useCaseCategories);
-
 			// Get config and access token
 			const config = state.careiqConfig;
 			const accessToken = state.accessToken;
 
 			// CRITICAL: Map the display name to UUID
 			let useCaseCategoryId = assessmentData.useCaseCategory;
-
-			console.log('=== UUID MAPPING DEBUG ===');
-			console.log('Looking for category:', assessmentData.useCaseCategory);
-			console.log('Categories available:', state.useCaseCategories);
-
 			// Find the category UUID from loaded categories
 			if (state.useCaseCategories && Array.isArray(state.useCaseCategories)) {
-				console.log('Searching through categories...');
 				state.useCaseCategories.forEach((cat, index) => {
-					console.log(`Category ${index}:`, cat);
-					console.log(`  - name: "${cat.name}"`, cat.name === assessmentData.useCaseCategory);
-					console.log(`  - label: "${cat.label}"`, cat.label === assessmentData.useCaseCategory);
-					console.log(`  - display_name: "${cat.display_name}"`, cat.display_name === assessmentData.useCaseCategory);
-					console.log(`  - id: "${cat.id}"`);
-					console.log(`  - uuid: "${cat.uuid}"`);
 				});
 
 				const matchingCategory = state.useCaseCategories.find(cat =>
@@ -6963,8 +6765,6 @@ createCustomElement('cadal-careiq-builder', {
 				if (matchingCategory) {
 					const oldId = useCaseCategoryId;
 					useCaseCategoryId = matchingCategory.id || matchingCategory.uuid;
-					console.log('✅ Successfully mapped category:', oldId, '→', useCaseCategoryId);
-					console.log('Using category:', matchingCategory);
 				} else {
 					console.error('❌ Could not find UUID for category:', assessmentData.useCaseCategory);
 					console.error('Available category names:', state.useCaseCategories.map(cat => cat.name || cat.label || cat.display_name));
@@ -6973,7 +6773,6 @@ createCustomElement('cadal-careiq-builder', {
 					const fallbackCategory = state.useCaseCategories[0];
 					if (fallbackCategory) {
 						useCaseCategoryId = fallbackCategory.id || fallbackCategory.uuid;
-						console.warn('🔄 Using fallback category:', fallbackCategory.name, '→', useCaseCategoryId);
 					}
 				}
 			} else {
@@ -7012,9 +6811,6 @@ createCustomElement('cadal-careiq-builder', {
 				select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
 				multi_tenant_default: assessmentData.multi_tenant_default || false
 			});
-
-			console.log('Create assessment request body (ServiceNow will wrap in data):', requestBody);
-			console.log('Parsed request body fields:', JSON.parse(requestBody));
 			dispatch('MAKE_CREATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
 		},
 
@@ -7060,29 +6856,16 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('=== CREATE_ASSESSMENT_SUCCESS DEBUG ===');
-			console.log('Full action payload:', action.payload);
-			console.log('Response data:', action.payload?.data);
-			console.log('Response type:', typeof action.payload);
-			console.log('Detail array:', action.payload?.detail);
-			console.log('Detail array length:', action.payload?.detail?.length);
-			console.log('First detail item:', action.payload?.detail?.[0]);
-
 			// Try to extract the assessment ID from various possible locations
 			let newAssessmentId = action.payload?.id || action.payload?.data?.id;
 
 			// Check if the ID is in the detail array
 			if (!newAssessmentId && action.payload?.detail?.[0]) {
 				const firstDetail = action.payload.detail[0];
-				console.log('Checking first detail for ID:', firstDetail);
 				newAssessmentId = firstDetail?.id || firstDetail;
 			}
 
 			const assessmentTitle = state.newAssessmentForm.guidelineName;
-
-			console.log('Extracted assessment ID:', newAssessmentId);
-			console.log('Assessment title:', assessmentTitle);
-
 			// Check if we have a valid ID
 			if (!newAssessmentId) {
 				console.error('CRITICAL: No assessment ID found in response');
@@ -7132,7 +6915,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Open the newly created assessment in builder mode (same as any other assessment)
-			console.log('Opening newly created assessment:', newAssessmentId);
 			dispatch('OPEN_ASSESSMENT_BUILDER', {
 				assessmentId: newAssessmentId,
 				assessmentTitle: assessmentTitle
@@ -7408,10 +7190,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const publishData = state.publishPanel;
-
-			console.log('=== SUBMIT_PUBLISH_ASSESSMENT DEBUG ===');
-			console.log('Publish data:', publishData);
-
 			// Close panel and show publishing message
 			updateState({
 				systemMessages: [
@@ -7444,25 +7222,14 @@ createCustomElement('cadal-careiq-builder', {
 				nextReviewDate: publishData.nextReviewDate,
 				responseLogging: publishData.responseLogging
 			});
-
-			console.log('Publish request body:', requestBody);
-
 			// Make the API call
 			dispatch('MAKE_PUBLISH_ASSESSMENT_REQUEST', {requestBody});
 		},
 
 		'PUBLISH_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== PUBLISH_ASSESSMENT_SUCCESS DEBUG ===');
-			console.log('Full action payload:', action.payload);
-			console.log('Response data:', action.payload?.data);
-
 			// Extract the new assessment ID from response
 			const newAssessmentId = action.payload?.id || action.payload?.data?.id;
-
-			console.log('New assessment ID from response:', newAssessmentId);
-
 			// Show success message
 			updateState({
 				systemMessages: [
@@ -7477,13 +7244,11 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we got a new ID, use it to reload the assessment
 			if (newAssessmentId) {
-				console.log('Reloading assessment with new ID:', newAssessmentId);
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
 					assessmentId: newAssessmentId,
 					assessmentTitle: state.currentAssessment?.title || 'Assessment'
 				});
 			} else {
-				console.log('No new ID found, reloading with current ID:', state.currentAssessmentId);
 				// Fallback: reload with current ID
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
 					assessmentId: state.currentAssessmentId,
@@ -7494,10 +7259,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'PUBLISH_ASSESSMENT_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== PUBLISH_ASSESSMENT_ERROR DEBUG ===');
-			console.log('Error payload:', action.payload);
-
 			let errorMessage = 'Failed to publish assessment';
 
 			// Extract error message from response
@@ -7608,12 +7369,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 
 			// Debug logging to see the actual response structure
-			console.log('=== CREATE_VERSION_SUCCESS DEBUG ===');
-			console.log('Full action payload:', action.payload);
-			console.log('Payload type:', typeof action.payload);
-			console.log('Payload keys:', action.payload ? Object.keys(action.payload) : 'null');
-			console.log('=====================================');
-
 			// Check if this is actually an error response disguised as success
 			if (action.payload && (action.payload.detail || action.payload.error)) {
 				const errorMessage = action.payload.detail || action.payload.error;
@@ -7698,9 +7453,6 @@ createCustomElement('cadal-careiq-builder', {
 			const dataToShow = state.filteredAssessments || state.assessments;
 			const totalPages = Math.ceil(dataToShow.length / state.assessmentsPagination.displayPageSize);
 			const newPage = Math.min(state.assessmentsPagination.displayPage + 1, totalPages - 1);
-			
-			console.log('Going to next page:', newPage);
-			
 			updateState({
 				assessmentsPagination: {
 					...state.assessmentsPagination,
@@ -7712,9 +7464,6 @@ createCustomElement('cadal-careiq-builder', {
 		'GOTO_PREVIOUS_PAGE': (coeffects) => {
 			const {state, updateState} = coeffects;
 			const newPage = Math.max(0, state.assessmentsPagination.displayPage - 1);
-			
-			console.log('Going to previous page:', newPage);
-			
 			updateState({
 				assessmentsPagination: {
 					...state.assessmentsPagination,
@@ -7725,9 +7474,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GOTO_FIRST_PAGE': (coeffects) => {
 			const {state, updateState} = coeffects;
-			
-			console.log('Going to first page');
-			
 			updateState({
 				assessmentsPagination: {
 					...state.assessmentsPagination,
@@ -7741,9 +7487,6 @@ createCustomElement('cadal-careiq-builder', {
 			const dataToShow = state.filteredAssessments || state.assessments;
 			const totalPages = Math.ceil(dataToShow.length / state.assessmentsPagination.displayPageSize);
 			const lastPage = Math.max(0, totalPages - 1);
-			
-			console.log('Going to last page:', lastPage);
-			
 			updateState({
 				assessmentsPagination: {
 					...state.assessmentsPagination,
@@ -7755,9 +7498,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CHANGE_PAGE_SIZE': (coeffects) => {
 			const {action, state, updateState} = coeffects;
 			const {pageSize} = action.payload;
-			
-			console.log('Changing page size to:', pageSize);
-			
 			// Update the page size and reset to first page
 			updateState({
 				assessmentsPagination: {
@@ -7771,9 +7511,6 @@ createCustomElement('cadal-careiq-builder', {
 		'EXPAND_ASSESSMENT_VERSIONS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
-			
-			console.log('Expanding versions for assessment:', assessmentTitle);
-			
 			// Extract base title (remove version suffix)
 			const baseTitle = assessmentTitle.replace(/ - v\d+(\.\d+)?$/, '');
 			
@@ -7802,9 +7539,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_ASSESSMENT_VERSIONS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {assessmentId, baseTitle} = action.payload;
-			
-			console.log('Fetching all versions for:', baseTitle);
-			
 			// Set current request info
 			updateState({
 				currentRequest: {
@@ -7847,9 +7581,6 @@ createCustomElement('cadal-careiq-builder', {
 		'OPEN_ASSESSMENT_BUILDER': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
-			
-			console.log('Opening assessment builder for:', assessmentTitle, 'ID:', assessmentId);
-			
 			// Switch to builder view and start loading assessment details
 			updateState({
 				builderView: true,
@@ -7869,11 +7600,6 @@ createCustomElement('cadal-careiq-builder', {
 		'REFRESH_ASSESSMENT_DETAILS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {gtId, pendingReselectionSection, pendingReselectionSectionLabel} = action.payload;
-			
-			console.log('=== REFRESHING ASSESSMENT DETAILS ===');
-			console.log('Assessment ID:', gtId);
-			console.log('Pending section reselection:', pendingReselectionSection);
-			
 			// Complete state reset for clean start
 			updateState({
 				assessmentDetailsLoading: true,
@@ -7911,12 +7637,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'REFRESH_ASSESSMENT': (coeffects) => {
 			const {state, dispatch, updateState} = coeffects;
-			
-			console.log('=== MANUAL REFRESH TRIGGERED ===');
-			console.log('Current assessment:', state.currentAssessment);
-			console.log('Assessment ID path:', state.currentAssessment?.ids?.id);
-			console.log('Assessment Title:', state.currentAssessment?.title);
-			
 			// Store the current section to re-select after refresh
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
@@ -7925,14 +7645,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Use the stored currentAssessmentId which is set when opening the builder
 			const assessmentId = state.currentAssessmentId;
 			const assessmentTitle = state.currentAssessment?.title;
-			
-			console.log('Stored assessment ID for refresh:', assessmentId);
-			console.log('Stored assessment title for refresh:', assessmentTitle);
-			console.log('Available ID sources:');
-			console.log('  - currentAssessmentId:', state.currentAssessmentId);
-			console.log('  - currentAssessment.ids.id:', state.currentAssessment?.ids?.id);
-			console.log('  - currentAssessment.id:', state.currentAssessment?.id);
-			
 			if (!assessmentId) {
 				console.error('No assessment ID found for refresh!');
 				updateState({
@@ -8001,11 +7713,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			// Fetch fresh assessment details with stored values
-			console.log('Dispatching FETCH_ASSESSMENT_DETAILS with:', {
-				assessmentId: assessmentId,
-				assessmentTitle: assessmentTitle
-			});
-			
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: assessmentId,
 				assessmentTitle: assessmentTitle
@@ -8015,18 +7722,9 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_ASSESSMENT_DETAILS': (coeffects) => {
 			const {action, state, dispatch} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
-			
-			console.log('FETCH_ASSESSMENT_DETAILS - assessmentId from payload:', assessmentId);
-			console.log('FETCH_ASSESSMENT_DETAILS - assessmentTitle from payload:', assessmentTitle);
-			console.log('Fetching assessment details for:', assessmentTitle);
-			
 			const requestBody = JSON.stringify({
 				assessmentId: assessmentId
 			});
-
-			console.log('Assessment details request body:', requestBody);
-			console.log('Assessment ID being sent:', assessmentId);
-			
 			dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -8043,21 +7741,18 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('ASSESSMENT_DETAILS_FETCH_START - HTTP request started');
 			updateState({assessmentDetailsLoading: true});
 		},
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			// console.log('ASSESSMENT_DETAILS_SUCCESS - Full Response:', action.payload);
+			// 
 			
 			// Debug section sort_order values
 			if (action.payload?.sections) {
 				action.payload.sections.forEach(section => {
-					console.log('Section:', section.label, 'sort_order:', section.sort_order);
 					if (section.subsections) {
 						section.subsections.forEach(subsection => {
-							console.log('  Subsection:', subsection.label, 'sort_order:', subsection.sort_order);
 						});
 					}
 				});
@@ -8098,7 +7793,6 @@ createCustomElement('cadal-careiq-builder', {
 			let sectionLabelToSelect = null;
 			
 			if (pendingReselection && pendingReselectionLabel) {
-				console.log('Re-selecting section after save:', pendingReselectionLabel);
 				sectionToSelect = pendingReselection;
 				sectionLabelToSelect = pendingReselectionLabel;
 			} else {
@@ -8109,7 +7803,6 @@ createCustomElement('cadal-careiq-builder', {
 				const firstSubsection = sortedSubsections?.[0];
 				
 				if (firstSubsection) {
-					console.log('Auto-selecting first section by sort_order:', firstSubsection.label, 'sort_order:', firstSubsection.sort_order);
 					sectionToSelect = firstSubsection.id;
 					sectionLabelToSelect = firstSubsection.label;
 				}
@@ -8140,8 +7833,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CLOSE_ASSESSMENT_BUILDER': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('Closing assessment builder');
-			
 			updateState({
 				builderView: false,
 				currentAssessment: null,
@@ -8156,9 +7847,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_SECTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
-			console.log('Selecting section:', sectionLabel, 'ID:', sectionId);
-			
 			// Update selected section and start loading questions
 			updateState({
 				selectedSection: sectionId,
@@ -8177,19 +7865,10 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_SECTION_QUESTIONS': (coeffects) => {
 			const {action, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
-			console.log('FETCH_SECTION_QUESTIONS - action.payload:', action.payload);
-			console.log('FETCH_SECTION_QUESTIONS - sectionId:', sectionId);
-			console.log('FETCH_SECTION_QUESTIONS - sectionLabel:', sectionLabel);
-			console.log('Fetching questions for section (simplified):', sectionLabel);
-			
 			const requestBody = JSON.stringify({
 				gtId: state.currentAssessmentId,
 				sectionId: sectionId
 			});
-			
-			console.log('Section questions request body (simplified):', requestBody);
-			
 			dispatch('MAKE_SECTION_QUESTIONS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -8206,16 +7885,15 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SECTION_QUESTIONS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
-			console.log('SECTION_QUESTIONS_FETCH_START - HTTP request started');
 			updateState({questionsLoading: true});
 		},
 
 		'SECTION_QUESTIONS_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			// console.log('SECTION_QUESTIONS_SUCCESS - Full Response:', action.payload);
-			// console.log('SECTION_QUESTIONS_SUCCESS - Response type:', typeof action.payload);
-			// console.log('SECTION_QUESTIONS_SUCCESS - Response keys:', Object.keys(action.payload || {}));
-			// console.log('SECTION_QUESTIONS_SUCCESS - Questions array:', action.payload?.questions);
+			// 
+			// 
+			// 
+			// 
 			
 			// Sort questions by sort_order
 			const questions = action.payload?.questions || [];
@@ -8228,25 +7906,15 @@ createCustomElement('cadal-careiq-builder', {
 			}));
 			
 			// Debug: log the questions structure to understand triggered_questions format
-			console.log('Questions loaded with structure:', questionsWithSortedAnswers);
 			questionsWithSortedAnswers.forEach((question, qIndex) => {
-				console.log(`Question ${qIndex + 1} (${question.ids?.id}):`, question.label, 'Hidden:', question.hidden);
 				question.answers?.forEach((answer, aIndex) => {
-					console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Secondary input type:', answer.secondary_input_type);
 					if (answer.triggered_questions && answer.triggered_questions.length > 0) {
-						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}):`, answer.label, 'Triggers:', answer.triggered_questions);
-					}
-					// Debug: log scoring data if it exists
-					if (answer.scoring) {
-						console.log(`  Answer ${aIndex + 1} (${answer.ids?.id}) SCORING:`, answer.scoring);
 					}
 				});
 			});
 			
 			// Initialize visible questions for preview mode (no relationships loaded yet)
 			const initialVisibleQuestions = calculateVisibleQuestions({}, questionsWithSortedAnswers, {});
-			console.log('Initial visible questions:', initialVisibleQuestions);
-			
 			updateState({
 				currentQuestions: {
 					...action.payload,
@@ -8278,9 +7946,6 @@ createCustomElement('cadal-careiq-builder', {
 		'TOGGLE_BUILDER_MODE': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {mode} = action.payload;
-			
-			console.log('Toggling builder mode to:', mode ? 'Edit' : 'Preview');
-			
 			updateState({
 				builderMode: mode,
 				// Reset answer selections when switching to preview mode
@@ -8292,9 +7957,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_ANSWER': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId, answerId, questionType} = action.payload;
-			
-			console.log('Selecting answer:', {questionId, answerId, questionType});
-			
 			let newSelectedAnswers = {...state.selectedAnswers};
 			
 			// Handle different question types
@@ -8321,18 +7983,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if we need to load relationships for this answer to get triggered questions
 			const answerWasSelected = (questionType === 'Single Select') || 
 									  (questionType === 'Multiselect' && newSelectedAnswers[questionId].includes(answerId));
-			
-			console.log('Answer selection check:', {
-				answerWasSelected,
-				answerId,
-				hasRelationships: !!state.answerRelationships[answerId],
-				isLoading: !!state.relationshipsLoading[answerId],
-				currentRelationships: state.answerRelationships,
-				currentLoadingStates: state.relationshipsLoading
-			});
-			
 			if (answerWasSelected && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
-				console.log('Auto-loading relationships for selected answer:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -8350,9 +8001,6 @@ createCustomElement('cadal-careiq-builder', {
 		'HANDLE_MUTUALLY_EXCLUSIVE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, answerId} = action.payload;
-			
-			console.log('Handling mutually exclusive answer:', {questionId, answerId});
-			
 			// Find the answer to check if it's mutually exclusive
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
 			const answer = question?.answers?.find(a => a.ids.id === answerId);
@@ -8374,9 +8022,6 @@ createCustomElement('cadal-careiq-builder', {
 		'REORDER_QUESTIONS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sourceIndex, targetIndex} = action.payload;
-
-			console.log('Reordering questions:', {sourceIndex, targetIndex});
-
 			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
 				return;
 			}
@@ -8421,16 +8066,12 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Auto-save the reordering changes immediately
-			console.log('Question reorder completed - auto-saving changes');
 			dispatch('SAVE_ALL_CHANGES');
 		},
 
 		'REORDER_ANSWERS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId, sourceIndex, targetIndex} = action.payload;
-			
-			console.log('Reordering answers:', {questionId, sourceIndex, targetIndex});
-			
 			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
 				return;
 			}
@@ -8465,11 +8106,9 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Auto-save only the affected answers with individual UPDATE_ANSWER_API calls
-			console.log('Answer reorder completed - making individual update calls');
 			updatedAnswers.forEach(answer => {
 				// Only update real answers (not temp ones)
 				if (!answer.ids.id.startsWith('temp_')) {
-					console.log('Updating answer sort_order:', answer.ids.id, 'to:', answer.sort_order);
 					dispatch('UPDATE_ANSWER_API', {
 						answerData: {
 							answerId: answer.ids.id,
@@ -8491,9 +8130,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {sectionId} = action.payload;
-
-			console.log('Adding new question to section:', sectionId);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8541,9 +8177,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_TYPE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newType} = action.payload;
-
-			console.log('Updating question type:', questionId, 'to:', newType);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8596,9 +8229,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_LABEL': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newLabel} = action.payload;
-
-			console.log('Updating question label:', questionId, 'to:', newLabel);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8630,9 +8260,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_VOICE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, newVoice} = action.payload;
-
-			console.log('Updating question voice:', questionId, 'to:', newVoice);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8664,9 +8291,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_REQUIRED': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId, required} = action.payload;
-
-			console.log('Updating question required:', questionId, 'to:', required);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8698,9 +8322,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_ANSWER': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {questionId} = action.payload;
-
-			console.log('Adding new answer to question:', questionId);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8760,9 +8381,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_ANSWER': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, questionId} = action.payload;
-
-			console.log('Deleting answer:', answerId, 'from question:', questionId);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8801,9 +8419,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_QUESTION': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
-
-			console.log('Deleting question:', questionId);
-
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
@@ -8816,8 +8431,6 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const questionLabel = questionToDelete.label || 'Untitled Question';
-			console.log('Deleting question:', questionLabel);
-
 			// Show confirmation alert like sections
 			if (confirm(`Are you sure you want to delete question "${questionLabel}"?`)) {
 				// Remove question from local state immediately (optimistic update)
@@ -8834,10 +8447,8 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Auto-delete from backend immediately (only if not temp ID)
 				if (!questionId.startsWith('temp_')) {
-					console.log('Calling backend API to delete question:', questionId);
 					dispatch('DELETE_QUESTION_API', { questionId });
 				} else {
-					console.log('Skipping backend API call - temp question:', questionId);
 					// Show immediate success message for temp questions
 					updateState({
 						systemMessages: [
@@ -8857,9 +8468,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_QUESTION_IMMEDIATELY': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
-
-			console.log('Saving question immediately:', questionId);
-
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
@@ -8886,8 +8494,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			if (questionAnswerChanges.length > 0) {
-				console.log('Question has answer changes - using SAVE_ALL_CHANGES instead');
-				console.log('Answer changes found:', questionAnswerChanges);
 				dispatch('SAVE_ALL_CHANGES');
 				return;
 			}
@@ -8921,11 +8527,8 @@ createCustomElement('cadal-careiq-builder', {
 					return; // Stop the save process
 				}
 				// New question - use new 2-step process
-				console.log('Using new 2-step process for question type:', question.type);
-
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
-					console.log('Step 1: Adding Text/Date/Numeric question to section');
 					dispatch('ADD_QUESTION_TO_SECTION_API', {
 						questionData: {
 							label: question.label,
@@ -8944,10 +8547,7 @@ createCustomElement('cadal-careiq-builder', {
 				} else if (question.type === 'Single Select' || question.type === 'Multiselect') {
 					// Check if this is a library question
 					// Use 2-step process for both library and regular questions
-					console.log('Step 1: Adding Single Select/Multiselect question to section');
-
 					if (question.isLibraryQuestion) {
-						console.log('Library question ID:', question.libraryQuestionId);
 					}
 
 					const questionData = {
@@ -8976,7 +8576,6 @@ createCustomElement('cadal-careiq-builder', {
 					});
 				} else {
 					// Fallback for any other question types
-					console.log('Using fallback method for question type:', question.type);
 					dispatch('ADD_QUESTION_API', {
 						questionData: {
 							sectionId: state.selectedSection,
@@ -9010,12 +8609,6 @@ createCustomElement('cadal-careiq-builder', {
 		'LOAD_ANSWER_RELATIONSHIPS': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId} = action.payload;
-			
-			console.log('=== LOAD_ANSWER_RELATIONSHIPS ACTION TRIGGERED ===');
-			console.log('Loading answer relationships for answerId:', answerId);
-			console.log('Current access token:', state.accessToken);
-			console.log('Current careiq config:', state.careiqConfig);
-			
 			// Set loading state for this answer
 			updateState({
 				relationshipsLoading: {
@@ -9028,9 +8621,6 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				answerId: answerId
 			});
-			
-			console.log('Answer relationships request body (simplified):', requestBody);
-			
 			dispatch('MAKE_ANSWER_RELATIONSHIPS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -9046,18 +8636,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ANSWER_RELATIONSHIPS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== ANSWER_RELATIONSHIPS_SUCCESS ===');
-			console.log('Full Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Response keys:', Object.keys(action.payload || {}));
-			console.log('Action meta:', action.meta);
-			console.log('Guidelines in response:', action.payload?.guidelines);
-			console.log('=== DEBUGGING MISSING GUIDELINE ===');
-			console.log('Expected to see newly added guideline in guidelines array');
-			console.log('Guidelines array length:', action.payload?.guidelines?.guidelines?.length || 0);
-			console.log('Full guidelines structure:', JSON.stringify(action.payload?.guidelines, null, 2));
-			
 			// The answerId should be in the response, let's use that
 			const answerId = action.payload?.id;
 			
@@ -9081,9 +8659,6 @@ createCustomElement('cadal-careiq-builder', {
 			const visibleQuestions = !state.builderMode ? 
 				calculateVisibleQuestions(state.selectedAnswers, state.currentQuestions?.questions || [], updatedRelationships) :
 				state.visibleQuestions;
-			
-			console.log('Recalculating visible questions after relationships loaded:', visibleQuestions);
-			
 			updateState({
 				answerRelationships: updatedRelationships,
 				relationshipsLoading: updatedLoading,
@@ -9105,7 +8680,6 @@ createCustomElement('cadal-careiq-builder', {
 				error: 'Failed to fetch answer relationships: ' + (action.payload?.error || 'Unknown error')
 			});
 		},
-
 
 		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-branch-question', {
 			method: 'POST',
@@ -9129,12 +8703,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_GUIDELINE_RELATIONSHIP_SUCCESS ===');
-			console.log('Guideline relationship added successfully');
-			console.log('Response payload:', action.payload);
-			console.log('Action meta:', action.meta);
-
 			// Get the answer ID from the original request body since meta doesn't persist through HTTP effect
 			let answerId = null;
 			try {
@@ -9142,13 +8710,11 @@ createCustomElement('cadal-careiq-builder', {
 				// Look for it in the current action or extract from stored state
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
-					console.log('Got answerId from action.meta:', answerId);
 				} else {
 					// Fallback: look for the currently opened relationship panel
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
 						answerId = openPanels[0]; // Use the first open panel
-						console.log('Got answerId from open relationship panel:', answerId);
 					}
 				}
 			} catch (e) {
@@ -9169,7 +8735,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Immediate auto-refresh since backend has already committed
 			if (answerId) {
-				console.log('=== AUTO-REFRESH: Immediately refreshing for answerId:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9200,25 +8765,17 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
-			console.log('Question relationship added successfully');
-			console.log('Response payload:', action.payload);
-			console.log('Action meta:', action.meta);
-
 			// Get the answer ID using the same fallback pattern as guidelines
 			let answerId = null;
 			try {
 				// The answerId should be in the original request that triggered this success
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
-					console.log('Got answerId from action.meta:', answerId);
 				} else {
 					// Fallback: look for the currently opened relationship panel
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
 						answerId = openPanels[0]; // Use the first open panel
-						console.log('Got answerId from open relationship panel:', answerId);
 					}
 				}
 			} catch (e) {
@@ -9240,7 +8797,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
 			if (answerId) {
-				console.log('=== AUTO-REFRESH: Immediately refreshing for answerId:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9266,10 +8822,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-			
-			console.log('=== DELETE_BRANCH_QUESTION ACTION TRIGGERED ===');
-			console.log('Deleting branch question:', questionId, 'from answer:', answerId);
-			
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
@@ -9478,16 +9030,8 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			
-			console.log('=== DELETE_BRANCH_QUESTION_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Original action data:', action.meta);
-			
 			// Get original data from meta (passed through HTTP effect)
 			const {answerId, questionId, questionLabel} = action.meta || {};
-			
-			console.log('Branch question deleted successfully:', questionId, 'from answer:', answerId);
-			
 			// Follow CLAUDE.md refresh pattern - store current section for reselection
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
@@ -9522,7 +9066,6 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9552,27 +9095,12 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== DELETE_GUIDELINE_RELATIONSHIP_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Original action data:', action.meta);
-			console.log('action.meta type:', typeof action.meta);
 			if (action.meta) {
-				console.log('action.meta keys:', Object.keys(action.meta));
 			}
 
 			// Get original data from response payload (enhanced by backend API)
 			const originalRequest = action.payload?.originalRequest || {};
 			const {answerId, guidelineId, guidelineName} = originalRequest;
-
-			console.log('Guideline relationship deleted successfully:', guidelineId, 'from answer:', answerId);
-			console.log('Extracted values:', {answerId, guidelineId, guidelineName});
-			console.log('Modal state check:', {
-				relationshipModalOpen: state.relationshipModalOpen,
-				relationshipModalAnswerId: state.relationshipModalAnswerId,
-				conditionMet: answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId
-			});
-
 			// Show success message
 			updateState({
 				systemMessages: [
@@ -9587,7 +9115,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9621,10 +9148,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_BARRIER_RELATIONSHIP_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Check if the response contains an error (API can return 200 with error details)
 			if (action.payload?.detail && (
 				action.payload.detail.toLowerCase().includes('required') ||
@@ -9649,9 +9172,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Get original data from response payload
 			const originalRequest = action.payload?.originalRequest || {};
 			const {answerId, barrierName} = originalRequest;
-
-			console.log('Barrier relationship added successfully:', barrierName, 'to answer:', answerId);
-
 			// Show success message
 			const successMessage = {
 				type: 'success',
@@ -9673,7 +9193,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9710,10 +9229,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_PROBLEM_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_PROBLEM_RELATIONSHIP_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Check if the response contains an error (API can return 200 with error details)
 			if (action.payload?.detail && (
 				action.payload.detail.toLowerCase().includes('required') ||
@@ -9738,9 +9253,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Get original data from response payload
 			const originalRequest = action.payload?.originalRequest || {};
 			const {answerId, problemName} = originalRequest;
-
-			console.log('Problem relationship added successfully:', problemName, 'to answer:', answerId);
-
 			// Show success message
 			const successMessage = {
 				type: 'success',
@@ -9766,7 +9278,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9803,10 +9314,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== DELETE_BARRIER_RELATIONSHIP_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			const successMessage = {
 				type: 'success',
 				message: `Barrier relationship deleted successfully! Refreshing data...`,
@@ -9855,27 +9362,14 @@ createCustomElement('cadal-careiq-builder', {
 		'REMOVE_BARRIER_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, barrierId} = action.payload;
-
-			console.log('=== REMOVE_BARRIER_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Deleting barrier:', barrierId, 'from answer:', answerId);
-			console.log('Full payload:', action.payload);
-
 			// Find barrier name for user feedback
 			const relationships = state.answerRelationships?.[answerId];
 			const barrier = relationships?.barriers?.barriers?.find(b => b.id === barrierId);
 			const barrierName = barrier?.label || barrier?.name || 'Unknown Barrier';
-
-			console.log('Found barrier name:', barrierName);
-
 			// AUTO-DELETE: Immediately call API
 			const requestBody = JSON.stringify({
 				barrierId: barrierId
 			});
-
-			console.log('=== DELETE BARRIER REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -9901,11 +9395,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_PROBLEM_EDITS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemId, editData} = action.payload;
-
-			console.log('=== SAVE_PROBLEM_EDITS ACTION TRIGGERED ===');
-			console.log('Saving problem edits for:', problemId, 'on answer:', answerId);
-			console.log('Edit data:', editData);
-
 			// Get current problem data for merging with edits
 			const relationships = state.answerRelationships?.[answerId];
 			const currentProblem = relationships?.problems?.problems?.find(p => p.id === problemId);
@@ -9936,11 +9425,6 @@ createCustomElement('cadal-careiq-builder', {
 				custom_attributes: currentProblem.custom_attributes || {},
 				required: currentProblem.required || false
 			});
-
-			console.log('=== SAVE PROBLEM EDITS REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_SAVE_PROBLEM_EDITS_REQUEST', {
 				requestBody: requestBody
 			});
@@ -9962,15 +9446,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_PROBLEM_EDITS_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== SAVE_PROBLEM_EDITS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-
 			// Handle 204 No Content response (null/empty payload is expected and indicates success)
 			if (action.payload === null || action.payload === undefined) {
-				console.log('API returned 204 No Content - this is expected for successful PATCH operations');
-
 				const successMessage = {
 					type: 'success',
 					message: 'Problem updated successfully! Refreshing data...',
@@ -10065,9 +9542,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'TOGGLE_EDIT_RELATIONSHIPS': (coeffects) => {
 			const {updateState, state} = coeffects;
-
-			console.log('Toggling relationship visibility:', !state.showRelationships);
-
 			updateState({
 				showRelationships: !state.showRelationships
 			});
@@ -10075,9 +9549,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'TOGGLE_SCORING_MODE': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
-
-			console.log('Toggling scoring panel:', !state.scoringPanelOpen);
-
 			if (!state.scoringPanelOpen) {
 				// Opening panel - fetch scoring models for this assessment
 				updateState({
@@ -10116,9 +9587,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_SCORING_MODEL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {label, scoringType, guidelineTemplateId} = coeffects.action.payload;
-
-			console.log('Creating scoring model:', {label, scoringType, guidelineTemplateId});
-
 			// Show creating state
 			updateState({
 				creatingScoringModel: true
@@ -10168,9 +9636,6 @@ createCustomElement('cadal-careiq-builder', {
 				label: label,
 				scoring_type: scoringType
 			});
-
-			console.log('Create scoring model request body:', requestBody);
-
 			dispatch('MAKE_CREATE_SCORING_MODEL_REQUEST', {requestBody: requestBody});
 		},
 
@@ -10186,9 +9651,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_SCORING_MODEL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('Scoring model created successfully:', action.payload);
-
 			// Clear form and loading state
 			updateState({
 				creatingScoringModel: false,
@@ -10233,9 +9695,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_SCORING_MODELS': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {guidelineTemplateId} = coeffects.action.payload;
-
-			console.log('Fetching scoring models for assessment:', guidelineTemplateId);
-
 			// Get current config for the request
 			if (!state.careiqConfig) {
 				updateState({
@@ -10278,9 +9737,6 @@ createCustomElement('cadal-careiq-builder', {
 				app: config.app,
 				guideline_template_id: guidelineTemplateId
 			});
-
-			console.log('Get scoring models request body:', requestBody);
-
 			dispatch('MAKE_GET_SCORING_MODELS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -10296,9 +9752,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GET_SCORING_MODELS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('Scoring models fetched successfully:', action.payload);
-
 			// Extract scoring models from response
 			const scoringModels = action.payload?.scoring || [];
 
@@ -10338,9 +9791,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_SCORING_MODEL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {modelId, modelLabel} = coeffects.action.payload;
-
-			console.log('Deleting scoring model:', {modelId, modelLabel});
-
 			// Get current config for the request
 			if (!state.careiqConfig) {
 				updateState({
@@ -10382,9 +9832,6 @@ createCustomElement('cadal-careiq-builder', {
 				guideline_template_id: state.currentAssessmentId,
 				model_id: modelId
 			});
-
-			console.log('Delete scoring model request body:', requestBody);
-
 			dispatch('MAKE_DELETE_SCORING_MODEL_REQUEST', {
 				requestBody: requestBody,
 				meta: { modelId: modelId, modelLabel: modelLabel }
@@ -10416,9 +9863,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_SCORING_MODEL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const modelLabel = action.meta?.modelLabel || 'Scoring model';
-
-			console.log('Scoring model deleted successfully:', action.payload);
-
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -10460,8 +9904,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state} = coeffects;
 			const originalRequest = action.payload?.originalRequest || {};
 
-			console.log('Scoring model value saved successfully:', action.payload);
-
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -10476,8 +9918,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_SCORING_MODEL_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.error('Failed to save scoring model value:', action.payload);
 
 			updateState({
 				systemMessages: [
@@ -10495,8 +9935,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state} = coeffects;
 			const {model} = coeffects.action.payload;
 
-			console.log('Selecting scoring model for editing:', model);
-
 			updateState({
 				selectedScoringModel: model,
 				scoringPanelOpen: false, // Close the scoring panel
@@ -10513,8 +9951,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'EXIT_SCORING_MODE': (coeffects) => {
 			const {updateState, state} = coeffects;
-
-			console.log('Exiting scoring mode');
 
 			updateState({
 				selectedScoringModel: null,
@@ -10571,26 +10007,12 @@ createCustomElement('cadal-careiq-builder', {
 		'RELATIONSHIP_TYPEAHEAD_INPUT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {text, answerId} = action.payload;
-			
-			console.log('=== RELATIONSHIP_TYPEAHEAD_INPUT ===');
-			console.log('Search text:', text);
-			console.log('Answer ID:', answerId);
-			console.log('Available questions:', state.currentQuestions?.questions?.length);
-			
 			updateState({
 				relationshipTypeaheadText: text
 			});
 			
 			// Filter questions from current section based on input text
 			if (text.length >= 3 && state.currentQuestions?.questions) {
-				console.log('=== DEBUG: Finding current answer ===');
-				console.log('Looking for answerId:', answerId);
-				console.log('All questions structure:', state.currentQuestions.questions.map(q => ({
-					id: q.ids?.id, 
-					label: q.label,
-					answersCount: q.answers?.length || 0
-				})));
-				
 				// Find the current answer to check its existing triggered questions
 				let currentAnswer = null;
 				for (const question of state.currentQuestions.questions) {
@@ -10598,9 +10020,6 @@ createCustomElement('cadal-careiq-builder', {
 						for (const answer of question.answers) {
 							if (answer.ids.id === answerId) {
 								currentAnswer = answer;
-								console.log('=== FOUND CURRENT ANSWER ===');
-								console.log('Answer:', answer.label);
-								console.log('Triggered questions:', answer.triggered_questions);
 								break;
 							}
 						}
@@ -10626,27 +10045,15 @@ createCustomElement('cadal-careiq-builder', {
 				
 				// 3. Combine both sources to get complete list
 				const allTriggeredQuestions = [...new Set([...localTriggeredQuestions, ...apiTriggeredQuestions])];
-				
-				console.log('=== FILTERING QUESTIONS ===');
-				console.log('Local triggered questions (from answer):', localTriggeredQuestions);
-				console.log('API triggered questions (from relationships):', apiTriggeredQuestions);
-				console.log('Combined triggered questions:', allTriggeredQuestions);
-				
 				const filteredQuestions = state.currentQuestions.questions.filter(question => {
 					const matchesText = question.label.toLowerCase().includes(text.toLowerCase());
 					const notAlreadyTriggered = !allTriggeredQuestions.includes(question.ids.id);
 					
 					if (matchesText) {
-						console.log(`Question "${question.label}" (${question.ids.id}): matchesText=true, alreadyTriggered=${allTriggeredQuestions.includes(question.ids.id)}, willShow=${notAlreadyTriggered}`);
 					}
 					
 					return matchesText && notAlreadyTriggered;
 				});
-				
-				console.log('=== FINAL RESULTS ===');
-				console.log('Total filtered questions:', filteredQuestions.length);
-				console.log('Questions to show:', filteredQuestions.map(q => q.label));
-				
 				updateState({
 					relationshipTypeaheadResults: filteredQuestions.slice(0, 10) // Limit to 10 results
 				});
@@ -10660,13 +10067,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_RELATIONSHIP_QUESTION': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-			
-			console.log('=== SELECT_RELATIONSHIP_QUESTION ACTION TRIGGERED ===');
-			console.log('Payload:', action.payload);
-			console.log('Answer ID:', answerId);
-			console.log('Question ID:', questionId);
-			console.log('Question Label:', questionLabel);
-			
 			// Store the selected question and populate the input field
 			updateState({
 				selectedRelationshipQuestion: {
@@ -10680,14 +10080,6 @@ createCustomElement('cadal-careiq-builder', {
 		'GUIDELINE_TYPEAHEAD_INPUT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {text, answerId} = action.payload;
-
-			console.log('=== GUIDELINE_TYPEAHEAD_INPUT DEBUG ===');
-			console.log('Search text:', text);
-			console.log('Answer ID:', answerId);
-			console.log('Text length:', text ? text.length : 'text is null/undefined');
-			console.log('Full action payload:', action.payload);
-			console.log('Action type:', action.type);
-
 			updateState({
 				relationshipTypeaheadText: text,
 				selectedRelationshipQuestion: null // Clear any selected guideline
@@ -10695,17 +10087,11 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Only search after 3 characters
 			if (text && text.length >= 3) {
-				console.log('=== TRIGGERING GUIDELINE SEARCH ===');
-				console.log('Search text passed to SEARCH_GUIDELINES:', text);
-				console.log('Answer ID passed to SEARCH_GUIDELINES:', answerId);
-
 				dispatch('SEARCH_GUIDELINES', {
 					searchText: text,
 					answerId: answerId
 				});
 			} else {
-				console.log('=== NOT SEARCHING ===');
-				console.log('Reason: text length is', text ? text.length : 'text is null/undefined');
 				updateState({
 					relationshipTypeaheadResults: []
 				});
@@ -10714,36 +10100,13 @@ createCustomElement('cadal-careiq-builder', {
 		'SEARCH_GUIDELINES': (coeffects) => {
 			const {action, dispatch, updateState} = coeffects;
 			const {searchText, answerId} = action.payload;
-
-			console.log('=== SEARCH_GUIDELINES DEBUG ===');
-			console.log('Searching for:', searchText);
-			console.log('Answer ID in SEARCH_GUIDELINES:', answerId);
-			console.log('Action payload:', action.payload);
-
 			const requestBody = JSON.stringify({
 				searchText: searchText
 			});
-
-			console.log('=== REQUEST BODY BEING SENT ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-			console.log('Request body keys:', Object.keys(JSON.parse(requestBody)));
-			console.log('searchText value:', JSON.parse(requestBody).searchText);
-			console.log('searchText type:', typeof JSON.parse(requestBody).searchText);
-			console.log('searchText length:', JSON.parse(requestBody).searchText ? JSON.parse(requestBody).searchText.length : 'undefined');
-
 			updateState({
 				relationshipTypeaheadLoading: true,
 				currentGuidelineSearchAnswerId: answerId // Store answerId in state
 			});
-
-			console.log('=== DISPATCHING HTTP REQUEST ===');
-			console.log('About to dispatch MAKE_GUIDELINE_SEARCH_REQUEST');
-			console.log('Meta object:', {
-				searchText: searchText,
-				answerId: answerId
-			});
-
 			dispatch('MAKE_GUIDELINE_SEARCH_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -10756,10 +10119,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_PROBLEM_DETAILS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {problemId, fallbackData} = action.payload;
-
-			console.log('=== FETCH_PROBLEM_DETAILS ACTION TRIGGERED ===');
-			console.log('Fetching details for problem:', problemId);
-
 			// Show loading state for the specific problem
 			updateState({
 				editingProblemId: problemId,
@@ -10771,11 +10130,6 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				problemId: problemId
 			});
-
-			console.log('=== FETCH PROBLEM DETAILS REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			// Store fallback data in case the API call fails
 			updateState({
 				problemDetailsFallback: fallbackData
@@ -10788,10 +10142,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GET_PROBLEM_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GET_PROBLEM_DETAILS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Clear loading state
 			updateState({
 				problemDetailsLoading: null
@@ -10809,7 +10159,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
-				console.warn('API returned incomplete problem details, using fallback data');
 				updateState({
 					editingProblemData: state.problemDetailsFallback || {
 						label: '',
@@ -10858,19 +10207,10 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_PROBLEM_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemId, problemName} = action.payload;
-
-			console.log('=== DELETE_PROBLEM_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Deleting problem:', problemName, 'ID:', problemId, 'from answer:', answerId);
-
 			// AUTO-DELETE: Immediately call API
 			const requestBody = JSON.stringify({
 				problemId: problemId
 			});
-
-			console.log('=== DELETE PROBLEM REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -10895,17 +10235,11 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_PROBLEM_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== DELETE_PROBLEM_RELATIONSHIP_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-
 			const meta = action.meta || {};
 			const {problemName, answerId} = meta;
 
 			// Handle 204 No Content response (null/empty payload is expected and indicates success)
 			if (action.payload === null || action.payload === undefined) {
-				console.log('API returned 204 No Content - this is expected for successful DELETE operations');
 			}
 
 			const successMessage = {
@@ -10967,11 +10301,6 @@ createCustomElement('cadal-careiq-builder', {
 		'LOAD_PROBLEM_GOALS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {problemId, guidelineTemplateId} = action.payload;
-
-			console.log('=== LOAD_PROBLEM_GOALS ACTION TRIGGERED ===');
-			console.log('Loading goals for problem:', problemId);
-			console.log('Guideline Template ID:', guidelineTemplateId);
-
 			// Set loading state and store current loading problemId for success handler
 			updateState({
 				goalsLoading: {
@@ -10986,11 +10315,6 @@ createCustomElement('cadal-careiq-builder', {
 				problemId: problemId,
 				guidelineTemplateId: guidelineTemplateId
 			});
-
-			console.log('=== LOAD PROBLEM GOALS REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_LOAD_PROBLEM_GOALS_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -11002,14 +10326,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'LOAD_PROBLEM_GOALS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== LOAD_PROBLEM_GOALS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Use stored problemId from state instead of meta (meta not working reliably)
 			const problemId = state.currentGoalsLoadingProblemId;
-			console.log('Using stored problemId from state:', problemId);
-
 			// Parse the response to get goals data
 			const goalsData = action.payload?.goals || [];
 
@@ -11024,20 +10342,11 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				currentGoalsLoadingProblemId: null  // Clear stored ID
 			});
-
-			console.log(`Loaded ${goalsData.length} goals for problem:`, problemId);
 		},
 
 		'SAVE_GOAL_TO_PROBLEM': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {problemId, goalText, selectedGoal, answerId} = action.payload;
-
-			console.log('=== SAVE_GOAL_TO_PROBLEM ===');
-			console.log('Problem ID:', problemId);
-			console.log('Goal text:', goalText);
-			console.log('Selected goal:', selectedGoal);
-			console.log('Answer ID:', answerId);
-
 			// Show saving message
 			const savingMessage = {
 				type: 'info',
@@ -11074,9 +10383,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// ALWAYS do pre-save typeahead check for exact matches to prevent duplicates
-			console.log('=== PRE-SAVE EXACT MATCH CHECK ===');
-			console.log('Searching for exact match of:', goalText);
-
 			// Store original save data for after the check
 			updateState({
 				pendingGoalSave: {
@@ -11106,10 +10412,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_GOAL_TO_PROBLEM_AFTER_CHECK': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {problemId, goalText, selectedGoal, answerId} = action.payload;
-
-			console.log('=== SAVE_GOAL_TO_PROBLEM_AFTER_CHECK ===');
-			console.log('Final save with goal:', selectedGoal);
-
 			// Prepare request body for goal creation/linking
 			const requestBody = JSON.stringify({
 				problemId: problemId,
@@ -11128,16 +10430,9 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_GOAL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_GOAL_SUCCESS ===');
-			console.log('Response:', action.payload);
-
 			// Get original data from response payload
 			const originalRequest = action.payload?.originalRequest || {};
 			const {answerId, goalText} = originalRequest;
-
-			console.log('Goal processing for answer:', answerId, 'goal:', goalText);
-
 			// Show success or backend message
 			let systemMessage = `Goal "${goalText}" processed! Refreshing data...`;
 			let messageType = 'success';
@@ -11172,7 +10467,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -11181,7 +10475,6 @@ createCustomElement('cadal-careiq-builder', {
 				const expandedProblems = Object.keys(state.expandedProblems || {});
 				expandedProblems.forEach(problemId => {
 					if (state.expandedProblems[problemId] === true) {
-						console.log('Refreshing goals for expanded problem:', problemId);
 						dispatch('LOAD_PROBLEM_GOALS', {
 							problemId: problemId,
 							guidelineTemplateId: state.currentAssessmentId
@@ -11220,14 +10513,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_INTERVENTION_TO_GOAL': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {goalId, interventionText, category, selectedIntervention, answerId} = action.payload;
-
-			console.log('=== SAVE_INTERVENTION_TO_GOAL ===');
-			console.log('Goal ID:', goalId);
-			console.log('Intervention text:', interventionText);
-			console.log('Category:', category);
-			console.log('Selected intervention:', selectedIntervention);
-			console.log('Answer ID:', answerId);
-
 			// Show saving message
 			const savingMessage = {
 				type: 'info',
@@ -11269,7 +10554,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If selectedIntervention already exists (user picked from dropdown), skip pre-save check
 			if (selectedIntervention) {
-				console.log('Intervention already selected from dropdown - proceeding directly');
 				dispatch('SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK', {
 					goalId: goalId,
 					interventionText: interventionText,
@@ -11279,10 +10563,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 				return;
 			}
-
-			console.log('=== PRE-SAVE EXACT MATCH CHECK ===');
-			console.log('Searching for exact match of:', interventionText);
-
 			// Store original save data for after the check
 			updateState({
 				pendingInterventionSave: {
@@ -11312,10 +10592,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {goalId, interventionText, category, selectedIntervention, answerId} = action.payload;
-
-			console.log('=== SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK ===');
-			console.log('Final save with intervention:', selectedIntervention);
-
 			// CRITICAL: Store goalId in state for success handler refresh (meta params don't work reliably)
 			updateState({
 				lastAddedInterventionGoalId: goalId
@@ -11357,17 +10633,9 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_INTERVENTION_SUCCESS ===');
-			console.log('Response:', action.payload);
-
 			// Get original data from meta
 			const meta = action.meta || {};
 			const {answerId, interventionText, goalId} = meta;
-
-			console.log('Intervention processing for answer:', answerId, 'intervention:', interventionText, 'goalId:', goalId);
-			console.log('Meta information:', meta);
-
 			// Show success or backend message
 			let systemMessage = `Intervention "${interventionText}" processed! Refreshing data...`;
 			let messageType = 'success';
@@ -11402,7 +10670,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
 			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
-				console.log('Refreshing relationships for modal:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -11410,7 +10677,6 @@ createCustomElement('cadal-careiq-builder', {
 				// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
 				// This follows the same pattern as goal editing success
 				if (goalId && state.currentAssessmentId) {
-					console.log('Refreshing interventions for specific goal:', goalId);
 					dispatch('LOAD_GOAL_INTERVENTIONS', {
 						goalId: goalId,
 						guidelineTemplateId: state.currentAssessmentId
@@ -11448,19 +10714,10 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_GOAL': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, goalId, goalName, problemId} = action.payload;
-
-			console.log('=== DELETE_GOAL ACTION TRIGGERED ===');
-			console.log('Deleting goal:', goalName, 'ID:', goalId, 'from problem:', problemId);
-
 			// AUTO-DELETE: Immediately call API
 			const requestBody = JSON.stringify({
 				goalId: goalId
 			});
-
-			console.log('=== DELETE GOAL REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_DELETE_GOAL_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -11486,26 +10743,14 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_GOAL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== DELETE_GOAL_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-
 			const meta = action.meta || {};
 			const {goalName, answerId, problemId} = meta;
 
 			// Handle 204 No Content response (null/empty payload is expected and indicates success)
 			if (action.payload === null || action.payload === undefined) {
-				console.log('API returned 204 No Content - this is expected for successful DELETE operations');
 			}
 
 			// Debug modal state
-			console.log('Modal state check:');
-			console.log('- answerId from meta:', answerId);
-			console.log('- state.relationshipModalOpen:', state.relationshipModalOpen);
-			console.log('- state.relationshipModalAnswerId:', state.relationshipModalAnswerId);
-			console.log('- Match check:', answerId === state.relationshipModalAnswerId);
-
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -11519,7 +10764,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// EXACT SAME PATTERN AS ADD_GOAL_SUCCESS - Use current modal answer ID
 			if (state.relationshipModalOpen && state.relationshipModalAnswerId) {
-				console.log('Refreshing relationships for modal:', state.relationshipModalAnswerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: state.relationshipModalAnswerId
 				});
@@ -11528,7 +10772,6 @@ createCustomElement('cadal-careiq-builder', {
 				const expandedProblems = Object.keys(state.expandedProblems || {});
 				expandedProblems.forEach(problemId => {
 					if (state.expandedProblems[problemId] === true) {
-						console.log('Refreshing goals for expanded problem after deletion:', problemId);
 						dispatch('LOAD_PROBLEM_GOALS', {
 							problemId: problemId,
 							guidelineTemplateId: state.currentAssessmentId
@@ -11569,10 +10812,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_INTERVENTION': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, interventionId, interventionName, goalId} = action.payload;
-
-			console.log('=== DELETE_INTERVENTION ACTION TRIGGERED ===');
-			console.log('Deleting intervention:', interventionName, 'ID:', interventionId, 'from goal:', goalId);
-
 			// Store goalId for success handler refresh (using working state-based pattern)
 			updateState({
 				lastDeletedInterventionGoalId: goalId
@@ -11583,11 +10822,6 @@ createCustomElement('cadal-careiq-builder', {
 				interventionId: interventionId,
 				goalId: goalId
 			});
-
-			console.log('=== DELETE INTERVENTION REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_DELETE_INTERVENTION_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -11619,10 +10853,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== DELETE_INTERVENTION_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			const meta = action.meta || {};
 			const {interventionName, answerId} = meta;
 
@@ -11646,10 +10876,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			// CRITICAL: Refresh intervention data using stored goalId (same pattern as add)
 			const goalId = state.lastDeletedInterventionGoalId;
-			console.log('DELETE_INTERVENTION_SUCCESS - Goal ID from stored state:', goalId);
-			console.log('DELETE_INTERVENTION_SUCCESS - Assessment ID:', state.currentAssessmentId);
 			if (goalId && state.currentAssessmentId) {
-				console.log('Auto-refreshing interventions for goal after delete:', goalId);
 				// Clear the stored ID after use
 				updateState({
 					lastDeletedInterventionGoalId: null
@@ -11659,7 +10886,6 @@ createCustomElement('cadal-careiq-builder', {
 					guidelineTemplateId: state.currentAssessmentId
 				});
 			} else {
-				console.log('PROBLEM: Cannot auto-refresh after delete - missing stored goalId or assessmentId');
 			}
 
 			// If modal is open, refresh the relationship data
@@ -11731,14 +10957,6 @@ createCustomElement('cadal-careiq-builder', {
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, type, problemId, goalId, isPreSaveCheck} = action.payload;
-
-			console.log('=== GENERIC_TYPEAHEAD_SEARCH ===');
-			console.log('Search text:', searchText);
-			console.log('Content type:', type);
-			console.log('Problem ID:', problemId);
-			console.log('Goal ID:', goalId);
-			console.log('Is pre-save check:', isPreSaveCheck);
-
 			if (!searchText || (searchText.length < 3 && !isPreSaveCheck)) {
 				if (type === 'goal' && problemId) {
 					// Clear goal typeahead results for specific problem
@@ -11830,11 +11048,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GENERIC_TYPEAHEAD_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== GENERIC_TYPEAHEAD_SUCCESS ===');
-			console.log('Response payload:', action.payload);
-			console.log('Meta information:', action.meta);
-
 			const results = action.payload?.results || [];
 
 			// Use stored context from state instead of meta
@@ -11842,25 +11055,12 @@ createCustomElement('cadal-careiq-builder', {
 			const interventionSearchContext = state.currentInterventionSearchContext;
 			const preSaveGoalContext = state.preSaveGoalContext;
 			const preSaveProblemContext = state.preSaveProblemContext;
-			console.log('Stored goal search context:', goalSearchContext);
-			console.log('Stored intervention search context:', interventionSearchContext);
-			console.log('Stored pre-save goal context:', preSaveGoalContext);
-			console.log('Stored pre-save problem context:', preSaveProblemContext);
-
-			console.log('Found results:', results.length);
-
 			// Check if this is a pre-save exact match check for goals
 			if (preSaveGoalContext && preSaveGoalContext.isPreSaveCheck) {
-				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (GOALS) ===');
-				console.log('Checking for exact matches in results...');
-
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
 
 				if (exactMatch) {
-					console.log('EXACT MATCH FOUND:', exactMatch);
-					console.log('Using library goal with master_id:', exactMatch.master_id);
-
 					// Use the exact match as selectedGoal with library data
 					const selectedGoal = {
 						id: exactMatch.id,
@@ -11871,7 +11071,6 @@ createCustomElement('cadal-careiq-builder', {
 					// Get pending save data and proceed with library goal
 					const pendingGoalSave = state.pendingGoalSave;
 					if (pendingGoalSave) {
-						console.log('Proceeding with library goal save...');
 						dispatch('SAVE_GOAL_TO_PROBLEM_AFTER_CHECK', {
 							problemId: pendingGoalSave.problemId,
 							goalText: pendingGoalSave.goalText,
@@ -11880,8 +11079,6 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					console.log('NO EXACT MATCH FOUND - proceeding as new goal');
-
 					// No exact match, proceed with original goal (new goal creation)
 					const pendingGoalSave = state.pendingGoalSave;
 					if (pendingGoalSave) {
@@ -11905,16 +11102,10 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if this is a pre-save exact match check for problems
 			if (preSaveProblemContext && preSaveProblemContext.isPreSaveCheck) {
-				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (PROBLEMS) ===');
-				console.log('Checking for exact matches in results...');
-
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
 
 				if (exactMatch) {
-					console.log('EXACT MATCH FOUND:', exactMatch);
-					console.log('Using library problem with master_id:', exactMatch.master_id);
-
 					// Use the exact match as selectedProblem with library data
 					const selectedProblem = {
 						id: exactMatch.id,
@@ -11926,7 +11117,6 @@ createCustomElement('cadal-careiq-builder', {
 					// Get pending save data and proceed with library problem
 					const pendingProblemSave = state.pendingProblemSave;
 					if (pendingProblemSave) {
-						console.log('Proceeding with library problem save...');
 						dispatch('ADD_PROBLEM_RELATIONSHIP', {
 							answerId: pendingProblemSave.answerId,
 							problemId: selectedProblem.id,
@@ -11935,8 +11125,6 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					console.log('NO EXACT MATCH FOUND - proceeding as new problem creation');
-
 					// No exact match, proceed with new problem creation
 					const pendingProblemSave = state.pendingProblemSave;
 					if (pendingProblemSave) {
@@ -11959,16 +11147,10 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if this is a pre-save exact match check for interventions
 			const preSaveInterventionContext = state.preSaveInterventionContext;
 			if (preSaveInterventionContext && preSaveInterventionContext.isPreSaveCheck) {
-				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (INTERVENTIONS) ===');
-				console.log('Checking for exact matches in results...');
-
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
 
 				if (exactMatch) {
-					console.log('EXACT MATCH FOUND:', exactMatch);
-					console.log('Using library intervention with master_id:', exactMatch.master_id);
-
 					// Use the exact match as selectedIntervention with library data
 					const selectedIntervention = {
 						id: exactMatch.id,
@@ -11983,7 +11165,6 @@ createCustomElement('cadal-careiq-builder', {
 					// Get pending save data and proceed with library intervention
 					const pendingInterventionSave = state.pendingInterventionSave;
 					if (pendingInterventionSave) {
-						console.log('Proceeding with library intervention save...');
 						dispatch('SAVE_INTERVENTION_TO_GOAL_AFTER_CHECK', {
 							goalId: pendingInterventionSave.goalId,
 							interventionText: pendingInterventionSave.interventionText,
@@ -11993,8 +11174,6 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					console.log('NO EXACT MATCH FOUND - proceeding as new intervention');
-
 					// No exact match, proceed with original intervention (new intervention creation)
 					const pendingInterventionSave = state.pendingInterventionSave;
 					if (pendingInterventionSave) {
@@ -12020,21 +11199,13 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if this is a pre-save exact match check for sections
 			const preSaveSectionContext = state.preSaveSectionContext;
 			if (preSaveSectionContext && preSaveSectionContext.isPreSaveCheck) {
-				console.log('=== PRE-SAVE EXACT MATCH CHECK RESULTS (SECTIONS) ===');
-				console.log('Checking for exact matches in results...');
-
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
 
 				if (exactMatch) {
-					console.log('EXACT MATCH FOUND:', exactMatch);
-					console.log('Using library section with master_id:', exactMatch.master_id);
-
 					// Get pending save data and proceed with library section
 					const pendingSectionSave = state.pendingSectionSave;
 					if (pendingSectionSave) {
-						console.log('Proceeding with library section save...');
-
 						// Update state to indicate library section selection
 						updateState({
 							selectedSectionLibraryId: exactMatch.master_id
@@ -12046,8 +11217,6 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					console.log('NO EXACT MATCH FOUND - proceeding as new section');
-
 					// No exact match, proceed with original section (new section creation)
 					const pendingSectionSave = state.pendingSectionSave;
 					if (pendingSectionSave) {
@@ -12075,8 +11244,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Normal typeahead UI flow (not pre-save check)
 			if (goalSearchContext && goalSearchContext.contentType === 'goal' && goalSearchContext.problemId) {
 				const problemId = goalSearchContext.problemId;
-				console.log('Routing to goal typeahead for problem:', problemId);
-
 				// Update goal typeahead state for specific problem - DON'T clear context yet
 				updateState({
 					goalTypeaheadResults: {
@@ -12091,8 +11258,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else if (interventionSearchContext && interventionSearchContext.contentType === 'intervention' && interventionSearchContext.goalId) {
 				const goalId = interventionSearchContext.goalId;
-				console.log('Routing to intervention typeahead for goal:', goalId);
-
 				// Update intervention typeahead state for specific goal - DON'T clear context yet
 				updateState({
 					interventionTypeaheadResults: {
@@ -12106,7 +11271,6 @@ createCustomElement('cadal-careiq-builder', {
 					// DON'T clear context - let it be cleared by blur/escape events
 				});
 			} else {
-				console.log('Routing to relationship typeahead');
 				// Default to relationship typeahead
 				updateState({
 					relationshipTypeaheadResults: results,
@@ -12117,8 +11281,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GENERIC_TYPEAHEAD_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GENERIC_TYPEAHEAD_ERROR ===');
 			console.error('Error payload:', action.payload);
 
 			// Use stored context from state instead of meta
@@ -12241,20 +11403,9 @@ createCustomElement('cadal-careiq-builder', {
 
 		'QUESTION_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== QUESTION_SEARCH_SUCCESS ===');
-			console.log('Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Response keys:', Object.keys(action.payload || {}));
-			console.log('action.payload.results:', action.payload.results);
-
 			const results = action.payload.results || [];
-			console.log('Found questions:', results.length);
-
 			// Check if this is for relationship modal or inline editing
 			if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
-				console.log('=== FILTERING RESULTS FOR RELATIONSHIP MODAL ===');
-
 				// Filter out the current question (the one this answer belongs to)
 				const answerId = state.relationshipModalAnswerId;
 				const currentQuestionId = state.currentQuestions?.questions?.find(q =>
@@ -12267,19 +11418,14 @@ createCustomElement('cadal-careiq-builder', {
 				const filteredResults = results.filter(question => {
 					// Don't show the current question
 					if (question.id === currentQuestionId) {
-						console.log('Filtering out current question:', question.label);
 						return false;
 					}
 					// Don't show already related questions
 					if (existingQuestionIds.includes(question.id)) {
-						console.log('Filtering out existing relationship:', question.label);
 						return false;
 					}
 					return true;
 				});
-
-				console.log(`Filtered questions: ${filteredResults.length} out of ${results.length}`);
-
 				updateState({
 					relationshipTypeaheadResults: filteredResults,
 					relationshipTypeaheadLoading: false
@@ -12290,11 +11436,6 @@ createCustomElement('cadal-careiq-builder', {
 					questionTypeaheadResults: results,
 					questionTypeaheadLoading: false
 				});
-
-				console.log('After QUESTION_SEARCH_SUCCESS - State check:');
-				console.log('questionTypeaheadVisible:', state.questionTypeaheadVisible);
-				console.log('editingQuestionId:', state.editingQuestionId);
-				console.log('Results length:', results.length);
 			}
 		},
 
@@ -12320,26 +11461,11 @@ createCustomElement('cadal-careiq-builder', {
 
 		'LIBRARY_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== LIBRARY_QUESTION_SUCCESS ===');
-			console.log('Response:', action.payload);
-
 			// Debug library question structure
 			if (action.payload.answers) {
-				console.log('=== LIBRARY QUESTION ANSWERS DEBUG ===');
 				action.payload.answers.forEach((answer, index) => {
-					console.log(`Answer ${index + 1}:`, answer);
-					console.log(`  - id: ${answer.id}`);
-					console.log(`  - master_id: ${answer.master_id}`);
-					console.log(`  - label: ${answer.label || answer.text}`);
 				});
 			}
-
-			console.log('Meta:', action.meta);
-			console.log('Meta keys:', Object.keys(action.meta || {}));
-			console.log('Meta values:', action.meta);
-			console.log('targetQuestionId from meta:', action.meta?.targetQuestionId);
-
 			const libraryQuestion = action.payload;
 			const targetQuestionId = state.pendingLibraryQuestionReplacementId;
 
@@ -12354,7 +11480,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Replace the target question with the library question
-			console.log('Replacing question ID:', targetQuestionId, 'with library question (from state)');
 			dispatch('REPLACE_QUESTION_WITH_LIBRARY', {
 				targetQuestionId: targetQuestionId,
 				libraryQuestion: libraryQuestion
@@ -12385,26 +11510,12 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ANSWER_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== ANSWER_SEARCH_SUCCESS ===');
-			console.log('Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Response keys:', Object.keys(action.payload));
-			console.log('action.payload.results:', action.payload.results);
-
 			const results = action.payload.results || [];
-			console.log('Found answers:', results.length);
-
 			updateState({
 				answerTypeaheadResults: results,
 				answerTypeaheadLoading: false,
 				answerTypeaheadVisible: true
 			});
-
-			console.log('After ANSWER_SEARCH_SUCCESS - State check:');
-			console.log('answerTypeaheadVisible:', true);
-			console.log('editingAnswerId:', state.editingAnswerId);
-			console.log('Results length:', results.length);
 		},
 
 		'ANSWER_SEARCH_ERROR': (coeffects) => {
@@ -12429,17 +11540,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'LIBRARY_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== LIBRARY_ANSWER_SUCCESS ===');
-			console.log('Response:', action.payload);
-
 			// Debug library answer structure
-			console.log('=== LIBRARY ANSWER DEBUG ===');
-			console.log('Library Answer ID:', action.payload.id);
-			console.log('Library Answer Label:', action.payload.label);
-			console.log('Library Answer Tooltip:', action.payload.tooltip);
-			console.log('Library Answer Secondary Input:', action.payload.secondary_input_type);
-
 			const libraryAnswer = action.payload;
 			const targetAnswerId = state.pendingLibraryAnswerReplacementId;
 
@@ -12456,7 +11557,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Replace the target answer with the library answer
-			console.log('Replacing answer ID:', targetAnswerId, 'with library answer (from state)');
 			dispatch('REPLACE_ANSWER_WITH_LIBRARY', {
 				answerId: targetAnswerId,
 				libraryAnswerData: libraryAnswer
@@ -12489,11 +11589,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_LIBRARY_QUESTION_TO_SECTION': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {sectionId, libraryQuestion} = action.payload;
-
-			console.log('=== ADD_LIBRARY_QUESTION_TO_SECTION ===');
-			console.log('Section ID:', sectionId);
-			console.log('Library Question:', libraryQuestion);
-
 			if (!state.currentQuestions?.questions) {
 				console.error('No current questions available');
 				return;
@@ -12608,21 +11703,11 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-
-			console.log('=== LIBRARY QUESTION ADDED SUCCESSFULLY ===');
-			console.log('Question ID:', newQuestionId);
-			console.log('Library Question ID:', newQuestion.libraryQuestionId);
-			console.log('Number of library answers:', newQuestion.answers.length);
 		},
 
 		'REPLACE_QUESTION_WITH_LIBRARY': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {targetQuestionId, libraryQuestion} = action.payload;
-
-			console.log('=== REPLACE_QUESTION_WITH_LIBRARY ===');
-			console.log('Target Question ID:', targetQuestionId);
-			console.log('Library Question:', libraryQuestion);
-
 			if (!state.currentQuestions?.questions) {
 				console.error('No current questions available');
 				return;
@@ -12636,8 +11721,6 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const currentQuestion = state.currentQuestions.questions[questionIndex];
-			console.log('Found target question:', currentQuestion.label);
-
 			// Create replacement question with library data
 			const replacementQuestion = {
 				ids: { id: targetQuestionId }, // Keep the same ID
@@ -12757,72 +11840,34 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-
-			console.log('=== QUESTION REPLACED SUCCESSFULLY ===');
-			console.log('Replaced Question ID:', targetQuestionId);
-			console.log('Library Question ID:', replacementQuestion.libraryQuestionId);
-			console.log('Number of library answers:', replacementQuestion.answers.length);
 		},
 
 		'GUIDELINE_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GUIDELINE_SEARCH_SUCCESS DEBUG ===');
-			console.log('SUCCESS HANDLER CALLED!');
-			console.log('Response payload:', action.payload);
-			console.log('Response payload type:', typeof action.payload);
-			console.log('Response payload keys:', action.payload ? Object.keys(action.payload) : 'payload is null');
-			console.log('Full action object:', action);
-			console.log('Action meta:', action.meta);
-			console.log('Action payload meta:', action.payload ? action.payload.meta : 'no payload meta');
-			
 			const results = action.payload.results || [];
 			// Try different ways to access the answerId, including from state
 			const answerId = action.meta?.answerId || action.payload.meta?.answerId || action.answerId || state.currentGuidelineSearchAnswerId;
-			
-			console.log('Found guidelines:', results.length);
-			console.log('Filtering for answer ID:', answerId);
-			
 			// Filter out guidelines that are already added to this answer
 			let filteredResults = results;
-			
-			console.log('=== DEBUGGING GUIDELINE FILTERING ===');
-			console.log('Answer ID for filtering:', answerId);
-			console.log('Available answerRelationships keys:', Object.keys(state.answerRelationships || {}));
-			console.log('Full answerRelationships structure for this answer:', state.answerRelationships[answerId]);
-			console.log('Guidelines section:', state.answerRelationships[answerId]?.guidelines);
-			console.log('Raw search results before filtering:', results.map(g => ({id: g.id, name: g.name})));
-			
 			if (answerId && state.answerRelationships[answerId]) {
 				// Check if guidelines exist in the relationship data
 				const relationshipData = state.answerRelationships[answerId];
-				console.log('Relationship data keys:', Object.keys(relationshipData));
-				
 				// Look for guidelines in different possible locations
 				let existingGuidelineIds = [];
 				
 				if (relationshipData.guidelines?.guidelines) {
 					existingGuidelineIds = relationshipData.guidelines.guidelines.map(g => g.id);
-					console.log('Found existing guideline IDs for filtering:', existingGuidelineIds);
-					console.log('Existing guideline details:', relationshipData.guidelines.guidelines.map(g => ({id: g.id, label: g.label})));
 				} else {
-					console.log('No existing guidelines found - no filtering will occur');
 				}
 				
 				if (existingGuidelineIds.length > 0) {
-					console.log('Existing guideline IDs:', existingGuidelineIds);
-					
 					filteredResults = results.filter(guideline => {
 						const notAlreadyAdded = !existingGuidelineIds.includes(guideline.id);
 						if (!notAlreadyAdded) {
-							console.log(`✅ FILTERING OUT: "${guideline.name}" (${guideline.use_case_category?.name}) - ID: ${guideline.id} already exists`);
 						} else {
-							console.log(`✅ KEEPING: "${guideline.name}" (${guideline.use_case_category?.name}) - ID: ${guideline.id} not found in existing`);
 						}
 						return notAlreadyAdded;
 					});
-
-					console.log('Filtered results count:', filteredResults.length, 'out of', results.length, 'total');
 				}
 			}
 
@@ -12833,24 +11878,11 @@ createCustomElement('cadal-careiq-builder', {
 				filteredResults = filteredResults.filter(guideline => {
 					const isCurrentAssessment = guideline.id === currentAssessmentId;
 					if (isCurrentAssessment) {
-						console.log(`Filtering out current assessment "${guideline.name}" - can't trigger itself`);
 					}
 					return !isCurrentAssessment;
 				});
-				console.log(`Filtered out current assessment: ${beforeCurrentFilter} -> ${filteredResults.length} guidelines`);
 			}
-
-			console.log('Filtered guidelines:', filteredResults.length);
-			console.log('=== FINAL FILTERED RESULTS FOR UI ===');
 			filteredResults.forEach((guideline, index) => {
-				console.log(`Guideline ${index + 1}:`, {
-					id: guideline.id,
-					name: guideline.name,
-					label: guideline.label,
-					title: guideline.title,
-					allKeys: Object.keys(guideline),
-					fullObject: guideline
-				});
 			});
 
 			updateState({
@@ -12899,9 +11931,6 @@ createCustomElement('cadal-careiq-builder', {
 		},
 		'GUIDELINE_SEARCH_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GUIDELINE_SEARCH_ERROR DEBUG ===');
-			console.log('ERROR HANDLER CALLED!');
 			console.error('Error payload:', action.payload);
 			console.error('Error payload type:', typeof action.payload);
 			console.error('Error payload keys:', action.payload ? Object.keys(action.payload) : 'payload is null');
@@ -12934,14 +11963,6 @@ createCustomElement('cadal-careiq-builder', {
 		'QUESTION_TYPEAHEAD_INPUT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {text, sectionId, answerId} = action.payload;
-
-			console.log('=== QUESTION_TYPEAHEAD_INPUT DEBUG ===');
-			console.log('Search text:', text);
-			console.log('Section ID:', sectionId);
-			console.log('Answer ID:', answerId);
-			console.log('Text length:', text ? text.length : 'text is null/undefined');
-			console.log('Context: ', answerId ? 'Relationship Modal' : 'Inline Editing');
-
 			if (answerId) {
 				// Relationship modal context
 				updateState({
@@ -12951,25 +11972,15 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Only search after 3 characters
 				if (text && text.length >= 3) {
-					console.log('=== FILTERING LOCAL QUESTIONS FOR RELATIONSHIP MODAL ===');
-					console.log('Search text:', text);
-					console.log('Answer ID:', answerId);
-
 					// Get current section questions
 					const allQuestions = state.currentQuestions?.questions || [];
-					console.log('All questions in current section:', allQuestions.length);
-
 					// Find the current question (the one this answer belongs to)
 					const currentQuestion = allQuestions.find(q =>
 						q.answers?.some(a => a.ids.id === answerId)
 					);
 					const currentQuestionId = currentQuestion?.ids?.id;
-					console.log('Current question ID to exclude:', currentQuestionId);
-
 					// Get existing triggered questions for this answer
 					const existingQuestionIds = state.answerRelationships[answerId]?.questions?.questions?.map(q => q.id) || [];
-					console.log('Existing triggered question IDs to exclude:', existingQuestionIds);
-
 					// Filter questions: match search text, exclude current question, exclude existing relationships, only higher sort order
 					const filteredQuestions = allQuestions.filter(question => {
 						// Must contain search text (case insensitive)
@@ -12983,21 +11994,13 @@ createCustomElement('cadal-careiq-builder', {
 
 						// Only allow questions with higher sort order (triggered questions must come after current question)
 						const hasHigherSortOrder = question.sort_order > (currentQuestion?.sort_order || 0);
-
-						console.log(`Question "${question.label}": matches="${matchesSearch}", current="${isCurrentQuestion}", existing="${isExistingTriggered}", sortOrder="${question.sort_order}", currentSortOrder="${currentQuestion?.sort_order}", higherSort="${hasHigherSortOrder}"`);
-
 						return matchesSearch && !isCurrentQuestion && !isExistingTriggered && hasHigherSortOrder;
 					});
-
-					console.log(`Filtered questions: ${filteredQuestions.length} out of ${allQuestions.length}`);
-
 					updateState({
 						relationshipTypeaheadResults: filteredQuestions,
 						relationshipTypeaheadLoading: false
 					});
 				} else {
-					console.log('=== NOT SEARCHING ===');
-					console.log('Reason: text length is', text ? text.length : 'text is null/undefined');
 					updateState({
 						relationshipTypeaheadResults: []
 					});
@@ -13011,7 +12014,6 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Only search after 3 characters
 				if (text && text.length >= 3) {
-					console.log('Triggering question search for inline editing:', text);
 					dispatch('SEARCH_QUESTIONS', {
 						searchText: text,
 						sectionId: sectionId
@@ -13027,11 +12029,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SEARCH_QUESTIONS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, sectionId} = action.payload;
-
-			console.log('=== SEARCH_QUESTIONS ===');
-			console.log('Searching for:', searchText);
-			console.log('Section ID in SEARCH_QUESTIONS:', sectionId);
-
 			const requestBody = JSON.stringify({
 				searchText: searchText
 			});
@@ -13040,8 +12037,6 @@ createCustomElement('cadal-careiq-builder', {
 				questionTypeaheadLoading: true,
 				currentQuestionSearchSectionId: sectionId
 			});
-
-			console.log('Question search request body:', requestBody);
 			dispatch('MAKE_QUESTION_SEARCH_REQUEST', {requestBody: requestBody});
 		},
 
@@ -13072,9 +12067,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Relationship modal context - use different search action
-				console.log('=== RELATIONSHIP MODAL QUESTION SEARCH ===');
-				console.log('Searching for questions to add to relationship:', searchText);
-
 				dispatch('RELATIONSHIP_QUESTION_SEARCH', {
 					searchText: searchText,
 					answerId: state.relationshipModalAnswerId
@@ -13085,11 +12077,6 @@ createCustomElement('cadal-careiq-builder', {
 		'RELATIONSHIP_QUESTION_SEARCH': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {searchText, answerId} = action.payload;
-
-			console.log('=== RELATIONSHIP_QUESTION_SEARCH ===');
-			console.log('Searching for questions to add as relationship:', searchText);
-			console.log('Answer ID:', answerId);
-
 			if (searchText.length >= 3) {
 				// Start loading state
 				updateState({
@@ -13149,11 +12136,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_LIBRARY_QUESTION': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {questionId, libraryQuestion} = action.payload;
-
-			console.log('=== SELECT_LIBRARY_QUESTION ===');
-			console.log('Replacing question ID:', questionId);
-			console.log('With library question:', libraryQuestion);
-
 			// Hide typeahead dropdown but keep question visible during fetch
 			updateState({
 				questionTypeaheadVisible: false,
@@ -13164,7 +12146,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Fetch the full library question details including answers
-			console.log('Fetching library question details for:', libraryQuestion.id);
 			dispatch('FETCH_LIBRARY_QUESTION', {
 				libraryQuestionId: libraryQuestion.id,
 				targetQuestionId: questionId
@@ -13174,11 +12155,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_LIBRARY_QUESTION': (coeffects) => {
 			const {action, updateState, dispatch} = coeffects;
 			const {libraryQuestionId, targetQuestionId} = action.payload;
-
-			console.log('=== FETCH_LIBRARY_QUESTION ===');
-			console.log('Fetching library question ID:', libraryQuestionId);
-			console.log('To replace target question ID:', targetQuestionId);
-
 			const requestBody = JSON.stringify({
 				questionId: libraryQuestionId
 			});
@@ -13186,8 +12162,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				questionTypeaheadLoading: true
 			});
-
-			console.log('Library question request body:', requestBody);
 			dispatch('MAKE_LIBRARY_QUESTION_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -13199,13 +12173,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_RELATIONSHIP_GUIDELINE': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName, guidelineMasterId, guidelineCategory} = action.payload;
-
-			console.log('=== SELECT_RELATIONSHIP_GUIDELINE ===');
-			console.log('Selected guideline ID:', guidelineId);
-			console.log('Selected guideline master_id:', guidelineMasterId);
-			console.log('Selected guideline name:', guidelineName);
-			console.log('Answer ID:', answerId);
-
 			updateState({
 				selectedRelationshipQuestion: {
 					id: guidelineId,
@@ -13221,12 +12188,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CONFIRM_ADD_RELATIONSHIP': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {answerId} = action.payload;
-
-			console.log('=== CONFIRM_ADD_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Action payload:', action.payload);
-			console.log('Answer ID:', answerId);
-			console.log('Current state.selectedRelationshipQuestion:', state.selectedRelationshipQuestion);
-
 			// Get the selected question/guideline details
 			const selectedItem = state.selectedRelationshipQuestion;
 			const relationshipType = state.selectedRelationshipType;
@@ -13246,28 +12207,13 @@ createCustomElement('cadal-careiq-builder', {
 				});
 				return;
 			}
-
-			console.log('Selected item details:', selectedItem);
-			console.log('Relationship type:', relationshipType);
-			console.log('=== DEBUGGING SELECTED ITEM PROPERTIES ===');
-			console.log('selectedItem keys:', Object.keys(selectedItem));
-			console.log('selectedItem.id:', selectedItem.id);
-			console.log('selectedItem.master_id:', selectedItem.master_id);
-			console.log('selectedItem.uuid:', selectedItem.uuid);
-			console.log('selectedItem.ids:', selectedItem.ids);
-
 			// Use master_id for guidelines, id for questions
 			const targetId = relationshipType === 'guideline' ? selectedItem.master_id : selectedItem.id;
 
 			// Generate a unique key for this relationship change
 			const relationshipKey = `${answerId}_${relationshipType}_${targetId}`;
-
-			console.log('Generated relationship key:', relationshipKey);
-			console.log('Using targetId:', targetId, 'for relationshipType:', relationshipType);
-
 			// AUTO-SAVE: For guidelines, immediately dispatch the save action instead of queuing
 			if (relationshipType === 'guideline') {
-				console.log('Dispatching ADD_GUIDELINE_RELATIONSHIP for immediate save');
 				dispatch('ADD_GUIDELINE_RELATIONSHIP', {
 					answerId: answerId,
 					guidelineId: targetId,
@@ -13288,7 +12234,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// AUTO-SAVE: For questions, immediately dispatch the save action instead of queuing
 			if (relationshipType === 'question') {
-				console.log('Dispatching ADD_BRANCH_QUESTION for immediate save');
 				dispatch('ADD_BRANCH_QUESTION', {
 					answerId: answerId,
 					questionId: targetId,
@@ -13306,19 +12251,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				return; // Exit early for questions - ADD_BRANCH_QUESTION handles the rest
 			}
-			console.log('Adding relationship change with data:', {
-				action: 'add',
-				answerId: answerId,
-				relationshipType: relationshipType,
-				targetId: targetId,
-				targetLabel: selectedItem.category ? `${selectedItem.label} - ${selectedItem.category}` : selectedItem.label
-			});
-			
 			// Immediately add relationship to local answer data for instant feedback
-			console.log('=== UPDATING LOCAL RELATIONSHIPS ===');
-			console.log('Adding', relationshipType + ':', targetId, 'to answer:', answerId);
-			console.log('Selected item details:', selectedItem);
-			
 			let updatedQuestions = state.currentQuestions.questions;
 			
 			if (relationshipType === 'question') {
@@ -13329,17 +12262,13 @@ createCustomElement('cadal-careiq-builder', {
 						answers: question.answers.map(answer => {
 							if (answer.ids.id === answerId) {
 								const currentTriggered = answer.triggered_questions || [];
-								console.log('Current triggered questions for answer:', currentTriggered);
-								
 								if (!currentTriggered.includes(targetId)) {
 									const newTriggered = [...currentTriggered, targetId];
-									console.log('Updated triggered questions:', newTriggered);
 									return {
 										...answer,
 										triggered_questions: newTriggered
 									};
 								} else {
-									console.log('Question already in triggered list, skipping');
 								}
 							}
 							return answer;
@@ -13347,12 +12276,9 @@ createCustomElement('cadal-careiq-builder', {
 					};
 				});
 			}
-
-			console.log('=== UPDATED QUESTIONS STRUCTURE ===');
 			updatedQuestions.forEach((q, qIndex) => {
 				q.answers?.forEach((a, aIndex) => {
 					if (a.triggered_questions && a.triggered_questions.length > 0) {
-						console.log(`Question ${qIndex + 1}, Answer ${aIndex + 1} (${a.label}): triggered_questions =`, a.triggered_questions);
 					}
 				});
 			});
@@ -13392,18 +12318,10 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-			
-			console.log('=== CONFIRM_ADD_RELATIONSHIP - State updated successfully ===');
-			console.log('Relationship should now be queued for save');
 		},
 		'REMOVE_TRIGGERED_QUESTION': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-			
-			console.log('=== REMOVE_TRIGGERED_QUESTION ACTION TRIGGERED ===');
-			console.log('Removing question:', questionId, 'from answer:', answerId);
-			console.log('Question label:', questionLabel);
-			
 			// Immediately remove triggered question from local answer data
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				return {
@@ -13413,9 +12331,6 @@ createCustomElement('cadal-careiq-builder', {
 							// Remove the triggered question from this answer's triggered_questions array
 							const currentTriggered = answer.triggered_questions || [];
 							const updatedTriggered = currentTriggered.filter(id => id !== questionId);
-							console.log('Current triggered questions:', currentTriggered);
-							console.log('Updated triggered questions:', updatedTriggered);
-							
 							return {
 								...answer,
 								triggered_questions: updatedTriggered
@@ -13474,32 +12389,17 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-			
-			console.log('=== REMOVE_TRIGGERED_QUESTION - State updated successfully ===');
-			console.log('Relationship deletion should now be queued for save');
 		},
 
 		'REMOVE_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
-
-			console.log('=== REMOVE_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Removing guideline:', guidelineId, 'from answer:', answerId);
-			console.log('Guideline name:', guidelineName);
-
 			// Call backend API to delete guideline relationship immediately (like DELETE_BRANCH_QUESTION)
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				guidelineId: guidelineId,
 				guidelineName: guidelineName
 			});
-
-			console.log('About to dispatch with meta:', {
-				answerId: answerId,
-				guidelineId: guidelineId,
-				guidelineName: guidelineName
-			});
-
 			dispatch('MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -13513,10 +12413,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-			
-			console.log('=== ADD_BRANCH_QUESTION ACTION TRIGGERED ===');
-			console.log('Adding branch question:', questionId, 'to answer:', answerId);
-			
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
@@ -13535,31 +12431,11 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
-
-			console.log('=== ADD_GUIDELINE_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Auto-saving guideline relationship immediately:', guidelineId, 'to answer:', answerId);
-			console.log('Full payload:', action.payload);
-			console.log('answerID type:', typeof answerId, 'value:', answerId);
-			console.log('guidelineId type:', typeof guidelineId, 'value:', guidelineId);
-			console.log('guidelineName type:', typeof guidelineName, 'value:', guidelineName);
-
 			// AUTO-SAVE: Immediately call API like sections do
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				guidelineId: guidelineId
 			});
-
-			console.log('=== REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-			console.log('Request body keys:', Object.keys(JSON.parse(requestBody)));
-			console.log('=== POSTMAN COMPARISON ===');
-			console.log('Postman used answerId: a8d8c56f-c1b3-483f-b473-57cca992b652');
-			console.log('Postman used guidelineId: d965087e-f596-492b-97c1-68eeb82970dc');
-			console.log('Frontend sending answerId:', answerId);
-			console.log('Frontend sending guidelineId:', guidelineId);
-			console.log('IDs MATCH Postman?', answerId === 'a8d8c56f-c1b3-483f-b473-57cca992b652' && guidelineId === 'd965087e-f596-492b-97c1-68eeb82970dc');
-
 			dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -13585,12 +12461,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BARRIER_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, barrierId, barrierName, barrierMasterId} = action.payload;
-
-			console.log('=== ADD_BARRIER_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Auto-saving barrier relationship immediately:', barrierName, 'to answer:', answerId);
-			console.log('Full payload:', action.payload);
-			console.log('Using library barrier with ID:', barrierId);
-
 			// Calculate sort_order based on existing barriers
 			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
 			const sortOrder = existingBarriers.length + 1;
@@ -13603,11 +12473,6 @@ createCustomElement('cadal-careiq-builder', {
 				sortOrder: sortOrder,
 				guidelineTemplateId: state.currentAssessmentId
 			});
-
-			console.log('=== BARRIER REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody
 			});
@@ -13628,11 +12493,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_BARRIER': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, barrierName} = action.payload;
-
-			console.log('=== CREATE_NEW_BARRIER ACTION TRIGGERED ===');
-			console.log('Creating new barrier:', barrierName, 'for answer:', answerId);
-			console.log('Full payload:', action.payload);
-
 			// Calculate sort_order based on existing barriers
 			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
 			const sortOrder = existingBarriers.length + 1;
@@ -13645,11 +12505,6 @@ createCustomElement('cadal-careiq-builder', {
 				guidelineTemplateId: state.currentAssessmentId
 				// No barrierId means create new barrier (no library_id in payload)
 			});
-
-			console.log('=== NEW BARRIER REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody
 			});
@@ -13670,11 +12525,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_PROBLEM_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemId, problemName, problemMasterId} = action.payload;
-
-			console.log('=== ADD_PROBLEM_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Auto-saving problem relationship immediately:', problemName, 'to answer:', answerId);
-			console.log('Full payload:', action.payload);
-
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -13687,11 +12537,6 @@ createCustomElement('cadal-careiq-builder', {
 				sortOrder: sortOrder,
 				guidelineTemplateId: state.currentAssessmentId
 			});
-
-			console.log('=== EXISTING PROBLEM REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody
 			});
@@ -13712,11 +12557,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
-
-			console.log('=== CREATE_NEW_PROBLEM ACTION TRIGGERED ===');
-			console.log('Creating new problem:', problemName, 'for answer:', answerId);
-			console.log('Full payload:', action.payload);
-
 			// Show saving message
 			const savingMessage = {
 				type: 'info',
@@ -13740,9 +12580,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// ALWAYS do pre-save typeahead check for exact matches to prevent duplicates
-			console.log('=== PRE-SAVE EXACT MATCH CHECK FOR PROBLEMS ===');
-			console.log('Searching for exact match of:', problemName);
-
 			// Store original save data for after the check
 			updateState({
 				pendingProblemSave: {
@@ -13770,11 +12607,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM_AFTER_CHECK': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
-
-			console.log('=== CREATE_NEW_PROBLEM_AFTER_CHECK ===');
-			console.log('Answer ID:', answerId);
-			console.log('Problem name:', problemName);
-
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -13787,11 +12619,6 @@ createCustomElement('cadal-careiq-builder', {
 				guidelineTemplateId: state.currentAssessmentId
 				// No problemId means create new problem (no library_id in payload)
 			});
-
-			console.log('=== NEW PROBLEM REQUEST BODY DEBUG ===');
-			console.log('Raw request body string:', requestBody);
-			console.log('Parsed request body:', JSON.parse(requestBody));
-
 			dispatch('MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST', {
 				requestBody: requestBody
 			});
@@ -13815,11 +12642,6 @@ createCustomElement('cadal-careiq-builder', {
 		'GET_GOAL_DETAILS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {goalId, problemId} = action.payload;
-
-			console.log('=== GET_GOAL_DETAILS ACTION TRIGGERED ===');
-			console.log('Fetching details for goal:', goalId);
-			console.log('Problem ID:', problemId);
-
 			// Show loading state for the specific goal and store problem ID
 			updateState({
 				editingGoalId: goalId,
@@ -13851,10 +12673,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GET_GOAL_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GET_GOAL_DETAILS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Clear loading state
 			updateState({
 				goalDetailsLoading: null
@@ -13872,7 +12690,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
-				console.warn('API returned incomplete goal details, using fallback data');
 				updateState({
 					editingGoalData: state.goalDetailsFallback || {
 						label: '',
@@ -13921,11 +12738,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_GOAL_EDITS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {goalId, goalData} = action.payload;
-
-			console.log('=== SAVE_GOAL_EDITS ACTION TRIGGERED ===');
-			console.log('Saving edits for goal:', goalId);
-			console.log('Goal data:', goalData);
-
 			// Store problem ID before clearing it
 			const problemId = state.editingGoalProblemId;
 
@@ -13973,16 +12785,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_GOAL_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== UPDATE_GOAL_SUCCESS ===');
-			console.log('API Response:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Meta data:', action.meta);
-
 			// Handle 204 No Content response (null/empty payload is expected and indicates success)
 			if (action.payload === null || action.payload === undefined) {
-				console.log('API returned 204 No Content - this is expected for successful PATCH operations');
-
 				const successMessage = {
 					type: 'success',
 					message: 'Goal updated successfully! Refreshing data...',
@@ -13999,13 +12803,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Refresh just the goals for the specific problem using stored ID
 				const problemId = state.lastEditedGoalProblemId;
-				console.log('UPDATE_GOAL_SUCCESS - problemId from state:', problemId);
-				console.log('UPDATE_GOAL_SUCCESS - currentAssessmentId:', state.currentAssessmentId);
-				console.log('UPDATE_GOAL_SUCCESS - condition met?', problemId && state.currentAssessmentId);
-
 				if (problemId && state.currentAssessmentId) {
-					console.log('Refreshing goals for problem:', problemId);
-
 					// Clear the stored problem ID and refresh goals
 					updateState({
 						lastEditedGoalProblemId: null
@@ -14016,7 +12814,6 @@ createCustomElement('cadal-careiq-builder', {
 						guidelineTemplateId: state.currentAssessmentId
 					});
 				} else {
-					console.log('NOT refreshing goals - missing problemId or assessmentId');
 				}
 				return;
 			}
@@ -14086,11 +12883,6 @@ createCustomElement('cadal-careiq-builder', {
 		'GET_INTERVENTION_DETAILS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {interventionId, goalId} = action.payload;
-
-			console.log('=== GET_INTERVENTION_DETAILS ACTION TRIGGERED ===');
-			console.log('Fetching details for intervention:', interventionId);
-			console.log('Goal ID:', goalId);
-
 			// Show loading state for the specific intervention and store goal ID
 			updateState({
 				editingInterventionId: interventionId,
@@ -14116,9 +12908,6 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				interventionId: interventionId
 			});
-
-			console.log('Sending GET_INTERVENTION_DETAILS request:', requestBody);
-
 			// Make the API call
 			dispatch('MAKE_GET_INTERVENTION_DETAILS_REQUEST', {
 				requestBody: requestBody
@@ -14127,10 +12916,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'GET_INTERVENTION_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== GET_INTERVENTION_DETAILS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Clear loading state
 			updateState({
 				interventionDetailsLoading: null
@@ -14149,7 +12934,6 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
-				console.warn('API returned incomplete intervention details, using fallback data');
 				updateState({
 					editingInterventionData: state.interventionDetailsFallback || {
 						label: '',
@@ -14160,8 +12944,6 @@ createCustomElement('cadal-careiq-builder', {
 					interventionDetailsFallback: null
 				});
 			}
-
-			console.log('Intervention editing data set:', state.editingInterventionData);
 		},
 
 		'GET_INTERVENTION_DETAILS_ERROR': (coeffects) => {
@@ -14198,11 +12980,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_INTERVENTION_EDITS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {interventionId, interventionData} = action.payload;
-
-			console.log('=== SAVE_INTERVENTION_EDITS ACTION TRIGGERED ===');
-			console.log('Saving edits for intervention:', interventionId);
-			console.log('Intervention data:', interventionData);
-
 			// Store goal ID before clearing it
 			const goalId = state.editingInterventionGoalId;
 
@@ -14239,9 +13016,6 @@ createCustomElement('cadal-careiq-builder', {
 				category: interventionData.category,
 				goal_id: goalId
 			});
-
-			console.log('Sending UPDATE_INTERVENTION request:', requestBody);
-
 			// Make the API call
 			dispatch('MAKE_UPDATE_INTERVENTION_REQUEST', {
 				requestBody: requestBody,
@@ -14251,10 +13025,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== UPDATE_INTERVENTION_SUCCESS ===');
-			console.log('Full action payload:', action.payload);
-
 			// Extract goal ID from stored state (using working pattern from goals)
 			const goalId = state.lastEditedInterventionGoalId;
 
@@ -14310,10 +13080,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_RELATIONSHIP': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-
-			console.log('=== ADD_QUESTION_RELATIONSHIP ACTION TRIGGERED ===');
-			console.log('Forwarding to ADD_BRANCH_QUESTION:', questionId, 'to answer:', answerId);
-
 			// Just forward to the existing ADD_BRANCH_QUESTION action
 			dispatch('ADD_BRANCH_QUESTION', {
 				answerId: answerId,
@@ -14325,9 +13091,6 @@ createCustomElement('cadal-careiq-builder', {
 		'OPEN_EDIT_MODAL': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {type, itemId, text} = action.payload;
-			
-			console.log('Opening edit modal:', type, itemId, text);
-			
 			updateState({
 				modalOpen: true,
 				modalType: type,
@@ -14360,9 +13123,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_MODAL_TEXT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
-			console.log('Saving modal text:', state.modalType, state.modalItemId, state.modalText);
-			
 			if (state.modalType === 'question') {
 				// Update question label
 				const updatedQuestions = state.currentQuestions.questions.map(question => 
@@ -14446,9 +13206,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_SECTION': (coeffects) => {
 			const {updateState, state} = coeffects;
-
-			console.log('ADD_SECTION action triggered - creating parent section');
-
 			// Get existing sections for sort_order calculation
 			const existingSections = state.currentAssessment.sections || [];
 
@@ -14499,9 +13256,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_CHILD_SECTION': (coeffects) => {
 			const {updateState, state, action} = coeffects;
 			const {parentSectionId} = action.payload;
-
-			console.log('ADD_CHILD_SECTION action triggered for parent:', parentSectionId);
-
 			// Find the parent section
 			const existingSections = state.currentAssessment.sections || [];
 			const parentSection = existingSections.find(s => s.id === parentSectionId);
@@ -14522,14 +13276,9 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Calculate next sort_order within the parent section
 			const existingSubsections = parentSection.subsections || [];
-			console.log('Existing subsections for sort_order calculation:', existingSubsections.map(s => ({ label: s.label, sort_order: s.sort_order })));
-
 			const sortOrders = existingSubsections.map(s => s.sort_order || 0);
 			const maxSortOrder = sortOrders.length > 0 ? Math.max(...sortOrders) : 0;
 			const nextSortOrder = maxSortOrder + 1;
-
-			console.log('Calculated next sort_order:', nextSortOrder, 'from existing:', sortOrders);
-
 			// Create new child section
 			const newSectionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 			const newSection = {
@@ -14579,12 +13328,6 @@ createCustomElement('cadal-careiq-builder', {
 		'EDIT_SECTION_NAME': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-
-			console.log('=== EDIT_SECTION_NAME DEBUG ===');
-			console.log('Original Section ID:', sectionId);
-			console.log('Original Section Label:', sectionLabel);
-			console.log('Is temp ID?', sectionId.startsWith('temp_'));
-
 			updateState({
 				editingSectionId: sectionId,
 				editingSectionName: sectionLabel
@@ -14603,10 +13346,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_SECTION_NAME': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
-			console.log('Saving section name:', sectionLabel);
-			console.log('Selected library_id:', state.selectedSectionLibraryId);
-			
 			// First check for exact matches using typeahead API
 			dispatch('CHECK_SECTION_DUPLICATE', {
 				sectionId,
@@ -14675,10 +13414,6 @@ createCustomElement('cadal-careiq-builder', {
 		'CHECK_SECTION_LIBRARY_MATCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-
-			console.log('=== CHECK_SECTION_LIBRARY_MATCH ===');
-			console.log('Searching for exact library match of:', sectionLabel);
-
 			// Store original save data for after the library check
 			updateState({
 				pendingSectionSave: {
@@ -14703,12 +13438,6 @@ createCustomElement('cadal-careiq-builder', {
 		'PROCEED_WITH_SECTION_SAVE': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-
-			console.log('=== PROCEED_WITH_SECTION_SAVE DEBUG ===');
-			console.log('Section checkmark clicked - auto-saving all changes!');
-			console.log('Section ID at save time:', sectionId);
-			console.log('Is temp ID?', sectionId.startsWith('temp_'));
-
 			// Update the section label in the assessment (handles both parent and child sections)
 			const updatedSections = state.currentAssessment.sections.map(section => {
 				// Check if this is a parent section being updated
@@ -14835,13 +13564,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_SECTION_IMMEDIATELY': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionId, sectionLabel, libraryId} = action.payload;
-
-			console.log('=== SAVE_SECTION_IMMEDIATELY DEBUG ===');
-			console.log('Section ID:', sectionId);
-			console.log('Section Label:', sectionLabel);
-			console.log('Library ID:', libraryId);
-			console.log('Is temp ID?', sectionId.startsWith('temp_'));
-
 			// Validate section label is not blank
 			if (!sectionLabel || sectionLabel.trim() === '') {
 				console.error('Cannot save section with blank label');
@@ -14860,7 +13582,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Determine if this is a new section (temp ID) or existing section
 			if (sectionId.startsWith('temp_')) {
-				console.log('🆕 Treating as NEW section - will use ADD_SECTION_API');
 				// New section - find the actual section data to get the correct sort_order
 				let actualSection = null;
 				let isParentSection = false;
@@ -14895,20 +13616,8 @@ createCustomElement('cadal-careiq-builder', {
 					console.error('Could not find section data for temp section:', sectionId);
 					return;
 				}
-
-				console.log('Found section data:', {
-					id: actualSection.id,
-					label: actualSection.label,
-					sort_order: actualSection.sort_order,
-					isParentSection: isParentSection,
-					parentSectionId: parentSectionId
-				});
-
 				// Check if parent section has temp ID - need to save parent first
 				if (parentSectionId && parentSectionId.startsWith('temp_')) {
-					console.log('Child section needs parent saved first. Parent ID:', parentSectionId);
-					console.log('Queuing child section save after parent save completes');
-
 					// Find the parent section data
 					const parentSection = state.currentAssessment.sections.find(s => s.id === parentSectionId);
 					if (!parentSection) {
@@ -14943,7 +13652,6 @@ createCustomElement('cadal-careiq-builder', {
 					});
 
 					// Save the parent section first
-					console.log('Saving parent section first:', parentSection.label);
 					dispatch('SAVE_SECTION_IMMEDIATELY', {
 						sectionId: parentSectionId,
 						sectionLabel: parentSection.label,
@@ -14967,7 +13675,6 @@ createCustomElement('cadal-careiq-builder', {
 					sectionData: sectionData
 				});
 			} else {
-				console.log('🔄 Treating as EXISTING section - will use UPDATE_SECTION_API');
 				// Existing section - use UPDATE API
 				const sectionData = {
 					sectionId: sectionId,
@@ -14987,9 +13694,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_SECTION': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {sectionId, sectionName} = action.payload;
-			
-			console.log('Deleting section:', sectionName);
-			
 			if (confirm(`Are you sure you want to delete section "${sectionName}"?`)) {
 				let updatedSections;
 				let isParentSection = false;
@@ -15000,11 +13704,9 @@ createCustomElement('cadal-careiq-builder', {
 				if (parentSectionToDelete) {
 					// This is a parent section - remove it completely from the sections array
 					isParentSection = true;
-					console.log('Deleting parent section:', sectionName);
 					updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
 				} else {
 					// This is a child section - remove it from parent sections' subsections
-					console.log('Deleting child section:', sectionName);
 					updatedSections = state.currentAssessment.sections.map(section => ({
 						...section,
 						subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
@@ -15022,12 +13724,10 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Auto-delete from backend immediately (only if not temp ID)
 				if (!sectionId.startsWith('temp_')) {
-					console.log('Calling backend API to delete section:', sectionId);
 					dispatch('DELETE_SECTION_API', {
 						sectionId: sectionId
 					});
 				} else {
-					console.log('Skipping backend API call - temp section:', sectionId);
 					// Show immediate success message for temp sections
 					updateState({
 						systemMessages: [
@@ -15047,9 +13747,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_SECTION_API': (coeffects) => {
 			const {action, dispatch, state} = coeffects;
 			const {sectionData} = action.payload;
-
-			console.log('Calling add section API with data:', sectionData);
-
 			// Get config and access token like other APIs
 			const config = state.careiqConfig;
 			const accessToken = state.accessToken;
@@ -15066,17 +13763,12 @@ createCustomElement('cadal-careiq-builder', {
 				sort_order: sectionData.sort_order,
 				library_id: sectionData.library_id
 			});
-
-			console.log('Add section request body:', requestBody);
 			dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody: requestBody});
 		},
 
 		'UPDATE_SECTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {sectionData} = action.payload;
-
-			console.log('Calling update section API with data:', sectionData);
-
 			// Send fields directly - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
 				sectionId: sectionData.sectionId,
@@ -15084,22 +13776,15 @@ createCustomElement('cadal-careiq-builder', {
 				library_id: sectionData.library_id,
 				sort_order: sectionData.sort_order
 			});
-
-			console.log('Update section request body:', requestBody);
 			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionData.sectionId});
 		},
 
 		'DELETE_SECTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {sectionId} = action.payload;
-			
-			console.log('Calling delete section API for:', sectionId);
-			
 			const requestBody = JSON.stringify({
 				sectionId: sectionId
 			});
-			
-			console.log('Delete section request body (simplified):', requestBody);
 			dispatch('MAKE_DELETE_SECTION_REQUEST', {requestBody: requestBody});
 		},
 
@@ -15115,8 +13800,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Section deleted successfully:', action.payload);
-
 			// The section was already removed locally by DELETE_SECTION handler
 			// Just confirm the backend operation succeeded
 			updateState({
@@ -15130,8 +13813,6 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-
-			console.log('Section delete confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'DELETE_SECTION_ERROR': (coeffects) => {
@@ -15156,9 +13837,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DRAG_SECTION_START': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {sectionId, sectionIndex} = action.payload;
-			
-			console.log('Starting drag for section:', sectionId, 'at index:', sectionIndex);
-			
 			updateState({
 				draggingSection: sectionId,
 				draggingSectionIndex: sectionIndex,
@@ -15188,10 +13866,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {targetSectionId, targetIndex} = action.payload;
 			const draggingSection = state.draggingSection;
 			const draggingIndex = state.draggingSectionIndex;
-			
-			console.log('Dropping section:', draggingSection, 'onto:', targetSectionId);
-			console.log('Moving from index:', draggingIndex, 'to index:', targetIndex);
-			
 			if (draggingSection && draggingSection !== targetSectionId) {
 				// Find the sections array and reorder
 				const updatedSections = state.currentAssessment.sections.map(section => {
@@ -15237,8 +13911,6 @@ createCustomElement('cadal-careiq-builder', {
 				);
 
 				if (reorderedSection && reorderedSection.subsections) {
-					console.log('Auto-saving reordered sections:', reorderedSection.subsections.map(s => ({ id: s.id, label: s.label, sort_order: s.sort_order })));
-
 					// Show immediate feedback for reordering operation
 					updateState({
 						systemMessages: [
@@ -15254,7 +13926,6 @@ createCustomElement('cadal-careiq-builder', {
 
 					reorderedSection.subsections.forEach(subsection => {
 						// Auto-save each reordered section with new sort_order
-						console.log(`Saving section ${subsection.label} with sort_order: ${subsection.sort_order}`);
 						dispatch('UPDATE_SECTION_API', {
 							sectionData: {
 								sectionId: subsection.id,
@@ -15280,9 +13951,6 @@ createCustomElement('cadal-careiq-builder', {
 		'EDIT_QUESTION_TOOLTIP': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {questionId, currentTooltip} = action.payload;
-			
-			console.log('Editing tooltip for question:', questionId, 'Current tooltip:', currentTooltip);
-			
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
@@ -15306,8 +13974,6 @@ createCustomElement('cadal-careiq-builder', {
 			const newTooltip = state.editingTooltipText;
 			
 			if (questionId) {
-				console.log('Saving tooltip for question:', questionId, 'New tooltip:', newTooltip);
-				
 				// Update the question in the current questions data and mark as unsaved
 				const updatedQuestions = {
 					...state.currentQuestions,
@@ -15335,8 +14001,6 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			} else if (answerId) {
-				console.log('Saving tooltip for answer:', answerId, 'New tooltip:', newTooltip);
-
 				// Update the answer in the current questions data and mark question as unsaved
 				const updatedQuestions = {
 					...state.currentQuestions,
@@ -15388,9 +14052,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_LABEL': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newLabel} = action.payload;
-
-			console.log('Updating answer label:', answerId, 'New label:', newLabel);
-
 			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -15428,12 +14089,10 @@ createCustomElement('cadal-careiq-builder', {
 			const {answerId, score} = action.payload;
 
 			if (!state.selectedScoringModel) {
-				console.warn('No scoring model selected, cannot update score');
 				return;
 			}
 
 			const selectedModelId = state.selectedScoringModel.id;
-			console.log('Updating answer score:', answerId, 'Model:', selectedModelId, 'New score:', score);
 
 			// Update the answer score in the scoring object for the selected model
 			const updatedQuestions = {
@@ -15465,12 +14124,10 @@ createCustomElement('cadal-careiq-builder', {
 			const {answerId, score} = action.payload;
 
 			if (!state.selectedScoringModel) {
-				console.warn('No scoring model selected, cannot save score');
 				return;
 			}
 
 			if (!state.careiqConfig || !state.accessToken) {
-				console.warn('Missing configuration or token, cannot save score');
 				updateState({
 					systemMessages: [
 						...(state.systemMessages || []),
@@ -15487,13 +14144,6 @@ createCustomElement('cadal-careiq-builder', {
 			const config = state.careiqConfig;
 			const accessToken = state.accessToken;
 			const selectedModel = state.selectedScoringModel;
-
-			console.log('Auto-saving answer score:', {
-				answerId,
-				score,
-				scoringModelId: selectedModel.id,
-				scoringModelLabel: selectedModel.label
-			});
 
 			// Convert score to string as required by API
 			const scoreString = score ? String(score) : "";
@@ -15512,8 +14162,6 @@ createCustomElement('cadal-careiq-builder', {
 				value: scoreString
 			});
 
-			console.log('Save scoring model request body:', requestBody);
-
 			dispatch('MAKE_SAVE_SCORING_MODEL_REQUEST', {
 				requestBody: requestBody,
 				meta: { answerId: answerId, score: score }
@@ -15523,9 +14171,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_SECONDARY_INPUT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newSecondaryInputType} = action.payload;
-
-			console.log('Updating answer secondary input:', answerId, 'New type:', newSecondaryInputType);
-
 			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -15552,9 +14197,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_MUTUALLY_EXCLUSIVE': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, mutually_exclusive} = action.payload;
-
-			console.log('Updating answer mutually_exclusive:', answerId, 'to:', mutually_exclusive);
-
 			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -15581,9 +14223,6 @@ createCustomElement('cadal-careiq-builder', {
 		'EDIT_ANSWER_TOOLTIP': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {answerId, currentTooltip} = action.payload;
-			
-			console.log('Editing tooltip for answer:', answerId, 'Current tooltip:', currentTooltip);
-			
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
@@ -15594,12 +14233,12 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_ALL_CHANGES': async (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 
-			// console.log('=== SAVE_ALL_CHANGES HANDLER TRIGGERED ===');
-			// console.log('Saving all changes to backend');
-			// console.log('Section changes:', state.sectionChanges);
-			// console.log('Question changes:', state.questionChanges);
-			console.log('Answer changes:', state.answerChanges); // Keep for delete debugging
-			// console.log('Relationship changes:', state.relationshipChanges);
+			// 
+			// 
+			// 
+			// 
+			 // Keep for delete debugging
+			// 
 
 			// CRITICAL: Capture COMPLETE change data, then IMMEDIATELY clear tracking to prevent duplicates
 			const sectionChangesData = {...(state.sectionChanges || {})};
@@ -15613,14 +14252,6 @@ createCustomElement('cadal-careiq-builder', {
 			const relationshipChanges = Object.keys(relationshipChangesData);
 
 			// DEBUG: Log what we captured
-			console.log('=== CAPTURED CHANGES FOR SAVE ===');
-			console.log('Section changes:', sectionChanges.length, sectionChanges);
-			console.log('Question changes:', questionChanges.length, questionChanges);
-			console.log('Answer changes:', answerChanges.length, answerChanges);
-			console.log('Relationship changes:', relationshipChanges.length, relationshipChanges);
-			console.log('Answer changes data:', answerChangesData);
-			console.log('================================');
-
 			// IMMEDIATELY clear change tracking to prevent duplicate calls
 			updateState({
 				sectionChanges: {},
@@ -15764,7 +14395,6 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Handle deleted sections with DELETE API
 					if (sectionData.deleted) {
-						console.log('Deleting section:', sectionId);
 						// Only delete if it's not a temporary ID (real UUIDs only)
 						if (!sectionId.startsWith('temp_')) {
 							dispatch('DELETE_SECTION_API', {
@@ -15792,7 +14422,6 @@ createCustomElement('cadal-careiq-builder', {
 
 				// Save parent sections first
 				parentSections.forEach(({sectionId, sectionData}) => {
-					console.log('Saving parent section:', sectionId, sectionData);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -15814,11 +14443,8 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionChanges.length > 0) {
 				questionChanges.forEach(questionId => {
 					const questionData = questionChangesData[questionId];
-					console.log('Saving question:', questionId, questionData);
-
 					// Handle new questions with ADD API
 					if (questionData.action === 'add') {
-						console.log('Adding new question:', questionId);
 						// Prepare data for backend API
 						const backendQuestionData = {
 							label: questionData.label,
@@ -15848,11 +14474,8 @@ createCustomElement('cadal-careiq-builder', {
 							sectionId: questionData.sectionId
 						});
 					} else if (questionData.action === 'delete') {
-						console.log('Deleting question:', questionId);
-						
 						// Skip if the question has a temp ID (was never saved to backend)
 						if (questionId.startsWith('temp_')) {
-							console.log('Skipping delete for temp question - was never saved to backend');
 							return;
 						}
 						
@@ -15860,17 +14483,10 @@ createCustomElement('cadal-careiq-builder', {
 							questionId: questionId
 						});
 					} else if (questionData.action === 'library_replace') {
-						console.log('=== LIBRARY QUESTION SAVE DEBUG ===');
-						console.log('Library question ID:', questionId);
-						console.log('Question data from changes:', questionData);
-						console.log('Current assessment ID:', state.currentAssessmentId);
-						console.log('Selected section ID:', state.selectedSection);
-
 						// Find the current question to get actual UI values
 						let currentQuestion = null;
 						if (state.currentQuestions && state.currentQuestions.questions) {
 							currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
-							console.log('Found current question:', currentQuestion);
 						}
 
 						if (!currentQuestion) {
@@ -15880,12 +14496,7 @@ createCustomElement('cadal-careiq-builder', {
 
 						// Get all library answers for this question
 						const questionAnswers = currentQuestion.answers || [];
-						console.log('Question answers count:', questionAnswers.length);
-						console.log('Question answers:', questionAnswers);
-
 						// Use 2-step process for library questions to handle answers correctly
-						console.log('Using 2-step process for library question');
-
 						// Use the standard 2-step API flow which now handles library answers correctly
 						const libraryQuestionData = {
 							label: currentQuestion.label,
@@ -15900,17 +14511,12 @@ createCustomElement('cadal-careiq-builder', {
 							has_quality_measures: false,
 							library_id: currentQuestion.libraryQuestionId // Include library ID
 						};
-
-						console.log('Library question using standard ADD_QUESTION_TO_SECTION_API flow');
-
 						dispatch('ADD_QUESTION_TO_SECTION_API', {
 							questionData: libraryQuestionData,
 							sectionId: state.selectedSection,
 							pendingAnswers: questionAnswers // Raw answers - will be processed by API handler
 						});
 					} else if (questionData.action === 'update') {
-						console.log('Updating question:', questionId);
-
 						// Find the current question to get actual UI values
 						let currentQuestion = null;
 						if (state.currentQuestions && state.currentQuestions.questions) {
@@ -15940,17 +14546,10 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Save answer changes - First check for exact library matches
 			if (answerChanges.length > 0) {
-				console.log('=== CHECKING ANSWERS FOR EXACT LIBRARY MATCHES ===');
-				console.log('Answer changes to check:', answerChanges);
-				console.log('Answer changes data:', answerChangesData);
-
 				// Check each answer against library for exact matches
 				for (let answerId of answerChanges) {
 					const answerData = answerChangesData[answerId];
 					if (answerData && answerData.label && answerData.label.trim()) {
-						console.log('Checking answer for library match:', answerData.label);
-						console.log('Making typeahead API call for:', answerData.label.trim());
-
 						// Make synchronous call to typeahead API to check for exact match
 						try {
 							const typeaheadResponse = await fetch('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
@@ -15965,27 +14564,15 @@ createCustomElement('cadal-careiq-builder', {
 
 							if (typeaheadResponse.ok) {
 								const typeaheadData = await typeaheadResponse.json();
-								console.log('Typeahead response for', answerData.label, ':', typeaheadData);
-
 								if (typeaheadData.results && typeaheadData.results.length > 0) {
-									console.log('Found', typeaheadData.results.length, 'typeahead results');
-									console.log('Typeahead results:', typeaheadData.results);
-
 									// Check for exact match (case insensitive)
 									const exactMatch = typeaheadData.results.find(result => {
 										if (!result || !result.name) {
-											console.log('Skipping result with missing name:', result);
 											return false;
 										}
-										console.log('Comparing:', result.name.toLowerCase().trim(), 'vs', answerData.label.toLowerCase().trim());
 										return result.name.toLowerCase().trim() === answerData.label.toLowerCase().trim();
 									});
-
-									console.log('Exact match result:', exactMatch);
-
 									if (exactMatch) {
-										console.log('Found exact library match for:', answerData.label, 'Library ID:', exactMatch.id);
-
 										// Update the answer to use library reference
 										const updatedAnswerData = {
 											...answerData,
@@ -15994,9 +14581,6 @@ createCustomElement('cadal-careiq-builder', {
 											originalLibraryData: exactMatch
 										};
 										answerChangesData[answerId] = updatedAnswerData;
-
-										console.log('Updated answer data to library reference:', updatedAnswerData);
-
 										// Add system message about using library answer
 										updateState({
 											systemMessages: [
@@ -16012,14 +14596,10 @@ createCustomElement('cadal-careiq-builder', {
 								}
 							}
 						} catch (error) {
-							console.warn('Error checking answer against library:', error);
 							// Continue with normal processing if typeahead fails
 						}
 					}
 				}
-
-				console.log('=== LIBRARY CHECK COMPLETE, PROCESSING SAVES ===');
-				console.log('Final answer changes data after library check:', answerChangesData);
 			}
 
 			// Save answer changes - Group by question and action type
@@ -16030,12 +14610,9 @@ createCustomElement('cadal-careiq-builder', {
 
 				answerChanges.forEach(answerId => {
 					const answerData = answerChangesData[answerId];
-					console.log('Processing answer change:', answerId, answerData);
-
 					if (answerData.action === 'add' || answerData.action === 'library_replace') {
 						// Skip if the question is also new (temp ID) - will be handled with question creation
 						if (answerData.question_id && answerData.question_id.startsWith('temp_')) {
-							console.log('Skipping answer for new question - will be created with question');
 							return;
 						}
 
@@ -16062,7 +14639,6 @@ createCustomElement('cadal-careiq-builder', {
 								answersGroupedByQuestion[questionId] = [];
 							}
 							answersGroupedByQuestion[questionId].push({ answerId, answerData });
-							console.log('Grouped answer for bulk API:', answerId, 'action:', answerData.action, 'to question:', questionId);
 						}
 					} else {
 						// Individual operations (update, delete, library_add, etc.)
@@ -16073,14 +14649,10 @@ createCustomElement('cadal-careiq-builder', {
 				// Process grouped new answers first (use bulk ADD_ANSWERS_TO_QUESTION API)
 				Object.keys(answersGroupedByQuestion).forEach(questionId => {
 					const answersForQuestion = answersGroupedByQuestion[questionId];
-					console.log('Adding', answersForQuestion.length, 'answers to question:', questionId);
-
 					// Prepare answers array for bulk API
 					const answersArray = answersForQuestion.map(({ answerId, answerData }) => {
 						// Handle library answers differently - use library ID instead of creating new answer
 						if (answerData.action === 'library_replace') {
-							console.log('Adding library answer with ID:', answerData.libraryAnswerId);
-
 							// Find the current answer to get sort_order
 							let currentAnswer = null;
 							if (state.currentQuestions && state.currentQuestions.questions) {
@@ -16135,23 +14707,14 @@ createCustomElement('cadal-careiq-builder', {
 						guideline_template_id: state.currentAssessmentId,
 						answers: answersArray
 					});
-
-					console.log('Dispatching MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST for question:', questionId);
-					console.log('Request body:', requestBody);
-
 					dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
 				});
 
 				// Process individual answer operations
 				individualAnswers.forEach(({ answerId, answerData }) => {
-					console.log('Processing individual answer operation:', answerId, answerData.action);
-
 					if (answerData.action === 'delete') {
-						console.log('Deleting answer:', answerId);
-
 						// Skip if the answer has a temp ID (was never saved to backend)
 						if (answerId.startsWith('temp_')) {
-							console.log('Skipping delete for temp answer - was never saved to backend');
 							return;
 						}
 
@@ -16160,8 +14723,6 @@ createCustomElement('cadal-careiq-builder', {
 							suppressMessage: true // Suppress individual success message during bulk save
 						});
 					} else if (answerData.action === 'update') {
-						console.log('Updating answer:', answerId);
-						
 						// Find the current answer in questions to get actual UI values
 						let currentAnswer = null;
 						if (state.currentQuestions && state.currentQuestions.questions) {
@@ -16197,42 +14758,23 @@ createCustomElement('cadal-careiq-builder', {
 			if (relationshipChanges.length > 0) {
 				relationshipChanges.forEach(relationshipKey => {
 					const relationshipData = relationshipChangesData[relationshipKey];
-					console.log('Saving relationship:', relationshipKey, relationshipData);
-					
 					if (relationshipData.action === 'add' && relationshipData.relationshipType === 'question') {
-						console.log('Adding branch question relationship:', relationshipData.answerId, relationshipData.targetId);
-						
 						dispatch('ADD_BRANCH_QUESTION', {
 							answerId: relationshipData.answerId,
 							questionId: relationshipData.targetId,
 							questionLabel: relationshipData.targetLabel
 						});
 					} else if (relationshipData.action === 'delete' && relationshipData.relationshipType === 'question') {
-						console.log('Deleting branch question relationship:', relationshipData.answerId, relationshipData.targetId);
-						
 						dispatch('DELETE_BRANCH_QUESTION', {
 							answerId: relationshipData.answerId,
 							questionId: relationshipData.targetId,
 							questionLabel: relationshipData.targetLabel
 						});
 					} else if (relationshipData.action === 'add' && relationshipData.relationshipType === 'guideline') {
-						console.log('=== DEBUGGING GUIDELINE RELATIONSHIP SAVE ===');
-						console.log('relationshipData:', relationshipData);
-						console.log('relationshipData.answerId:', relationshipData.answerId);
-						console.log('relationshipData.targetId:', relationshipData.targetId);
-						console.log('typeof relationshipData.targetId:', typeof relationshipData.targetId);
-						console.log('relationshipData.targetId === null:', relationshipData.targetId === null);
-						console.log('relationshipData.targetId === undefined:', relationshipData.targetId === undefined);
-
 						const requestBody = JSON.stringify({
 							answerId: relationshipData.answerId,
 							guidelineId: relationshipData.targetId
 						});
-
-						console.log('DANNY- guidelineId being passed:', relationshipData.targetId);
-						console.log('Final request body:', requestBody);
-						console.log('Parsed request body:', JSON.parse(requestBody));
-
 						dispatch('MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST', {
 							requestBody: requestBody,
 							meta: {
@@ -16265,25 +14807,9 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_SECTION': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {sectionId, sectionData, config, accessToken} = action.payload;
-			
-			console.log('SAVE_SECTION handler called for section:', sectionId);
-			console.log('Section data:', sectionData);
-			console.log('Config:', config);
-			console.log('Access token exists:', !!accessToken);
-			console.log('gt_id value:', sectionData.gt_id);
-			console.log('parent_section_id value:', sectionData.parent_section_id);
-			
 			// Check if this is a new section (add) or existing section (update)
 			// New sections have either action='add' or temp IDs starting with 'temp_'
 			if (sectionData.action === 'add' || sectionId.startsWith('temp_')) {
-				console.log('This is a new section - calling add section API (simplified)');
-				console.log('DEBUG - sectionData object:', sectionData);
-				console.log('DEBUG - sort_order:', sectionData.sort_order);
-				console.log('DEBUG - gt_id:', sectionData.gt_id);
-				console.log('DEBUG - label:', sectionData.label);
-				console.log('DEBUG - parent_section_id:', sectionData.parent_section_id);
-				console.log('DEBUG - library_id:', sectionData.library_id);
-				
 				const requestBody = JSON.stringify({
 					sort_order: sectionData.sort_order || 1,
 					gt_id: sectionData.gt_id,
@@ -16291,13 +14817,9 @@ createCustomElement('cadal-careiq-builder', {
 					parent_section_id: sectionData.parent_section_id,
 					library_id: sectionData.library_id || null
 				});
-				
-				console.log('Add section request body (simplified):', requestBody);
 				dispatch('MAKE_ADD_SECTION_REQUEST', {requestBody: requestBody});
 				
 			} else {
-				console.log('This is an existing section - calling update section API');
-				
 				const requestBody = JSON.stringify({
 					sectionId: sectionId,
 					label: sectionData.label || '',
@@ -16307,8 +14829,6 @@ createCustomElement('cadal-careiq-builder', {
 					custom_attributes: sectionData.custom_attributes || {},
 					sort_order: sectionData.sort_order || 0
 				});
-				
-				console.log('Update section request body (simplified):', requestBody);
 				dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionId});
 			}
 		},
@@ -16337,10 +14857,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {questionData} = action.payload;
-			
-			console.log('ADD_QUESTION_API handler called');
-			console.log('Question data:', questionData);
-			
 			// CORRECT: Send fields directly - ServiceNow HTTP framework adds data wrapper automatically
 			const requestBody = JSON.stringify({
 				label: questionData.label,
@@ -16356,31 +14872,16 @@ createCustomElement('cadal-careiq-builder', {
 				required: questionData.required,
 				available: questionData.available
 			});
-			
-			console.log('Add Question request body:', requestBody);
-			
 			dispatch('MAKE_ADD_QUESTION_REQUEST', {requestBody: requestBody});
 		},
 
 		'ADD_QUESTION_TO_SECTION_API': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {questionData, sectionId, pendingAnswers} = action.payload;
-
-			console.log('ADD_QUESTION_TO_SECTION_API handler called');
-			console.log('Question data:', questionData);
-			console.log('Section ID:', sectionId);
-			console.log('Pending answers:', pendingAnswers);
-
 			// Store pending answers in state for later use in success handler
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				// Process pending answers to add library_id for library answers ONLY
 				const processedPendingAnswers = pendingAnswers.map((answer, index) => {
-					console.log('=== PROCESSING PENDING ANSWER ===');
-					console.log('Answer index:', index);
-					console.log('Answer object:', answer);
-					console.log('isLibraryAnswer:', answer.isLibraryAnswer);
-					console.log('libraryAnswerId:', answer.libraryAnswerId);
-
 					// Base payload for all answers (library and non-library)
 					const answerPayload = {
 						sort_order: answer.sort_order || index,
@@ -16396,19 +14897,14 @@ createCustomElement('cadal-careiq-builder', {
 					// ONLY add library_id for library answers
 					if (answer.isLibraryAnswer && answer.libraryAnswerId) {
 						answerPayload.library_id = answer.libraryAnswerId;
-						console.log('✅ Added library_id for library answer:', answer.libraryAnswerId);
 					} else {
-						console.log('⚪ Non-library answer - no library_id added');
 					}
-
-					console.log('Final answer payload:', answerPayload);
 					return answerPayload;
 				});
 
 				updateState({
 					pendingQuestionAnswers: processedPendingAnswers
 				});
-				console.log('Stored processed pending answers:', processedPendingAnswers.length);
 			}
 
 			// Send fields directly - ServiceNow adds data wrapper automatically
@@ -16429,22 +14925,15 @@ createCustomElement('cadal-careiq-builder', {
 			// Add library_id for library questions
 			if (questionData.library_id) {
 				requestBodyData.library_id = questionData.library_id;
-				console.log('Adding library_id to request:', questionData.library_id);
 			}
 
 			const requestBody = JSON.stringify(requestBodyData);
-
-			console.log('Add Question to Section request body:', requestBody);
 			dispatch('MAKE_ADD_QUESTION_TO_SECTION_REQUEST', {requestBody: requestBody});
 		},
 
 		'ADD_ANSWER_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {answerData} = action.payload;
-			
-			console.log('ADD_ANSWER_API handler called');
-			console.log('Answer data:', answerData);
-			
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				label: answerData.label,
@@ -16458,26 +14947,16 @@ createCustomElement('cadal-careiq-builder', {
 				question_id: answerData.question_id,
 				guideline_template_id: answerData.guideline_template_id
 			});
-			
-			console.log('Add Answer request body:', requestBody);
-			
 			dispatch('MAKE_ADD_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
 		'DELETE_ANSWER_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {answerId, suppressMessage} = action.payload;
-
-			console.log('DELETE_ANSWER_API handler called');
-			console.log('Answer ID to delete:', answerId);
-
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerId
 			});
-
-			console.log('Delete Answer request body:', requestBody);
-
 			dispatch('MAKE_DELETE_ANSWER_REQUEST', {
 				requestBody: requestBody
 			});
@@ -16486,10 +14965,6 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {answerData} = action.payload;
-			
-			console.log('UPDATE_ANSWER_API handler called');
-			console.log('Answer data to update:', answerData);
-			
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerData.answerId,
@@ -16502,9 +14977,6 @@ createCustomElement('cadal-careiq-builder', {
 				secondary_input_type: answerData.secondary_input_type,
 				mutually_exclusive: answerData.mutually_exclusive
 			});
-			
-			console.log('Update Answer request body:', requestBody);
-			
 			dispatch('MAKE_UPDATE_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
@@ -16520,8 +14992,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('Answer updated successfully:', action.payload);
-			
 			// Store the current section to re-select after refresh
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
@@ -16578,27 +15048,16 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_QUESTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {questionId} = action.payload;
-			
-			console.log('DELETE_QUESTION_API handler called');
-			console.log('Question ID to delete:', questionId);
-			
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				questionId: questionId
 			});
-			
-			console.log('Delete Question request body:', requestBody);
-			
 			dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: requestBody});
 		},
 
 		'UPDATE_QUESTION_API': (coeffects) => {
 			const {action, dispatch} = coeffects;
 			const {questionData} = action.payload;
-			
-			console.log('UPDATE_QUESTION_API handler called');
-			console.log('Question data to update:', questionData);
-			
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				questionId: questionData.questionId,
@@ -16611,9 +15070,6 @@ createCustomElement('cadal-careiq-builder', {
 				voice: questionData.voice,
 				type: questionData.type
 			});
-			
-			console.log('Update Question request body:', requestBody);
-			
 			dispatch('MAKE_UPDATE_QUESTION_REQUEST', {requestBody: requestBody});
 		},
 
@@ -16629,8 +15085,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Question updated successfully:', action.payload);
-
 			// Just show success message - no refresh needed
 			updateState({
 				systemMessages: [
@@ -16696,14 +15150,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('Question added successfully:', action.payload);
-			console.log('Full action.payload structure:', JSON.stringify(action.payload, null, 2));
-
 			// Log the question UUID to console
 			if (action.payload && action.payload.id) {
-				console.log('=== QUESTION CREATED SUCCESSFULLY ===');
-				console.log('New Question UUID:', action.payload.id);
-				console.log('=====================================');
 			}
 
 			// Check for backend messages (like duplicate prevention)
@@ -16711,20 +15159,13 @@ createCustomElement('cadal-careiq-builder', {
 			let messageType = 'success';
 
 			// Debug: Check all possible locations for the message
-			console.log('Checking for backend messages:');
-			console.log('action.payload.detail:', action.payload?.detail);
-			console.log('action.payload.message:', action.payload?.message);
-			console.log('action.payload.data?.detail:', action.payload?.data?.detail);
-
 			// Surface any backend detail messages to user
 			if (action.payload && action.payload.detail) {
 				systemMessage = action.payload.detail;
 				messageType = 'warning';
-				console.log('Found detail message:', systemMessage);
 			} else if (action.payload && action.payload.data && action.payload.data.detail) {
 				systemMessage = action.payload.data.detail;
 				messageType = 'warning';
-				console.log('Found data.detail message:', systemMessage);
 			}
 
 			updateState({
@@ -16741,7 +15182,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Refresh the questions for the current section
 			if (state.selectedSection) {
-				console.log('Refreshing questions for section:', state.selectedSection);
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					config: state.careiqConfig,
@@ -16771,28 +15211,20 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_QUESTION_TO_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('Question added to section successfully:', action.payload);
-
 			// Handle different response formats
 			let newQuestionId = action.payload.id;
 			let isLibraryResponse = false;
 
 			// Check if this is a library question response (might have detail instead of id)
 			if (!newQuestionId && action.payload.detail) {
-				console.log('Library question response detected:', action.payload.detail);
 				isLibraryResponse = true;
 				// For library questions, we might need to generate a temporary ID or handle differently
 				// The backend should still provide some way to identify the created question
 			}
-
-			console.log('New Question ID received:', newQuestionId);
-			console.log('Is library response:', isLibraryResponse);
-
 			// Find and update the temp question with the real ID locally
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				// If this is the temp question being saved, replace with real data
 				if (question.isUnsaved && question.ids.id.startsWith('temp_')) {
-					console.log('Replacing temp question:', question.ids.id, 'with real ID:', newQuestionId);
 					return {
 						...question,
 						ids: { id: newQuestionId || question.ids.id }, // Keep temp ID if no real ID provided
@@ -16804,19 +15236,9 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if there are pending answers to add (for Single Select/Multiselect questions)
 			const pendingAnswers = state.pendingQuestionAnswers;
-			console.log('=== CHECKING FOR PENDING ANSWERS ===');
-			console.log('newQuestionId:', newQuestionId);
-			console.log('pendingAnswers:', pendingAnswers);
-			console.log('pendingAnswers type:', typeof pendingAnswers);
-			console.log('pendingAnswers length:', pendingAnswers?.length);
-
 			if (pendingAnswers && pendingAnswers.length > 0) {
-				console.log('Step 2: Adding answers to newly created question');
-				console.log('Pending answers:', pendingAnswers);
-
 				// Handle library questions that might not return a real question ID
 				if (!newQuestionId && isLibraryResponse) {
-					console.log('Library question without ID - skipping answer addition (backend should handle library answers)');
 					updateState({
 						currentQuestions: {
 							...state.currentQuestions,
@@ -16870,26 +15292,16 @@ createCustomElement('cadal-careiq-builder', {
 					// CRITICAL: Preserve library_id for library answers
 					if (answer.library_id) {
 						apiAnswer.library_id = answer.library_id;
-						console.log('🔥 PRESERVING library_id in final payload:', answer.library_id);
 					}
 
 					return apiAnswer;
 				});
-
-				console.log('=== ADD ANSWERS REQUEST DEBUG ===');
-				console.log('questionId for request:', newQuestionId);
-				console.log('answersForAPI:', answersForAPI);
-				console.log('answersForAPI length:', answersForAPI.length);
-
 				// Create request body for add answers API
 				// Don't add data wrapper - ServiceNow adds it automatically
 				const requestBody = JSON.stringify({
 					questionId: newQuestionId,
 					answers: answersForAPI
 				});
-
-				console.log('ADD ANSWERS requestBody:', requestBody);
-
 				// Dispatch the add answers request
 				dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
 
@@ -16952,12 +15364,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_ANSWERS_TO_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Answers added to question successfully:', action.payload);
-
 			// The response should contain array of answer UUIDs
 			const newAnswerIds = action.payload;
-			console.log('New Answer IDs received:', newAnswerIds);
-
 			// Handle different response types - success vs duplicate/warning
 			let message = 'Answer(s) added to question successfully!';
 			let messageType = 'success';
@@ -17024,8 +15432,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Answer deleted successfully:', action.payload);
-
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -17040,7 +15446,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Refresh the questions for the current section to clear isUnsaved flags
 			if (state.selectedSection) {
-				console.log('Refreshing questions for section after delete:', state.selectedSection);
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					config: state.careiqConfig,
@@ -17080,8 +15485,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Question deleted successfully:', action.payload);
-
 			// The question was already removed locally by DELETE_QUESTION handler
 			// Just confirm the backend operation succeeded
 			updateState({
@@ -17095,8 +15498,6 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-
-			console.log('Question delete confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'DELETE_QUESTION_ERROR': (coeffects) => {
@@ -17120,13 +15521,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('Answer added successfully:', action.payload);
-			
 			// Log the answer UUID to console
 			if (action.payload && action.payload.id) {
-				console.log('=== ANSWER CREATED SUCCESSFULLY ===');
-				console.log('New Answer UUID:', action.payload.id);
-				console.log('=====================================');
 			}
 			
 			updateState({
@@ -17143,7 +15539,6 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Refresh the questions for the current section
 			if (state.selectedSection) {
-				console.log('Refreshing questions for section:', state.selectedSection);
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					config: state.careiqConfig,
@@ -17173,9 +15568,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('Section update success:', action.payload);
-			console.log('Section update action meta:', action.meta);
-
 			// The section was already updated locally by SAVE_SECTION_IMMEDIATELY or reordering
 			// Just confirm the backend operation succeeded
 			updateState({
@@ -17192,11 +15584,8 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if there are pending child sections to save after parent sections are done
 			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
-				console.log('Processing pending child sections after update:', state.pendingChildSections.length);
-
 				// Save all pending child sections
 				state.pendingChildSections.forEach(({sectionId, sectionData}) => {
-					console.log('Saving child section:', sectionId, sectionData);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -17210,8 +15599,6 @@ createCustomElement('cadal-careiq-builder', {
 					pendingChildSections: []
 				});
 			}
-
-			console.log('Section update confirmed by backend - no refresh needed (already updated locally)');
 		},
 
 		'SECTION_UPDATE_ERROR': (coeffects) => {
@@ -17235,20 +15622,14 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('Add section success:', action.payload);
-
 			// The response contains the new section ID: { "id": "uuid" }
 			const newSectionId = action.payload.id;
-
-			console.log('Updating temp section with real ID:', newSectionId);
-
 			// Find and update the temp section with the real ID locally
 			const updatedSections = state.currentAssessment.sections.map(section => ({
 				...section,
 				subsections: section.subsections?.map(subsection => {
 					// If this is the temp section (marked as isNew), replace with real data
 					if (subsection.isNew && subsection.id.startsWith('temp_')) {
-						console.log('Replacing temp section:', subsection.id, 'with real ID:', newSectionId);
 						return {
 							...subsection,
 							id: newSectionId,
@@ -17280,7 +15661,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if there's a pending child section save and save it now that parent has real UUID
 			const pendingChildSave = state.pendingChildSectionSave;
 			if (pendingChildSave) {
-				console.log('Parent section saved successfully. Now saving pending child section:', pendingChildSave);
 				// Save the child section now that the parent has a real UUID
 				setTimeout(() => {
 					dispatch('SAVE_SECTION_IMMEDIATELY', {
@@ -17293,11 +15673,8 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if there are pending child sections to save after parent sections are done
 			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
-				console.log('Processing pending child sections:', state.pendingChildSections.length);
-
 				// Save all pending child sections
 				state.pendingChildSections.forEach(({sectionId, sectionData}) => {
-					console.log('Saving child section:', sectionId, sectionData);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -17345,9 +15722,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CANCEL_ALL_CHANGES': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
-			
-			console.log('Canceling all local changes');
-			
 			if (confirm('Are you sure you want to cancel all unsaved changes? This action cannot be undone.')) {
 				// Restore original assessment data
 				if (state.originalAssessmentData) {
@@ -17399,9 +15773,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SECTION_TYPEAHEAD_INPUT_CHANGE': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, debounce = true} = action.payload;
-			
-			console.log('Section typeahead input change:', searchText);
-			
 			// Clear existing timeout
 			if (state.sectionTypeaheadDebounceTimeout) {
 				clearTimeout(state.sectionTypeaheadDebounceTimeout);
@@ -17434,7 +15805,6 @@ createCustomElement('cadal-careiq-builder', {
 						accessToken: state.accessToken,
 						app: state.careiqConfig.app
 					});
-					console.log('Typeahead request body:', requestBody);
 					dispatch('SECTION_TYPEAHEAD_SEARCH', { requestBody });
 				}, 500);
 				
@@ -17450,7 +15820,6 @@ createCustomElement('cadal-careiq-builder', {
 					accessToken: state.accessToken,
 					app: state.careiqConfig.app
 				});
-				console.log('Typeahead request body:', requestBody);
 				dispatch('SECTION_TYPEAHEAD_SEARCH', { requestBody });
 			}
 		},
@@ -17475,15 +15844,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SECTION_TYPEAHEAD_SEARCH_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			console.log('Section typeahead search success:', action.payload);
-			console.log('Response type:', typeof action.payload);
-			console.log('Raw response:', JSON.stringify(action.payload));
-			
 			const response = action.payload;
 			const results = response.results || [];
-			console.log('Extracted results:', results);
-			console.log('Results length:', results.length);
-			
 			updateState({
 				sectionTypeaheadLoading: false,
 				sectionTypeaheadResults: results,
@@ -17515,9 +15877,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SECTION_TYPEAHEAD_SELECT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {selectedItem} = action.payload;
-
-			console.log('Section typeahead selected:', selectedItem);
-
 			// Update the editing section name with selected item
 			updateState({
 				editingSectionName: selectedItem.name,
@@ -17532,11 +15891,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SEARCH_ANSWERS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, answerId} = action.payload;
-
-			console.log('=== SEARCH_ANSWERS ===');
-			console.log('Searching for:', searchText);
-			console.log('Answer ID in SEARCH_ANSWERS:', answerId);
-
 			const requestBody = JSON.stringify({
 				searchText: searchText
 			});
@@ -17579,11 +15933,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SELECT_LIBRARY_ANSWER': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, libraryAnswer} = action.payload;
-
-			console.log('=== SELECT_LIBRARY_ANSWER ===');
-			console.log('Replacing answer ID:', answerId);
-			console.log('With library answer:', libraryAnswer);
-
 			// Hide typeahead dropdown but keep answer visible during fetch
 			updateState({
 				answerTypeaheadVisible: false,
@@ -17607,10 +15956,6 @@ createCustomElement('cadal-careiq-builder', {
 		'REPLACE_ANSWER_WITH_LIBRARY': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, libraryAnswerData} = action.payload;
-
-			console.log('=== REPLACE_ANSWER_WITH_LIBRARY ===');
-			console.log('Replacing answer:', answerId, 'with library data:', libraryAnswerData);
-
 			// Find the answer and replace it with library data
 			const updatedQuestions = state.currentQuestions.questions.map(question => ({
 				...question,
@@ -17742,9 +16087,6 @@ createCustomElement('cadal-careiq-builder', {
 		'OPEN_RELATIONSHIP_MODAL': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {answerId} = action.payload;
-
-			console.log('Opening relationship modal for answer:', answerId);
-
 			updateState({
 				relationshipModalOpen: true,
 				relationshipModalAnswerId: answerId,
@@ -17789,21 +16131,16 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Auto-load relationships if they don't exist yet
 			if (answerId && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
-				console.log('Relationships not loaded yet, loading them now...');
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
 			} else {
-				console.log('Modal opened, relationships already available');
 			}
 		},
 
 		'CLOSE_RELATIONSHIP_MODAL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const answerId = state.relationshipModalAnswerId;
-
-			console.log('Closing relationship modal for answer:', answerId);
-
 			updateState({
 				relationshipModalOpen: false,
 				relationshipModalAnswerId: null,
@@ -17824,7 +16161,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Refresh section questions to get updated badge counts
 			if (state.selectedSection) {
-				console.log('Refreshing section questions to update relationship badges');
 				dispatch('FETCH_SECTION_QUESTIONS', {
 					sectionId: state.selectedSection,
 					sectionLabel: state.selectedSectionLabel
@@ -17836,11 +16172,6 @@ createCustomElement('cadal-careiq-builder', {
 		'LOAD_GOAL_INTERVENTIONS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {goalId, guidelineTemplateId} = action.payload;
-
-			console.log('=== LOAD_GOAL_INTERVENTIONS ACTION TRIGGERED ===');
-			console.log('Loading interventions for goal:', goalId);
-			console.log('Guideline Template ID:', guidelineTemplateId);
-
 			// Set loading state and store current loading goalId for success handler
 			updateState({
 				interventionsLoading: {
@@ -17867,14 +16198,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'LOAD_GOAL_INTERVENTIONS_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-
-			console.log('=== LOAD_GOAL_INTERVENTIONS_SUCCESS ===');
-			console.log('API Response:', action.payload);
-
 			// Use stored goalId from state instead of meta (meta not working reliably)
 			const goalId = state.currentInterventionsLoadingGoalId;
-			console.log('Using stored goalId from state:', goalId);
-
 			// Parse the response to get interventions data
 			const interventionsData = action.payload?.interventions || [];
 
@@ -17889,8 +16214,6 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				currentInterventionsLoadingGoalId: null  // Clear stored ID
 			});
-
-			console.log('Loaded', interventionsData.length, 'interventions for goal:', goalId);
 		},
 
 		'LOAD_GOAL_INTERVENTIONS_ERROR': (coeffects) => {
@@ -17920,10 +16243,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-
-			console.log('=== ADD_INTERVENTION_SUCCESS ===');
-			console.log('Response:', action.payload);
-
 			// Show success message
 			let systemMessage = 'Intervention created successfully! Refreshing data...';
 			let messageType = 'success';
@@ -17969,10 +16288,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			// CRITICAL: Refresh intervention data using stored goalId (meta params unreliable in ServiceNow)
 			const goalId = state.lastAddedInterventionGoalId;
-			console.log('ADD_INTERVENTION_SUCCESS - Goal ID from stored state:', goalId);
-			console.log('ADD_INTERVENTION_SUCCESS - Assessment ID:', state.currentAssessmentId);
 			if (goalId && state.currentAssessmentId) {
-				console.log('Auto-refreshing interventions for goal:', goalId);
 				// Clear the stored ID after use
 				updateState({
 					lastAddedInterventionGoalId: null
@@ -17982,7 +16298,6 @@ createCustomElement('cadal-careiq-builder', {
 					guidelineTemplateId: state.currentAssessmentId
 				});
 			} else {
-				console.log('PROBLEM: Cannot auto-refresh - missing stored goalId or assessmentId');
 			}
 
 			// Also refresh section questions to update badge counts
@@ -18022,9 +16337,6 @@ createCustomElement('cadal-careiq-builder', {
 		'TOGGLE_GOAL_EXPANSION': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {goalId} = action.payload;
-
-			console.log('Toggling expansion for goal:', goalId);
-
 			// Toggle the expansion state for this goal
 			const isCurrentlyExpanded = state.expandedGoals[goalId];
 			const newExpansionState = !isCurrentlyExpanded;
@@ -18038,7 +16350,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If expanding and interventions not loaded yet, load them
 			if (newExpansionState && !state.goalInterventions[goalId] && !state.interventionsLoading[goalId]) {
-				console.log('Goal expanded and interventions not loaded yet - loading interventions for:', goalId);
 				dispatch('LOAD_GOAL_INTERVENTIONS', {
 					goalId: goalId,
 					guidelineTemplateId: state.currentAssessmentId
@@ -18049,9 +16360,6 @@ createCustomElement('cadal-careiq-builder', {
 		'TOGGLE_PROBLEM_EXPANSION': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {problemId} = action.payload;
-
-			console.log('Toggling expansion for problem:', problemId);
-
 			const currentExpansion = state.expandedProblems || {};
 			const isExpanded = currentExpansion[problemId] || false;
 
@@ -18064,7 +16372,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// If expanding and goals haven't been loaded yet, load them
 			if (!isExpanded && !state.problemGoals[problemId] && !state.goalsLoading[problemId]) {
-				console.log('Problem expanded and goals not loaded yet - loading goals for:', problemId);
 				dispatch('LOAD_PROBLEM_GOALS', {
 					problemId: problemId,
 					guidelineTemplateId: state.currentAssessmentId
@@ -18075,9 +16382,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SET_RELATIONSHIP_TAB': (coeffects) => {
 			const {action, updateState} = coeffects;
 			const {tab} = action.payload;
-
-			console.log('Setting relationship modal tab to:', tab);
-
 			updateState({
 				relationshipModalActiveTab: tab,
 				// Clear typeahead state when switching tabs to prevent contamination
@@ -18092,9 +16396,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'RELATIONSHIP_TYPEAHEAD_HIDE': (coeffects) => {
 			const {updateState} = coeffects;
-
-			console.log('Hiding relationship typeahead');
-
 			updateState({
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
@@ -18104,9 +16405,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_RELATIONSHIP_CHANGES': (coeffects) => {
 			const {dispatch} = coeffects;
-
-			console.log('Saving relationship changes');
-
 			// For now, just close the modal. In the future, this would save changes to backend
 			dispatch('CLOSE_RELATIONSHIP_MODAL');
 
