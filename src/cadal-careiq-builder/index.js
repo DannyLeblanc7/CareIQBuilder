@@ -414,7 +414,7 @@ const view = (state, {updateState, dispatch}) => {
 					<div className="builder-header">
 						<div className="builder-title">
 							<h2>
-								{state.currentAssessment ? state.currentAssessment.title : 'Assessment Builder'}
+								{state.currentAssessment ? (state.currentAssessment.version_name || state.currentAssessment.title) : 'Assessment Builder'}
 							</h2>
 							{state.currentAssessment && (
 								<button
@@ -456,6 +456,16 @@ const view = (state, {updateState, dispatch}) => {
 									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
 								>
 									🔗 Edit Relationships
+								</button>,
+								<button
+									key="publish-btn"
+									className="publish-btn"
+									onclick={() => dispatch('PUBLISH_ASSESSMENT', {
+										assessmentId: state.currentAssessmentId,
+										assessmentTitle: state.currentAssessment?.title
+									})}
+								>
+									🚀 Publish
 								</button>,
 								// Individual save buttons will be shown per question instead of holistic save
 							] : null}
@@ -3148,19 +3158,19 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 									<div className="form-group">
-										<label>Version Title:</label>
+										<label>Version Name:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
 											<input
 												type="text"
 												className="form-input"
-												value={state.assessmentDetailsPanel.versionTitle || ''}
+												value={state.assessmentDetailsPanel.versionName || ''}
 												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'versionTitle',
+													field: 'versionName',
 													value: e.target.value
 												})}
 											/>
 										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.versionTitle}</div>
+											<div className="readonly-field">{state.assessmentDetailsPanel.versionName}</div>
 										)}
 									</div>
 									<div className="form-group">
@@ -3360,6 +3370,105 @@ const view = (state, {updateState, dispatch}) => {
 								</button>
 							</div>
 						)}
+					</div>
+				</div>
+			)}
+
+			{/* Publish Assessment Panel */}
+			{state.publishPanel?.isOpen && (
+				<div className="publish-panel-overlay" onclick={() => dispatch('CLOSE_PUBLISH_PANEL')}>
+					<div className="publish-panel" onclick={(e) => e.stopPropagation()}>
+						<div className="panel-header">
+							<h3>{state.publishPanel.versionName}</h3>
+							<button
+								className="panel-close"
+								onclick={() => dispatch('CLOSE_PUBLISH_PANEL')}
+							>
+								×
+							</button>
+						</div>
+						<div className="panel-body">
+							<div className="form-group">
+								<label>Effective Date: <span className="required">*</span></label>
+								<input
+									type="date"
+									className="form-input"
+									value={state.publishPanel.effectiveDate || ''}
+									oninput={(e) => dispatch('UPDATE_PUBLISH_FIELD', {
+										field: 'effectiveDate',
+										value: e.target.value
+									})}
+								/>
+							</div>
+							<div className="form-group">
+								<label>End Date:</label>
+								<input
+									type="date"
+									className="form-input"
+									value={state.publishPanel.endDate || ''}
+									oninput={(e) => dispatch('UPDATE_PUBLISH_FIELD', {
+										field: 'endDate',
+										value: e.target.value
+									})}
+								/>
+							</div>
+							<div className="form-group">
+								<label>Review Date:</label>
+								<input
+									type="date"
+									className="form-input"
+									value={state.publishPanel.reviewDate || ''}
+									oninput={(e) => dispatch('UPDATE_PUBLISH_FIELD', {
+										field: 'reviewDate',
+										value: e.target.value
+									})}
+								/>
+							</div>
+							<div className="form-group">
+								<label>Next Review Date:</label>
+								<input
+									type="date"
+									className="form-input"
+									value={state.publishPanel.nextReviewDate || ''}
+									oninput={(e) => dispatch('UPDATE_PUBLISH_FIELD', {
+										field: 'nextReviewDate',
+										value: e.target.value
+									})}
+								/>
+							</div>
+							<div className="form-group">
+								<label>Response Logging:</label>
+								<select
+									className="form-input"
+									value={state.publishPanel.responseLogging || 'use_default'}
+									onchange={(e) => dispatch('UPDATE_PUBLISH_FIELD', {
+										field: 'responseLogging',
+										value: e.target.value
+									})}
+								>
+									<option value="use_default" selected={state.publishPanel.responseLogging === 'use_default'}>Use Org Default</option>
+									<option value="disabled" selected={state.publishPanel.responseLogging === 'disabled'}>Disable</option>
+									<option value="auto_save_draft_submit" selected={state.publishPanel.responseLogging === 'auto_save_draft_submit'}>Auto-save, Draft and Submit</option>
+									<option value="save_draft_submit" selected={state.publishPanel.responseLogging === 'save_draft_submit'}>Save as Draft and Submit</option>
+									<option value="submit_only" selected={state.publishPanel.responseLogging === 'submit_only'}>Submit Only</option>
+								</select>
+							</div>
+						</div>
+						<div className="panel-footer">
+							<button
+								className="btn-cancel"
+								onclick={() => dispatch('CLOSE_PUBLISH_PANEL')}
+							>
+								Cancel
+							</button>
+							<button
+								className="btn-save"
+								onclick={() => dispatch('SUBMIT_PUBLISH_ASSESSMENT')}
+								disabled={!state.publishPanel.effectiveDate}
+							>
+								Publish
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
@@ -6467,6 +6576,16 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'UPDATE_ASSESSMENT_ERROR'
 		}),
 
+		'MAKE_PUBLISH_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/publish-assessment', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'PUBLISH_ASSESSMENT_SUCCESS',
+			errorActionType: 'PUBLISH_ASSESSMENT_ERROR'
+		}),
+
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			console.log('=== CREATE_ASSESSMENT_SUCCESS DEBUG ===');
@@ -6674,7 +6793,7 @@ createCustomElement('cadal-careiq-builder', {
 				assessmentDetailsPanel: {
 					isOpen: true,
 					useCase: state.currentAssessment?.use_case || '',
-					versionTitle: state.currentAssessment?.title || '',
+					versionName: state.currentAssessment?.version_name || '',
 					useCaseCategory: state.currentAssessment?.use_case_category?.id || '',
 					useCaseCategoryName: state.currentAssessment?.use_case_category?.name || '',
 					usage: state.currentAssessment?.usage || '',
@@ -6698,7 +6817,7 @@ createCustomElement('cadal-careiq-builder', {
 				assessmentDetailsPanel: {
 					isOpen: false,
 					useCase: '',
-					versionTitle: '',
+					versionName: '',
 					useCaseCategory: '',
 					useCaseCategoryName: '',
 					usage: '',
@@ -6750,7 +6869,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Make API call to save assessment details
 			const requestBody = JSON.stringify({
 				assessmentId: state.currentAssessmentId,
-				versionTitle: panelData.versionTitle,
+				versionName: panelData.versionName,
 				useCaseCategory: panelData.useCaseCategory,
 				usage: panelData.usage,
 				contentSource: panelData.contentSource,
@@ -6764,6 +6883,168 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
+		},
+
+		'PUBLISH_ASSESSMENT': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+
+			// Open the publish panel with pre-populated data
+			updateState({
+				publishPanel: {
+					isOpen: true,
+					assessmentId: assessmentId,
+					versionName: state.currentAssessment?.version_name || assessmentTitle,
+					effectiveDate: state.currentAssessment?.effective_date || '',
+					endDate: state.currentAssessment?.end_date || '',
+					reviewDate: state.currentAssessment?.review_date || '',
+					nextReviewDate: state.currentAssessment?.next_review_date || '',
+					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default'
+				}
+			});
+		},
+
+		'CLOSE_PUBLISH_PANEL': (coeffects) => {
+			const {updateState} = coeffects;
+
+			updateState({
+				publishPanel: {
+					isOpen: false,
+					assessmentId: null,
+					versionName: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: 'use_default'
+				}
+			});
+		},
+
+		'UPDATE_PUBLISH_FIELD': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {field, value} = action.payload;
+
+			updateState({
+				publishPanel: {
+					...state.publishPanel,
+					[field]: value
+				}
+			});
+		},
+
+		'SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const publishData = state.publishPanel;
+
+			console.log('=== SUBMIT_PUBLISH_ASSESSMENT DEBUG ===');
+			console.log('Publish data:', publishData);
+
+			// Close panel and show publishing message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: `Publishing "${publishData.versionName}"...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				publishPanel: {
+					isOpen: false,
+					assessmentId: null,
+					versionName: '',
+					effectiveDate: '',
+					endDate: '',
+					reviewDate: '',
+					nextReviewDate: '',
+					responseLogging: 'use_default'
+				}
+			});
+
+			// Prepare request body with direct fields (ServiceNow adds data wrapper automatically)
+			const requestBody = JSON.stringify({
+				assessmentId: publishData.assessmentId,
+				versionName: publishData.versionName,
+				effectiveDate: publishData.effectiveDate,
+				endDate: publishData.endDate,
+				reviewDate: publishData.reviewDate,
+				nextReviewDate: publishData.nextReviewDate,
+				responseLogging: publishData.responseLogging
+			});
+
+			console.log('Publish request body:', requestBody);
+
+			// Make the API call
+			dispatch('MAKE_PUBLISH_ASSESSMENT_REQUEST', {requestBody});
+		},
+
+		'PUBLISH_ASSESSMENT_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== PUBLISH_ASSESSMENT_SUCCESS DEBUG ===');
+			console.log('Full action payload:', action.payload);
+			console.log('Response data:', action.payload?.data);
+
+			// Extract the new assessment ID from response
+			const newAssessmentId = action.payload?.id || action.payload?.data?.id;
+
+			console.log('New assessment ID from response:', newAssessmentId);
+
+			// Show success message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Assessment published successfully! Reloading assessment data...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// If we got a new ID, use it to reload the assessment
+			if (newAssessmentId) {
+				console.log('Reloading assessment with new ID:', newAssessmentId);
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: newAssessmentId,
+					assessmentTitle: state.currentAssessment?.title || 'Assessment'
+				});
+			} else {
+				console.log('No new ID found, reloading with current ID:', state.currentAssessmentId);
+				// Fallback: reload with current ID
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId,
+					assessmentTitle: state.currentAssessment?.title || 'Assessment'
+				});
+			}
+		},
+
+		'PUBLISH_ASSESSMENT_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('=== PUBLISH_ASSESSMENT_ERROR DEBUG ===');
+			console.log('Error payload:', action.payload);
+
+			let errorMessage = 'Failed to publish assessment';
+
+			// Extract error message from response
+			if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			}
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 		},
 
 		'UPDATE_ASSESSMENT_SUCCESS': (coeffects) => {

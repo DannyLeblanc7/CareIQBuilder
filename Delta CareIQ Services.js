@@ -1,6 +1,46 @@
 // Delta to add to CareIQ Services.js
 // Add this method to the CareIQServices.prototype object
 
+// BUILDER - ASSESSMENT OPERATIONS
+
+publishAssessment: function(requestData) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the publish endpoint: /builder/guideline-template/{assessmentId}/status
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(requestData.assessmentId) + '/status');
+        var r = this._createRESTMessage('Publish Assessment', endpoint);
+
+        // Set method to POST
+        r.setHttpMethod('POST');
+
+        // Build payload with form data and status: "published"
+        var payload = {
+            "status": "published",
+            "store_responses": requestData.responseLogging || "use_default",
+            "effective_date": requestData.effectiveDate,
+            "end_date": requestData.endDate || null,
+            "review_date": requestData.reviewDate || null,
+            "next_review_date": requestData.nextReviewDate || null,
+            "version_name": requestData.versionName || "string"
+        };
+
+        // Set the request body
+        r.setRequestBody(JSON.stringify(payload));
+
+        var response = this._executeRequestWithRetry(r, 'PublishAssessment');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('PublishAssessment - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
 // BUILDER - SECTION OPERATIONS
 
 builderGetSections: function(assessmentId) {
@@ -1025,7 +1065,7 @@ updateAssessment: function(requestData) {
         if (requestData.useCaseCategory) payload.use_case_category_id = requestData.useCaseCategory;
         if (requestData.usage) payload.usage = requestData.usage;
         if (requestData.policyNumber) payload.policy_number = requestData.policyNumber;
-        if (requestData.versionTitle) payload.version_name = requestData.versionTitle;
+        if (requestData.versionName) payload.version_name = requestData.versionName;
         if (requestData.contentSource) payload.content_source = requestData.contentSource;
 
         // Handle boolean fields

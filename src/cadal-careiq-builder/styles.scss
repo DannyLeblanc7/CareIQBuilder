@@ -2593,7 +2593,7 @@
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
+  z-index: 1000000;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -2607,6 +2607,8 @@
   display: flex;
   flex-direction: column;
   animation: slideInFromLeft 0.3s ease-out;
+  z-index: 1000001;
+  position: relative;
 
   .panel-header {
     display: flex;
@@ -2615,12 +2617,15 @@
     padding: 1.5rem;
     border-bottom: 1px solid #e5e7eb;
     background-color: #f9fafb;
+    position: relative;
+    z-index: 1000002;
 
     h3 {
       margin: 0;
       font-size: 1.25rem;
       font-weight: 600;
       color: #111827;
+      font-family: inherit;
     }
   }
 
@@ -2636,6 +2641,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1000003;
 
     &:hover {
       color: #374151;
@@ -2648,6 +2655,9 @@
     flex: 1;
     padding: 1.5rem;
     overflow-y: auto;
+    position: relative;
+    z-index: 1000002;
+    background: white;
 
     .form-columns {
       display: grid;
@@ -2671,6 +2681,7 @@
         font-size: 0.875rem;
         font-weight: 500;
         color: #374151;
+        font-family: inherit;
       }
 
       .form-input {
@@ -2684,11 +2695,15 @@
         transition: border-color 0.2s, box-shadow 0.2s;
         box-sizing: border-box;
         min-width: 0; // Allow shrinking below content width
+        position: relative;
+        z-index: 1000003;
+        font-family: inherit;
 
         &:focus {
           outline: none;
           border-color: #3b82f6;
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          z-index: 1000004;
         }
 
         &::placeholder {
@@ -2741,12 +2756,238 @@
   }
 }
 
+// Publish Panel Overlay
+.publish-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+// Publish Panel
+.publish-panel {
+  background: white;
+  width: 600px;
+  height: 100vh;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  animation: slideInFromLeft 0.3s ease-out;
+  z-index: 1000001;
+  position: relative;
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    position: relative;
+    z-index: 1000002;
+
+    h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+      font-family: inherit;
+    }
+  }
+
+  .panel-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1000003;
+    font-family: inherit;
+
+    &:hover {
+      color: #374151;
+      background-color: #e5e7eb;
+      border-radius: 4px;
+    }
+  }
+
+  .panel-body {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1000002;
+    background: white;
+
+    .form-group {
+      margin-bottom: 1.5rem;
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+        font-family: inherit;
+      }
+
+      .required {
+        color: #dc2626;
+      }
+
+      .form-input {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background-color: #ffffff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+        min-width: 0;
+        position: relative;
+        z-index: 1000003;
+        font-family: inherit;
+
+        &:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          z-index: 1000004;
+        }
+
+        &::placeholder {
+          color: #9ca3af;
+        }
+      }
+
+      .form-select {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background-color: #ffffff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box;
+        min-width: 0;
+        cursor: pointer;
+        position: relative;
+        z-index: 1000003;
+        font-family: inherit;
+
+        &:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          z-index: 1000004;
+        }
+      }
+    }
+  }
+
+  .panel-footer {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 1000002;
+
+    .btn-save {
+      background-color: #059669;
+      color: white;
+      border: 1px solid #047857;
+      border-radius: 6px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      position: relative;
+      z-index: 1000003;
+
+      &:hover {
+        background-color: #047857;
+        border-color: #065f46;
+      }
+
+      &:disabled {
+        background-color: #9ca3af;
+        border-color: #6b7280;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+    }
+
+    .btn-cancel {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      position: relative;
+      z-index: 1000003;
+
+      &:hover {
+        background-color: #e5e7eb;
+        border-color: #9ca3af;
+      }
+    }
+  }
+}
+
 @keyframes slideInFromLeft {
   from {
     transform: translateX(-100%);
   }
   to {
     transform: translateX(0);
+  }
+}
+
+// Publish Button
+.publish-btn {
+  background-color: #059669;
+  color: white;
+  border: 1px solid #047857;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #047857;
+    border-color: #065f46;
+  }
+
+  &:active {
+    background-color: #065f46;
   }
 }
 
