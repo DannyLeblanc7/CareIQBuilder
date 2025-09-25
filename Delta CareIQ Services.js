@@ -1150,3 +1150,81 @@ updateAssessment: function(requestData) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// BUILDER - SCORING MODEL OPERATIONS
+
+createScoringModel: function(guidelineTemplateId, label, scoringType) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/scoring_model');
+        var r = this._createRESTMessage('Create Scoring Model', endpoint);
+        r.setHttpMethod('POST');
+
+        // Build request payload to match CareIQ API expectations
+        var payload = {
+            guideline_template_id: guidelineTemplateId,
+            label: label,
+            scoring_type: scoringType
+        };
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'CreateScoringModel');
+        return response.getBody();
+    } catch (e) {
+        this._logError('CreateScoringModel - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+getScoringModels: function(guidelineTemplateId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/guideline_template/' + encodeURIComponent(guidelineTemplateId) + '/scoring_model');
+        var r = this._createRESTMessage('Get Scoring Models', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetScoringModels');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetScoringModels - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+deleteScoringModel: function(guidelineTemplateId, modelId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/guideline_template/' + encodeURIComponent(guidelineTemplateId) + '/scoring_model/' + encodeURIComponent(modelId));
+        var r = this._createRESTMessage('Delete Scoring Model', endpoint);
+        r.setHttpMethod('DELETE');
+
+        var response = this._executeRequestWithRetry(r, 'DeleteScoringModel');
+
+        // Handle 204 No Content response
+        if (response.getStatusCode() === 204) {
+            return '{"success": true, "message": "Scoring model deleted successfully"}';
+        }
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('DeleteScoringModel - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

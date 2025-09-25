@@ -119,7 +119,20 @@ const calculateVisibleQuestions = (selectedAnswers, currentQuestions, answerRela
 
 const view = (state, {updateState, dispatch}) => {
 	console.log('Component rendered with state:', state);
-	
+
+	// Reusable SVG Icons
+	const CheckIcon = () => (
+		<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
+			<path attrs={{d: "M13.485 3.429a1 1 0 0 1 0 1.414L6.707 11.62a1 1 0 0 1-1.414 0L2.515 8.843a1 1 0 1 1 1.414-1.414L6 9.5a1 1 0 0 1 0 0l6.071-6.071a1 1 0 0 1 1.414 0z"}} />
+		</svg>
+	);
+
+	const XIcon = () => (
+		<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
+			<path attrs={{d: "M3.646 3.646a1 1 0 0 1 1.414 0L8 6.586l2.94-2.94a1 1 0 1 1 1.414 1.414L9.414 8l2.94 2.94a1 1 0 0 1-1.414 1.414L8 9.414l-2.94 2.94a1 1 0 0 1-1.414-1.414L6.586 8 3.646 5.06a1 1 0 0 1 0-1.414z"}} />
+		</svg>
+	);
+
 	// Auto-scroll system message box to bottom after render
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
@@ -304,20 +317,6 @@ const view = (state, {updateState, dispatch}) => {
 															{isExpanded ? '−' : '+'}
 														</span>
 													</div>
-
-													{/* Test SVG Icons */}
-													<div style={{display: 'flex', gap: '8px', alignItems: 'center', marginLeft: '12px'}}>
-														<button style={{background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-															<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
-																<path attrs={{d: "M13.485 3.429a1 1 0 0 1 0 1.414L6.707 11.62a1 1 0 0 1-1.414 0L2.515 8.843a1 1 0 1 1 1.414-1.414L6 9.5a1 1 0 0 1 0 0l6.071-6.071a1 1 0 0 1 1.414 0z"}} />
-															</svg>
-														</button>
-														<button style={{background: '#ef4444', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-															<svg attrs={{width: "14", height: "14", viewBox: "0 0 16 16", fill: "currentColor"}}>
-																<path attrs={{d: "M3.646 3.646a1 1 0 0 1 1.414 0L8 6.586l2.94-2.94a1 1 0 1 1 1.414 1.414L9.414 8l2.94 2.94a1 1 0 0 1-1.414 1.414L8 9.414l-2.94 2.94a1 1 0 0 1-1.414-1.414L6.586 8 3.646 5.06a1 1 0 0 1 0-1.414z"}} />
-															</svg>
-														</button>
-													</div>
 												</div>
 												<div className="assessment-card-body">
 													<p className="assessment-policy">Policy: {assessment.policy_number}</p>
@@ -470,6 +469,13 @@ const view = (state, {updateState, dispatch}) => {
 									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
 								>
 									🔗 Edit Relationships
+								</button>,
+								<button
+									key="edit-scoring-btn"
+									className={`mode-toggle-btn ${state.scoringPanelOpen ? 'active' : ''}`}
+									onclick={() => dispatch('TOGGLE_SCORING_MODE')}
+								>
+									🎯 Edit Scoring
 								</button>,
 								<button
 									key="publish-btn"
@@ -638,7 +644,7 @@ const view = (state, {updateState, dispatch}) => {
 																		}}
 																		title="Save changes"
 																	>
-																		✓
+																		<CheckIcon />
 																	</button>
 																	<button
 																		className="section-edit-cancel-btn"
@@ -863,7 +869,7 @@ const view = (state, {updateState, dispatch}) => {
 																				}}
 																				title="Save changes"
 																			>
-																				✓
+																				<CheckIcon />
 																			</button>
 																			<button
 																				className="section-edit-cancel-btn"
@@ -874,7 +880,7 @@ const view = (state, {updateState, dispatch}) => {
 																				}}
 																				title="Cancel changes"
 																			>
-																				✕
+																				<XIcon />
 																			</button>
 																		</div>
 																	</div>
@@ -1820,7 +1826,7 @@ const view = (state, {updateState, dispatch}) => {
 																								}
 																							}}
 																						>
-																							✕
+																							<XIcon />
 																						</button>
 																					</div>
 																					<div className="relationships-content">
@@ -2045,7 +2051,7 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																												title="Confirm relationship"
 																											>
-																												✓
+																												<CheckIcon />
 																											</button>
 																											<button 
 																												className="cancel-relationship-btn"
@@ -2054,7 +2060,7 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																												title="Cancel"
 																											>
-																												✕
+																												<XIcon />
 																											</button>
 																										</div>
 																									) : (
@@ -2622,7 +2628,7 @@ const view = (state, {updateState, dispatch}) => {
 																								}
 																							}}
 																						>
-																							✕
+																							<XIcon />
 																						</button>
 																					</div>
 																					<div className="relationships-content">
@@ -2847,7 +2853,7 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																												title="Confirm relationship"
 																											>
-																												✓
+																												<CheckIcon />
 																											</button>
 																											<button 
 																												className="cancel-relationship-btn"
@@ -2856,7 +2862,7 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																												title="Cancel"
 																											>
-																												✕
+																												<XIcon />
 																											</button>
 																										</div>
 																									) : (
@@ -3554,7 +3560,7 @@ const view = (state, {updateState, dispatch}) => {
 									dispatch('SAVE_MODAL_TEXT');
 								}}
 							>
-								✓ Save
+								<CheckIcon /> Save
 							</button>
 							<button 
 								className="modal-cancel-btn"
@@ -3877,7 +3883,7 @@ const view = (state, {updateState, dispatch}) => {
 								}}
 								onclick={() => dispatch('SAVE_NEW_ASSESSMENT')}
 							>
-								✓ Create Assessment
+								<CheckIcon /> Create Assessment
 							</button>
 							<button
 								className="modal-cancel-btn"
@@ -4160,7 +4166,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Save guideline relationship"
 														>
-															✓
+															<CheckIcon />
 														</button>
 														<button
 															className="cancel-relationship-btn"
@@ -4330,7 +4336,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Save question relationship"
 														>
-															✓
+															<CheckIcon />
 														</button>
 														<button
 															className="cancel-relationship-btn"
@@ -4524,7 +4530,7 @@ const view = (state, {updateState, dispatch}) => {
 																			}}
 																			title="Save problem changes"
 																		>
-																			✓
+																			<CheckIcon />
 																		</button>
 																		<button
 																			className="cancel-relationship-btn"
@@ -4589,7 +4595,7 @@ const view = (state, {updateState, dispatch}) => {
 																			})}
 																			title="Delete problem"
 																		>
-																			✕
+																			<XIcon />
 																		</button>
 																	]
 																)}
@@ -4738,7 +4744,7 @@ const view = (state, {updateState, dispatch}) => {
 																											}}
 																											title="Save goal changes"
 																										>
-																											✓
+																											<CheckIcon />
 																										</button>
 																										<button
 																											className="cancel-relationship-btn"
@@ -4803,7 +4809,7 @@ const view = (state, {updateState, dispatch}) => {
 																											problemId: problem.id
 																										})}
 																									>
-																										✕
+																										<XIcon />
 																									</button>
 																								]}
 																							</div>,
@@ -4971,7 +4977,7 @@ const view = (state, {updateState, dispatch}) => {
 																																			}}
 																																			title="Save intervention changes"
 																																		>
-																																			✓
+																																			<CheckIcon />
 																																		</button>
 																																		<button
 																																			style={{
@@ -5049,7 +5055,7 @@ const view = (state, {updateState, dispatch}) => {
 																																		goalId: goal.id
 																																	})}
 																																>
-																																	✕
+																																	<XIcon />
 																																</button>
 																															</div>
 																														);
@@ -5267,7 +5273,7 @@ const view = (state, {updateState, dispatch}) => {
 																														});
 																													}}
 																												>
-																													✓
+																													<CheckIcon />
 																												</button>
 																												<button
 																													className="cancel-relationship-btn"
@@ -5306,7 +5312,7 @@ const view = (state, {updateState, dispatch}) => {
 																														});
 																													}}
 																												>
-																													✕
+																													<XIcon />
 																												</button>
 																											</div>
 																										</div>
@@ -5516,7 +5522,7 @@ const view = (state, {updateState, dispatch}) => {
 																					});
 																				}}
 																			>
-																				✓
+																				<CheckIcon />
 																			</button>
 																			<button
 																				className="cancel-relationship-btn"
@@ -5552,7 +5558,7 @@ const view = (state, {updateState, dispatch}) => {
 																					});
 																				}}
 																			>
-																				✕
+																				<XIcon />
 																			</button>
 																		</div>
 																	</div>
@@ -5647,7 +5653,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Add Problem"
 												>
-													✓
+													<CheckIcon />
 												</button>
 												<button
 													className="cancel-relationship-btn"
@@ -5815,7 +5821,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Add Barrier"
 												>
-													✓
+													<CheckIcon />
 												</button>
 												<button
 													className="cancel-relationship-btn"
@@ -5948,8 +5954,8 @@ const view = (state, {updateState, dispatch}) => {
 																   msg.type === 'warning' ? '#ffc107' : '#17a2b8',
 															marginRight: '8px'
 														}}>
-															{msg.type === 'success' ? '✓' :
-															 msg.type === 'error' ? '✗' :
+															{msg.type === 'success' ? <CheckIcon /> :
+															 msg.type === 'error' ? <XIcon /> :
 															 msg.type === 'warning' ? '⚠' : 'ℹ'}
 														</span>
 														<span>{msg.message}</span>
@@ -5987,6 +5993,149 @@ const view = (state, {updateState, dispatch}) => {
 									Close
 								</button>
 							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Scoring Models Side Panel */}
+			{state.scoringPanelOpen && (
+				<div className={`scoring-panel-overlay ${state.scoringPanelOpen ? 'open' : ''}`}>
+					<div className="scoring-panel">
+						<div className="scoring-panel-header">
+							<h3>Scoring Models</h3>
+							<button
+								className="close-panel-btn"
+								onclick={() => dispatch('TOGGLE_SCORING_MODE')}
+								title="Close panel"
+							>
+								<XIcon />
+							</button>
+						</div>
+						<div className="scoring-panel-content">
+							{state.scoringModelsLoading ? (
+								<div className="loading-message">
+									<div className="spinner"></div>
+									Loading scoring models...
+								</div>
+							) : (
+								<div>
+									{/* Create New Scoring Model Form */}
+									{state.showCreateScoringModel ? (
+										<div className="create-scoring-model-form">
+											<h4>Create New Scoring Model</h4>
+											<div className="form-group">
+												<label>Label:</label>
+												<input
+													type="text"
+													placeholder="Enter scoring model label"
+													value={state.newScoringModelLabel || ''}
+													className="scoring-model-label-input"
+													on={{
+														input: (e) => updateState({
+															newScoringModelLabel: e.target.value
+														})
+													}}
+												/>
+											</div>
+											<div className="form-group">
+												<label>Scoring Type:</label>
+												<select
+													className="scoring-model-type-select"
+													value="sum"
+												>
+													<option value="sum">Sum</option>
+												</select>
+											</div>
+											<div className="form-buttons">
+												<button
+													className="btn-primary"
+													onclick={() => {
+														const label = (state.newScoringModelLabel || '').trim();
+														if (!label) {
+															updateState({
+																systemMessages: [
+																	...(state.systemMessages || []),
+																	{
+																		type: 'error',
+																		message: 'Label cannot be empty',
+																		timestamp: new Date().toISOString()
+																	}
+																]
+															});
+															return;
+														}
+														dispatch('CREATE_SCORING_MODEL', {
+															label: label,
+															scoringType: 'sum',
+															guidelineTemplateId: state.currentAssessmentId
+														});
+													}}
+													disabled={state.creatingScoringModel}
+												>
+													{state.creatingScoringModel ? 'Creating...' : 'Create'}
+												</button>
+												<button
+													className="btn-cancel"
+													onclick={() => updateState({
+														showCreateScoringModel: false,
+														newScoringModelLabel: ''
+													})}
+												>
+													Cancel
+												</button>
+											</div>
+										</div>
+									) : (
+										<div>
+											<div className="create-model-header">
+												<button
+													className="create-model-btn"
+													onclick={() => updateState({
+														showCreateScoringModel: true,
+														newScoringModelLabel: ''
+													})}
+												>
+													+ Create New Scoring Model
+												</button>
+											</div>
+
+											{(!state.scoringModels || state.scoringModels.length === 0) ? (
+												<div className="no-models-message">
+													<p>No scoring models have been created for this assessment.</p>
+												</div>
+											) : (
+												<div className="scoring-models-list">
+													{state.scoringModels.map((model, index) => (
+														<div key={model.id || index} className="scoring-model-item">
+															<div className="model-row">
+																<div className="model-info">
+																	<div className="model-name">
+																		<strong>{model.label}</strong>
+																	</div>
+																	<div className="model-type">
+																		Type: {model.scoring_type}
+																	</div>
+																</div>
+																<button
+																	className="delete-model-btn"
+																	onclick={() => dispatch('DELETE_SCORING_MODEL', {
+																		modelId: model.id,
+																		modelLabel: model.label
+																	})}
+																	title={`Delete scoring model: ${model.label}`}
+																>
+																	<XIcon />
+																</button>
+															</div>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									)}
+								</div>
+							)}
 						</div>
 					</div>
 				</div>
@@ -6042,6 +6191,12 @@ createCustomElement('cadal-careiq-builder', {
 		// UI state
 		systemMessagesCollapsed: false,
 		showRelationships: false, // Toggle for relationship buttons visibility
+		scoringPanelOpen: false, // Toggle for scoring models side panel
+		scoringModels: null, // Array of scoring models for current assessment
+		scoringModelsLoading: false, // Loading state for scoring models
+		showCreateScoringModel: false, // Toggle for create scoring model form
+		newScoringModelLabel: '', // Label input for new scoring model
+		creatingScoringModel: false, // Loading state for creating scoring model
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
 		// Add relationship state
@@ -9757,11 +9912,383 @@ createCustomElement('cadal-careiq-builder', {
 
 		'TOGGLE_EDIT_RELATIONSHIPS': (coeffects) => {
 			const {updateState, state} = coeffects;
-			
+
 			console.log('Toggling relationship visibility:', !state.showRelationships);
-			
+
 			updateState({
 				showRelationships: !state.showRelationships
+			});
+		},
+
+		'TOGGLE_SCORING_MODE': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			console.log('Toggling scoring panel:', !state.scoringPanelOpen);
+
+			if (!state.scoringPanelOpen) {
+				// Opening panel - fetch scoring models for this assessment
+				updateState({
+					scoringPanelOpen: true,
+					scoringModelsLoading: true
+				});
+
+				// Fetch scoring models for this assessment
+				if (!state.currentAssessmentId) {
+					updateState({
+						scoringModelsLoading: false,
+						scoringModels: [],
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'error',
+								message: 'Assessment ID not available. Cannot load scoring models.',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
+
+				dispatch('FETCH_SCORING_MODELS', {
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			} else {
+				// Closing panel
+				updateState({
+					scoringPanelOpen: false
+				});
+			}
+		},
+
+		'CREATE_SCORING_MODEL': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const {label, scoringType, guidelineTemplateId} = coeffects.action.payload;
+
+			console.log('Creating scoring model:', {label, scoringType, guidelineTemplateId});
+
+			// Show creating state
+			updateState({
+				creatingScoringModel: true
+			});
+
+			// Get current config for the request
+			if (!state.careiqConfig) {
+				updateState({
+					creatingScoringModel: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Configuration not loaded. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+
+			if (!accessToken) {
+				updateState({
+					creatingScoringModel: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Authentication token not available. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Build request payload - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				app: config.app,
+				guideline_template_id: guidelineTemplateId,
+				label: label,
+				scoring_type: scoringType
+			});
+
+			console.log('Create scoring model request body:', requestBody);
+
+			dispatch('MAKE_CREATE_SCORING_MODEL_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_CREATE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-scoring-model', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'CREATE_SCORING_MODEL_SUCCESS',
+			errorActionType: 'CREATE_SCORING_MODEL_ERROR'
+		}),
+
+		'CREATE_SCORING_MODEL_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('Scoring model created successfully:', action.payload);
+
+			// Clear form and loading state
+			updateState({
+				creatingScoringModel: false,
+				showCreateScoringModel: false,
+				newScoringModelLabel: '',
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Scoring model created successfully!',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh scoring models list after successful creation
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_SCORING_MODELS', {
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			}
+		},
+
+		'CREATE_SCORING_MODEL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('Failed to create scoring model:', action.payload);
+
+			updateState({
+				creatingScoringModel: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Failed to create scoring model: ' + (action.payload?.error || 'Unknown error'),
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'FETCH_SCORING_MODELS': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const {guidelineTemplateId} = coeffects.action.payload;
+
+			console.log('Fetching scoring models for assessment:', guidelineTemplateId);
+
+			// Get current config for the request
+			if (!state.careiqConfig) {
+				updateState({
+					scoringModelsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Configuration not loaded. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+
+			if (!accessToken) {
+				updateState({
+					scoringModelsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Authentication token not available. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Build request payload - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				app: config.app,
+				guideline_template_id: guidelineTemplateId
+			});
+
+			console.log('Get scoring models request body:', requestBody);
+
+			dispatch('MAKE_GET_SCORING_MODELS_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_GET_SCORING_MODELS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-scoring-models', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'GET_SCORING_MODELS_SUCCESS',
+			errorActionType: 'GET_SCORING_MODELS_ERROR'
+		}),
+
+		'GET_SCORING_MODELS_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.log('Scoring models fetched successfully:', action.payload);
+
+			// Extract scoring models from response
+			const scoringModels = action.payload?.scoring || [];
+
+			updateState({
+				scoringModelsLoading: false,
+				scoringModels: scoringModels,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `Found ${scoringModels.length} scoring model${scoringModels.length === 1 ? '' : 's'}`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'GET_SCORING_MODELS_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			console.error('Failed to fetch scoring models:', action.payload);
+
+			updateState({
+				scoringModelsLoading: false,
+				scoringModels: [],
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Failed to fetch scoring models: ' + (action.payload?.error || 'Unknown error'),
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'DELETE_SCORING_MODEL': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+			const {modelId, modelLabel} = coeffects.action.payload;
+
+			console.log('Deleting scoring model:', {modelId, modelLabel});
+
+			// Get current config for the request
+			if (!state.careiqConfig) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Configuration not loaded. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			const config = state.careiqConfig;
+			const accessToken = state.accessToken;
+
+			if (!accessToken) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Authentication token not available. Please try again.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Build request payload - ServiceNow adds data wrapper automatically
+			const requestBody = JSON.stringify({
+				region: config.region,
+				version: config.version,
+				accessToken: accessToken,
+				app: config.app,
+				guideline_template_id: state.currentAssessmentId,
+				model_id: modelId
+			});
+
+			console.log('Delete scoring model request body:', requestBody);
+
+			dispatch('MAKE_DELETE_SCORING_MODEL_REQUEST', {
+				requestBody: requestBody,
+				meta: { modelId: modelId, modelLabel: modelLabel }
+			});
+		},
+
+		'MAKE_DELETE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-scoring-model', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'DELETE_SCORING_MODEL_SUCCESS',
+			errorActionType: 'DELETE_SCORING_MODEL_ERROR',
+			metaParam: 'meta'
+		}),
+
+		'DELETE_SCORING_MODEL_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const modelLabel = action.meta?.modelLabel || 'Scoring model';
+
+			console.log('Scoring model deleted successfully:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `${modelLabel} deleted successfully!`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Refresh scoring models list after successful deletion
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_SCORING_MODELS', {
+					guidelineTemplateId: state.currentAssessmentId
+				});
+			}
+		},
+
+		'DELETE_SCORING_MODEL_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const modelLabel = action.meta?.modelLabel || 'Scoring model';
+
+			console.error('Failed to delete scoring model:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to delete ${modelLabel}: ` + (action.payload?.error || 'Unknown error'),
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
