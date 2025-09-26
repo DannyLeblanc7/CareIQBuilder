@@ -3973,51 +3973,50 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
-			{/* Relationship Modal */}
-			{state.relationshipModalOpen && (
-				<div className="relationship-modal">
-					<div className="modal-overlay">
-						<div className="modal-content" on={{
-							click: (e) => e.stopPropagation(),
-							keydown: (e) => {
-								if (e.key === 'Escape') {
-									dispatch('CLOSE_RELATIONSHIP_MODAL');
-								}
-							}
-						}}>
-							<div className="modal-header">
-								<div className="modal-title-section">
-									<h3>Manage Answer Relationships</h3>
-									{(() => {
-										const answerId = state.relationshipModalAnswerId;
-										if (!answerId || !state.currentQuestions?.questions) return null;
+			{/* Relationship Panel */}
+			{state.relationshipPanelOpen && (
+				<div className={`relationship-panel expanded`}>
+					<div className="relationship-header">
+						<div className="relationship-title-container">
+							<button
+								className="expand-relationship-btn"
+								onclick={() => dispatch('TOGGLE_RELATIONSHIP_PANEL')}
+								title="Collapse relationship panel"
+							>
+								<span className="expand-icon expanded">⤢</span>
+							</button>
+							<h3>Manage Answer Relationships</h3>
+						</div>
+						<button
+							className="btn-cancel"
+							onclick={() => dispatch('CLOSE_RELATIONSHIP_MODAL')}
+						>
+							✗
+						</button>
+					</div>
 
-										// Find the question and answer
-										const question = state.currentQuestions.questions.find(q =>
-											q.answers && q.answers.some(a => a.ids.id === answerId)
-										);
-										if (!question) return null;
+					{(() => {
+						const answerId = state.relationshipModalAnswerId;
+						if (!answerId || !state.currentQuestions?.questions) return null;
 
-										const answer = question.answers.find(a => a.ids.id === answerId);
-										if (!answer) return null;
+						// Find the question and answer
+						const question = state.currentQuestions.questions.find(q =>
+							q.answers && q.answers.some(a => a.ids.id === answerId)
+						);
+						if (!question) return null;
 
-										return (
-											<div className="relationship-context">
-												<div className="context-question">Question: <strong>{question.label}</strong></div>
-												<div className="context-answer">Answer: <strong>{answer.label}</strong></div>
-											</div>
-										);
-									})()}
-								</div>
-								<button
-									className="btn-cancel"
-									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
-								>
-									✗
-								</button>
+						const answer = question.answers.find(a => a.ids.id === answerId);
+						if (!answer) return null;
+
+						return (
+							<div className="relationship-context">
+								<div className="context-question">Question: <strong>{question.label}</strong></div>
+								<div className="context-answer">Answer: <strong>{answer.label}</strong></div>
 							</div>
+						);
+					})()}
 
-							<div className="modal-tabs">
+					<div className="relationship-tabs">
 								<div
 									className={`tab ${state.relationshipModalActiveTab === 'guidelines' ? 'active' : ''}`}
 									on={{
@@ -6052,17 +6051,6 @@ const view = (state, {updateState, dispatch}) => {
 								)}
 							</div>
 
-							{/* Modal Footer with Close button */}
-							<div className="modal-footer">
-								<button
-									className="btn-cancel"
-									on={{click: () => dispatch('CLOSE_RELATIONSHIP_MODAL')}}
-								>
-									Close
-								</button>
-							</div>
-						</div>
-					</div>
 				</div>
 			)}
 
@@ -6273,6 +6261,7 @@ createCustomElement('cadal-careiq-builder', {
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
 		questionsPanelExpanded: false, // Toggle for expanded questions panel
+		relationshipPanelOpen: false, // Controls relationship panel visibility (converted from modal)
 		// Add relationship state
 		addingRelationship: null, // answerId when adding relationship to that answer
 		selectedRelationshipType: null, // 'question', 'problem', 'barrier', 'guideline'
@@ -6356,7 +6345,6 @@ createCustomElement('cadal-careiq-builder', {
 		pendingLibraryAnswerReplacementId: null,
 
 		// Relationship Modal state
-		relationshipModalOpen: false,              // Controls modal visibility
 		relationshipModalAnswerId: null,           // Which answer is being edited
 		relationshipModalActiveTab: 'guidelines',  // Current active tab
 		selectedGuideline: null,                   // Selected guideline for check/x buttons
@@ -6433,6 +6421,13 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state} = coeffects;
 			updateState({
 				questionsPanelExpanded: !state.questionsPanelExpanded
+			});
+		},
+
+		'TOGGLE_RELATIONSHIP_PANEL': (coeffects) => {
+			const {updateState, state} = coeffects;
+			updateState({
+				relationshipPanelOpen: !state.relationshipPanelOpen
 			});
 		},
 		
@@ -9114,7 +9109,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9163,7 +9158,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9230,7 +9225,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), successMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages,
@@ -9241,7 +9236,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9269,7 +9264,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -9315,7 +9310,7 @@ createCustomElement('cadal-careiq-builder', {
 					successMessage
 				],
 				// Also add to modal messages if modal is open
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages,
@@ -9326,7 +9321,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -9354,7 +9349,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -9371,7 +9366,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), successMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages
@@ -9401,7 +9396,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -9505,7 +9500,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				updateState({
 					systemMessages: [...(state.systemMessages || []), successMessage],
-					modalSystemMessages: state.relationshipModalOpen ? [
+					modalSystemMessages: state.relationshipPanelOpen ? [
 						...(state.modalSystemMessages || []),
 						successMessage
 					] : state.modalSystemMessages
@@ -9531,7 +9526,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				updateState({
 					systemMessages: [...(state.systemMessages || []), errorMessage],
-					modalSystemMessages: state.relationshipModalOpen ? [
+					modalSystemMessages: state.relationshipPanelOpen ? [
 						...(state.modalSystemMessages || []),
 						errorMessage
 					] : state.modalSystemMessages
@@ -9547,7 +9542,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), successMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages
@@ -9574,7 +9569,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -10242,7 +10237,7 @@ createCustomElement('cadal-careiq-builder', {
 					message: 'Could not load full problem details. Using basic information for editing.',
 					timestamp: new Date().toISOString()
 				}],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'warning',
@@ -10299,7 +10294,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), successMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages
@@ -10340,7 +10335,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -10409,7 +10404,7 @@ createCustomElement('cadal-careiq-builder', {
 					savingMessage
 				],
 				// Also add to modal messages if modal is open
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					savingMessage
 				] : state.modalSystemMessages
@@ -10508,14 +10503,14 @@ createCustomElement('cadal-careiq-builder', {
 					newMessage
 				],
 				// Also add to modal messages if modal is open
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newMessage
 				] : state.modalSystemMessages
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -10575,7 +10570,7 @@ createCustomElement('cadal-careiq-builder', {
 					savingMessage
 				],
 				// Also add to modal messages if modal is open
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					savingMessage
 				] : state.modalSystemMessages
@@ -10711,14 +10706,14 @@ createCustomElement('cadal-careiq-builder', {
 					newMessage
 				],
 				// Also add to modal messages if modal is open
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newMessage
 				] : state.modalSystemMessages
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -10812,7 +10807,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// EXACT SAME PATTERN AS ADD_GOAL_SUCCESS - Use current modal answer ID
-			if (state.relationshipModalOpen && state.relationshipModalAnswerId) {
+			if (state.relationshipPanelOpen && state.relationshipModalAnswerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: state.relationshipModalAnswerId
 				});
@@ -10893,7 +10888,7 @@ createCustomElement('cadal-careiq-builder', {
 					...(state.systemMessages || []),
 					deletingMessage
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					deletingMessage
 				] : state.modalSystemMessages
@@ -10917,7 +10912,7 @@ createCustomElement('cadal-careiq-builder', {
 					...(state.systemMessages || []),
 					successMessage
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages
@@ -10938,7 +10933,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// If modal is open, refresh the relationship data
-			if (answerId && state.relationshipModalOpen && state.relationshipModalAnswerId === answerId) {
+			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {answerId: answerId});
 			}
 
@@ -10971,7 +10966,7 @@ createCustomElement('cadal-careiq-builder', {
 					...(state.systemMessages || []),
 					errorMessage
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -11323,7 +11318,7 @@ createCustomElement('cadal-careiq-builder', {
 			} else if (questionSearchContext && questionSearchContext.contentType === 'question') {
 				// Question typeahead using generic endpoint with stored context pattern
 				// Apply same filtering logic as original QUESTION_SEARCH_SUCCESS
-				if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
+				if (state.relationshipPanelOpen && state.relationshipTypeaheadLoading) {
 					// Filter out the current question (the one this answer belongs to)
 					const answerId = state.relationshipModalAnswerId;
 					const currentQuestionId = state.currentQuestions?.questions?.find(q =>
@@ -11360,7 +11355,7 @@ createCustomElement('cadal-careiq-builder', {
 			} else if (state.currentAnswerSearchQuestionId) {
 				// Answer typeahead using generic endpoint
 				// Apply same filtering logic as original ANSWER_SEARCH_SUCCESS
-				if (state.relationshipModalOpen && state.relationshipTypeaheadLoading) {
+				if (state.relationshipPanelOpen && state.relationshipTypeaheadLoading) {
 					// This is for relationship modal - use relationship typeahead state
 					updateState({
 						relationshipTypeaheadResults: results,
@@ -12617,7 +12612,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), savingMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					savingMessage
 				] : state.modalSystemMessages
@@ -12683,7 +12678,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), creatingMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					creatingMessage
 				] : state.modalSystemMessages
@@ -12775,7 +12770,7 @@ createCustomElement('cadal-careiq-builder', {
 					message: 'Could not load full goal details. Using basic information for editing.',
 					timestamp: new Date().toISOString()
 				}],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'warning',
@@ -12806,7 +12801,7 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'info',
@@ -12846,7 +12841,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				updateState({
 					systemMessages: [...(state.systemMessages || []), successMessage],
-					modalSystemMessages: state.relationshipModalOpen ? [
+					modalSystemMessages: state.relationshipPanelOpen ? [
 						...(state.modalSystemMessages || []),
 						successMessage
 					] : state.modalSystemMessages
@@ -12880,7 +12875,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				updateState({
 					systemMessages: [...(state.systemMessages || []), errorMessage],
-					modalSystemMessages: state.relationshipModalOpen ? [
+					modalSystemMessages: state.relationshipPanelOpen ? [
 						...(state.modalSystemMessages || []),
 						errorMessage
 					] : state.modalSystemMessages
@@ -12896,7 +12891,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), successMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
 				] : state.modalSystemMessages
@@ -12923,7 +12918,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -13017,7 +13012,7 @@ createCustomElement('cadal-careiq-builder', {
 					message: 'Could not load full intervention details. Using basic information for editing.',
 					timestamp: new Date().toISOString()
 				}],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'warning',
@@ -13048,7 +13043,7 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'info',
@@ -13097,7 +13092,7 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'success',
@@ -13121,7 +13116,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				systemMessages: [...(state.systemMessages || []), errorMessage],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
 				] : state.modalSystemMessages
@@ -16197,12 +16192,12 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		// Relationship Modal Actions
+		// Relationship Panel Actions (converted from modal)
 		'OPEN_RELATIONSHIP_MODAL': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {answerId} = action.payload;
 			updateState({
-				relationshipModalOpen: true,
+				relationshipPanelOpen: true,
 				relationshipModalAnswerId: answerId,
 				relationshipModalActiveTab: 'guidelines',
 				modalSystemMessages: [],  // Initialize empty modal messages
@@ -16256,7 +16251,7 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state, dispatch} = coeffects;
 			const answerId = state.relationshipModalAnswerId;
 			updateState({
-				relationshipModalOpen: false,
+				relationshipPanelOpen: false,
 				relationshipModalAnswerId: null,
 				relationshipModalActiveTab: 'guidelines',
 				// Clear typeahead state
@@ -16379,7 +16374,7 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: messageType,
@@ -16437,7 +16432,7 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				],
-				modalSystemMessages: state.relationshipModalOpen ? [
+				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					{
 						type: 'error',
