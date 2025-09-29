@@ -43,82 +43,239 @@ const view = (state, {updateState, dispatch}) => {
 		<div className="careiq-builder">
 			<h1>CareIQ Builder</h1>
 			
-			<div className={`system-window-container ${state.systemMessagesCollapsed ? 'collapsed' : ''}`}>
-				<div className="system-window-header">
-					<h3>System Messages</h3>
-					<span 
-						className="system-window-toggle"
-						onclick={() => dispatch('TOGGLE_SYSTEM_MESSAGES')}
-					>
-						{state.systemMessagesCollapsed ? '▼' : '▲'}
-					</span>
-				</div>
-				{!state.systemMessagesCollapsed && (
-					<div 
-						className="system-window"
-					hook={{
-						insert: (vnode) => {
-							vnode.elm.scrollTop = vnode.elm.scrollHeight;
-						},
-						update: (oldVnode, vnode) => {
-							setTimeout(() => {
-								vnode.elm.scrollTop = vnode.elm.scrollHeight;
-							}, 5);
-						}
+			{/* Ticker-Style System Messages */}
+			<div className="system-window-container">
+				{/* Current message ticker with info icon toggle */}
+				<div
+					className="system-message-ticker"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						padding: '8px 12px',
+						backgroundColor: '#ffffff',
+						border: '1px solid #e0e0e0',
+						borderRadius: '4px',
+						marginBottom: '12px',
+						minHeight: '36px'
 					}}
 				>
-					{state.loading && (
-						<div className="system-message loading">
-							🔄 <strong>Connecting to the CareIQ Platform...</strong>
+					{/* Info icon toggle */}
+					<button
+						style={{
+							background: 'none',
+							border: 'none',
+							fontSize: '18px',
+							cursor: 'pointer',
+							marginRight: '12px',
+							color: (() => {
+								// Check if current message is an error or if there are any recent errors
+								if (state.systemMessages?.length > 0) {
+									const lastMessage = state.systemMessages[state.systemMessages.length - 1];
+									if (lastMessage.type === 'error') return '#dc3545'; // Red for errors
+								}
+								if (state.error) return '#dc3545'; // Red for static errors
+								return '#6b7280'; // Default gray
+							})(),
+							padding: '2px',
+							borderRadius: '50%'
+						}}
+						onclick={() => dispatch('TOGGLE_SYSTEM_MESSAGES')}
+						title={state.systemMessagesCollapsed ? 'Show message history' : 'Hide message history'}
+					>
+						ℹ️
+					</button>
+
+					{/* Current message display */}
+					{(() => {
+						// Get the most recent message from any source
+						let currentMessage = null;
+
+						// Check dynamic messages first (most recent)
+						if (state.systemMessages?.length > 0) {
+							const lastDynamicMessage = state.systemMessages[state.systemMessages.length - 1];
+							currentMessage = {
+								type: lastDynamicMessage.type,
+								message: lastDynamicMessage.message,
+								timestamp: lastDynamicMessage.timestamp
+							};
+						}
+						// Otherwise check static status messages
+						else if (state.error) {
+							currentMessage = {
+								type: 'error',
+								message: `Error: ${state.error}`,
+								timestamp: new Date().toISOString()
+							};
+						} else if (state.categoriesLoading) {
+							currentMessage = {
+								type: 'loading',
+								message: 'Loading use case categories...',
+								timestamp: new Date().toISOString()
+							};
+						} else if (state.useCaseCategories && state.useCaseCategories.length === 0) {
+							currentMessage = {
+								type: 'warning',
+								message: 'No use case categories found for CM',
+								timestamp: new Date().toISOString()
+							};
+						} else if (state.useCaseCategories && state.useCaseCategories.length > 0) {
+							currentMessage = {
+								type: 'success',
+								message: `Loaded ${state.useCaseCategories.length} Use Case Categories`,
+								timestamp: new Date().toISOString()
+							};
+						} else if (state.careiqConfig && state.accessToken) {
+							currentMessage = {
+								type: 'success',
+								message: 'Connected to the CareIQ Platform',
+								timestamp: new Date().toISOString()
+							};
+						} else if (state.loading) {
+							currentMessage = {
+								type: 'loading',
+								message: 'Connecting to the CareIQ Platform...',
+								timestamp: new Date().toISOString()
+							};
+						}
+
+						if (currentMessage) {
+							return (
+								<div style={{
+									display: 'flex',
+									alignItems: 'center',
+									flex: 1,
+									fontSize: '13px'
+								}}>
+									<span style={{
+										fontWeight: 'bold',
+										color: currentMessage.type === 'success' ? '#28a745' :
+											   currentMessage.type === 'error' ? '#dc3545' :
+											   currentMessage.type === 'warning' ? '#ffc107' : '#17a2b8',
+										marginRight: '8px'
+									}}>
+										{currentMessage.type === 'success' ? '✅' :
+										 currentMessage.type === 'error' ? '❌' :
+										 currentMessage.type === 'warning' ? '⚠️' :
+										 currentMessage.type === 'loading' ? '🔄' : 'ℹ️'}
+									</span>
+									<span style={{flex: 1}}>{currentMessage.message}</span>
+									<span style={{
+										fontSize: '10px',
+										color: '#6b7280',
+										marginLeft: '8px'
+									}}>
+										{new Date(currentMessage.timestamp).toLocaleTimeString()}
+									</span>
+								</div>
+							);
+						} else {
+							return (
+								<span style={{
+									color: '#6b7280',
+									fontSize: '12px',
+									fontStyle: 'italic',
+									flex: 1
+								}}>
+									Initializing CareIQ Builder...
+								</span>
+							);
+						}
+					})()}
+				</div>
+
+				{/* Message history - only show when expanded */}
+				{!state.systemMessagesCollapsed && (
+					<div
+						className="system-messages-history"
+						style={{
+							height: '150px',  // 2.5x height for expanded history
+							overflowY: 'auto',
+							border: '1px solid #e0e0e0',
+							borderRadius: '4px',
+							backgroundColor: '#f8f9fa',
+							marginBottom: '12px'
+						}}
+						hook={{
+							insert: (vnode) => {
+								vnode.elm.scrollTop = vnode.elm.scrollHeight;
+							},
+							update: (oldVnode, vnode) => {
+								setTimeout(() => {
+									vnode.elm.scrollTop = vnode.elm.scrollHeight;
+								}, 10);
+							}
+						}}
+					>
+						<div style={{padding: '8px 12px', fontSize: '11px', fontWeight: '500', color: '#6b7280', borderBottom: '1px solid #e0e0e0'}}>
+							Message History:
 						</div>
-					)}
-					{state.careiqConfig && state.accessToken && (
-						<div className="system-message success">
-							✅ <strong>Connected to the CareIQ Platform</strong>
-						</div>
-					)}
-					{state.categoriesLoading && (
-						<div className="system-message loading">
-							🔄 <strong>Loading use case categories...</strong>
-						</div>
-					)}
-					{state.useCaseCategories && state.useCaseCategories.length > 0 && (
-						<div className="system-message success">
-							📋 <strong>Loaded {state.useCaseCategories.length} Use Case Categories:</strong>
-							<ul className="categories-list">
-								{state.useCaseCategories.map(category => (
-									<li key={category.id} className="category-item">
-										{category.name} (ID: {category.id})
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-					{state.useCaseCategories && state.useCaseCategories.length === 0 && !state.categoriesLoading && (
-						<div className="system-message warning">
-							⚠️ <strong>No use case categories found for CM</strong>
-						</div>
-					)}
-					{state.error && (
-						<div className="system-message error">
-							❌ <strong>Error:</strong> {state.error}
-						</div>
-					)}
-					{/* Dynamic system messages */}
-					{state.systemMessages && state.systemMessages.map((msg, index) => (
-						<div key={index} className={`system-message ${msg.type}`}>
-							{msg.type === 'loading' && '🔄'}
-							{msg.type === 'success' && '✅'}
-							{msg.type === 'error' && '❌'}
-							{msg.type === 'warning' && '⚠️'}
-							{msg.type === 'info' && 'ℹ️'}
-							{' '}
-							<strong>{msg.message}</strong>
-							{msg.timestamp && (
-								<span className="timestamp"> ({new Date(msg.timestamp).toLocaleTimeString()})</span>
-							)}
-						</div>
-					))}
+
+						{/* Static status messages */}
+						{state.loading && (
+							<div className="system-message loading" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								🔄 <strong>Connecting to the CareIQ Platform...</strong>
+							</div>
+						)}
+						{state.careiqConfig && state.accessToken && (
+							<div className="system-message success" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								✅ <strong>Connected to the CareIQ Platform</strong>
+							</div>
+						)}
+						{state.categoriesLoading && (
+							<div className="system-message loading" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								🔄 <strong>Loading use case categories...</strong>
+							</div>
+						)}
+						{state.useCaseCategories && state.useCaseCategories.length > 0 && (
+							<div className="system-message success" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								📋 <strong>Loaded {state.useCaseCategories.length} Use Case Categories:</strong>
+								<ul className="categories-list" style={{fontSize: '10px', marginLeft: '12px', marginTop: '4px'}}>
+									{state.useCaseCategories.map(category => (
+										<li key={category.id} className="category-item">
+											{category.name} (ID: {category.id})
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						{state.useCaseCategories && state.useCaseCategories.length === 0 && !state.categoriesLoading && (
+							<div className="system-message warning" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								⚠️ <strong>No use case categories found for CM</strong>
+							</div>
+						)}
+						{state.error && (
+							<div className="system-message error" style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: '1px solid #f0f0f0'}}>
+								❌ <strong>Error:</strong> {state.error}
+							</div>
+						)}
+
+						{/* Dynamic system messages */}
+						{state.systemMessages && state.systemMessages.map((msg, index) => (
+							<div key={index} className={`system-message ${msg.type}`} style={{padding: '4px 12px 4px 48px', fontSize: '11px', color: '#6b7280', borderBottom: index < state.systemMessages.length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+								<span style={{
+									color: msg.type === 'success' ? '#28a745' :
+										   msg.type === 'error' ? '#dc3545' :
+										   msg.type === 'warning' ? '#ffc107' : '#17a2b8',
+									marginRight: '6px'
+								}}>
+									{msg.type === 'loading' && '🔄'}
+									{msg.type === 'success' && '✅'}
+									{msg.type === 'error' && '❌'}
+									{msg.type === 'warning' && '⚠️'}
+									{msg.type === 'info' && 'ℹ️'}
+								</span>
+								<strong>{msg.message}</strong>
+								{msg.timestamp && (
+									<span style={{
+										float: 'right',
+										fontSize: '9px',
+										color: '#9ca3af'
+									}}>
+										{new Date(msg.timestamp).toLocaleTimeString()}
+									</span>
+								)}
+							</div>
+						))}
 					</div>
 				)}
 			</div>
@@ -408,7 +565,45 @@ const view = (state, {updateState, dispatch}) => {
 							</button>
 						</div>
 					</div>
-					
+
+					{/* Scoring Model Indicator - Moved here for better prominence */}
+					{state.selectedScoringModel && (
+						<div className="scoring-model-indicator" style={{
+							padding: '8px 12px',
+							backgroundColor: '#e3f2fd',
+							border: '1px solid #2196f3',
+							borderRadius: '4px',
+							marginTop: '16px',
+							marginBottom: '16px',
+							fontSize: '14px',
+							fontWeight: '500',
+							color: '#1976d2',
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'space-between'
+						}}>
+							<span>📊 Now editing: {state.selectedScoringModel.label}</span>
+							<button
+								className="exit-scoring-btn"
+								onclick={() => dispatch('EXIT_SCORING_MODE')}
+								title="Exit scoring mode"
+								style={{
+									background: 'none',
+									border: 'none',
+									color: '#1976d2',
+									cursor: 'pointer',
+									padding: '2px',
+									borderRadius: '2px',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center'
+								}}
+							>
+								<XIcon />
+							</button>
+						</div>
+					)}
+
 					{state.assessmentDetailsLoading && (
 						<div className="builder-loading">
 							🔄 Loading assessment details...
@@ -429,16 +624,7 @@ const view = (state, {updateState, dispatch}) => {
 										</button>
 										<h3>Sections</h3>
 									</div>
-									{(() => {
-										// Debug logging for button visibility
-										console.log('Add Section Button Debug:', {
-											builderMode: state.builderMode,
-											currentAssessment: !!state.currentAssessment,
-											status: state.currentAssessment?.status,
-											shouldShow: state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status)
-										});
-										return state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status);
-									})() && (
+									{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
 										<button
 											className="add-section-btn"
 											onclick={() => dispatch('ADD_SECTION')}
@@ -880,41 +1066,6 @@ const view = (state, {updateState, dispatch}) => {
 									</div>
 								</div>
 
-								{state.selectedScoringModel && (
-									<div className="scoring-model-indicator" style={{
-										padding: '8px 12px',
-										backgroundColor: '#e3f2fd',
-										border: '1px solid #2196f3',
-										borderRadius: '4px',
-										marginBottom: '16px',
-										fontSize: '14px',
-										fontWeight: '500',
-										color: '#1976d2',
-										display: 'flex',
-										alignItems: 'center',
-										justifyContent: 'space-between'
-									}}>
-										<span>📊 Now editing: {state.selectedScoringModel.label}</span>
-										<button
-											className="exit-scoring-btn"
-											onclick={() => dispatch('EXIT_SCORING_MODE')}
-											title="Exit scoring mode"
-											style={{
-												background: 'none',
-												border: 'none',
-												color: '#1976d2',
-												cursor: 'pointer',
-												padding: '2px',
-												borderRadius: '2px',
-												display: 'flex',
-												alignItems: 'center',
-												justifyContent: 'center'
-											}}
-										>
-											<XIcon />
-										</button>
-									</div>
-								)}
 
 								{state.questionsLoading && (
 									<div className="questions-loading">
@@ -1215,6 +1366,19 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Date" selected={question.type === 'Date'}>Date</option>
 																	<option value="Numeric" selected={question.type === 'Numeric'}>Numeric</option>
 																</select>
+																<span
+																	className="custom-attributes-icon"
+																	title={question.custom_attributes ? `Custom Attributes: ${Object.keys(question.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																	ondblclick={() => {
+																		dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
+																			itemType: 'question',
+																			itemId: question.ids.id,
+																			currentAttributes: question.custom_attributes || {}
+																		});
+																	}}
+																>
+																	CA
+																</span>
 																{question.isUnsaved && [
 																	<div
 																		key="save-cancel-buttons"
@@ -1301,6 +1465,7 @@ const view = (state, {updateState, dispatch}) => {
 																	{question.tooltip && (
 																		<span className="tooltip-icon" title={question.tooltip}>ⓘ</span>
 																	)}
+																	CA
 																</h4>
 															</div>
 															<div className="question-meta">
@@ -1606,6 +1771,19 @@ const view = (state, {updateState, dispatch}) => {
 																						📚 LIB
 																					</span>
 																				)}
+																				<span
+																					className="custom-attributes-icon"
+																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					ondblclick={() => {
+																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
+																							itemType: 'answer',
+																							itemId: answer.ids.id,
+																							currentAttributes: answer.custom_attributes || {}
+																						});
+																					}}
+																				>
+																					CA
+																				</span>
 																				<div className="answer-controls" style={state.isMobileView ? {
 																					display: 'flex',
 																					flexWrap: 'wrap',
@@ -2105,6 +2283,7 @@ const view = (state, {updateState, dispatch}) => {
 																					{answer.tooltip && (
 																						<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
 																					)}
+																					CA
 																				</span>
 																			</label>
 																			{/* Show secondary input below answer if this answer is selected */}
@@ -2406,6 +2585,19 @@ const view = (state, {updateState, dispatch}) => {
 																						📚 LIB
 																					</span>
 																				)}
+																				<span
+																					className="custom-attributes-icon"
+																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					ondblclick={() => {
+																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
+																							itemType: 'answer',
+																							itemId: answer.ids.id,
+																							currentAttributes: answer.custom_attributes || {}
+																						});
+																					}}
+																				>
+																					CA
+																				</span>
 																				<div className="answer-controls" style={state.isMobileView ? {
 																					display: 'flex',
 																					flexWrap: 'wrap',
@@ -2922,6 +3114,7 @@ const view = (state, {updateState, dispatch}) => {
 																					{answer.tooltip && (
 																						<span className="tooltip-icon" title={answer.tooltip}>ⓘ</span>
 																					)}
+																					CA
 																				</span>
 																			</label>
 																			{/* Show secondary input below answer if this answer is selected */}
@@ -3500,7 +3693,7 @@ const view = (state, {updateState, dispatch}) => {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					zIndex: '1000'
+					zIndex: '9999'
 				}}>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
@@ -3591,7 +3784,7 @@ const view = (state, {updateState, dispatch}) => {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					zIndex: '1000'
+					zIndex: '9999'
 				}}>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
@@ -3900,6 +4093,181 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
+			{/* Custom Attributes Modal */}
+			{state.customAttributesModalOpen && (
+				<div className="modal-overlay" style={{
+					position: 'fixed',
+					top: '0',
+					left: '0',
+					width: '100vw',
+					height: '100vh',
+					backgroundColor: 'rgba(0,0,0,0.75)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: '99999',
+					isolation: 'isolate'
+				}}>
+					<div className="modal-content" style={{
+						backgroundColor: 'white',
+						padding: '20px',
+						borderRadius: '8px',
+						width: '500px',
+						maxWidth: '90vw',
+						maxHeight: '90vh',
+						overflow: 'auto',
+						boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+						zIndex: '10000',
+						position: 'relative'
+					}}>
+						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
+							Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
+						</h3>
+
+						<div className="custom-attributes-editor">
+							{state.customAttributesData && state.customAttributesData.length > 0 ? (
+								state.customAttributesData.map((attribute, index) => (
+									<div key={index} className="custom-attribute-row" style={{
+										display: 'flex',
+										gap: '8px',
+										marginBottom: '12px',
+										alignItems: 'center'
+									}}>
+										<input
+											type="text"
+											placeholder="Key"
+											value={attribute.key}
+											oninput={(e) => {
+												dispatch('UPDATE_CUSTOM_ATTRIBUTE', {
+													index: index,
+													field: 'key',
+													value: e.target.value
+												});
+											}}
+											style={{
+												flex: '1',
+												padding: '8px',
+												border: '1px solid #ddd',
+												borderRadius: '4px',
+												zIndex: '10001',
+												position: 'relative'
+											}}
+										/>
+										<input
+											type="text"
+											placeholder="Value"
+											value={attribute.value}
+											oninput={(e) => {
+												dispatch('UPDATE_CUSTOM_ATTRIBUTE', {
+													index: index,
+													field: 'value',
+													value: e.target.value
+												});
+											}}
+											style={{
+												flex: '1',
+												padding: '8px',
+												border: '1px solid #ddd',
+												borderRadius: '4px',
+												zIndex: '10001',
+												position: 'relative'
+											}}
+										/>
+										<button
+											onclick={() => {
+												dispatch('REMOVE_CUSTOM_ATTRIBUTE_ROW', {index: index});
+											}}
+											style={{
+												background: '#dc3545',
+												color: 'white',
+												border: 'none',
+												padding: '8px',
+												borderRadius: '4px',
+												cursor: 'pointer',
+												fontSize: '12px',
+												zIndex: '10001',
+												position: 'relative'
+											}}
+											title="Remove this attribute"
+										>
+											✗
+										</button>
+									</div>
+								))
+							) : (
+								<p style={{textAlign: 'center', color: '#666', fontStyle: 'italic'}}>
+									No custom attributes yet. Click "Add Attribute" to get started.
+								</p>
+							)}
+
+							<div style={{marginTop: '15px', marginBottom: '20px'}}>
+								<button
+									onclick={() => dispatch('ADD_CUSTOM_ATTRIBUTE_ROW')}
+									style={{
+										background: '#28a745',
+										color: 'white',
+										border: 'none',
+										padding: '8px 12px',
+										borderRadius: '4px',
+										cursor: 'pointer',
+										fontSize: '14px',
+										zIndex: '10001',
+										position: 'relative'
+									}}
+								>
+									+ Add Attribute
+								</button>
+							</div>
+						</div>
+
+						<div className="modal-buttons" style={{
+							display: 'flex',
+							gap: '10px',
+							justifyContent: 'flex-end',
+							borderTop: '1px solid #eee',
+							paddingTop: '15px',
+							marginTop: '15px'
+						}}>
+							<button
+								className="modal-save-btn"
+								style={{
+									backgroundColor: '#007bff',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: '500',
+									zIndex: '10001',
+									position: 'relative'
+								}}
+								onclick={() => dispatch('SAVE_CUSTOM_ATTRIBUTES')}
+							>
+								💾 Save
+							</button>
+							<button
+								className="modal-cancel-btn"
+								style={{
+									backgroundColor: '#6c757d',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '4px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									zIndex: '10001',
+									position: 'relative'
+								}}
+								onclick={() => dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL')}
+							>
+								✗ Cancel
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Relationship Panel */}
 			{state.relationshipPanelOpen && (
 				<div className={`relationship-panel expanded`}>
@@ -3942,6 +4310,153 @@ const view = (state, {updateState, dispatch}) => {
 							</div>
 						);
 					})()}
+
+					{/* Ticker-Style System Messages - MOVED TO TOP */}
+					<div className="modal-system-messages" style={{
+						borderTop: '1px solid #e0e0e0',
+						borderBottom: '1px solid #e0e0e0',
+						backgroundColor: '#f8f9fa',
+						marginBottom: '12px'
+					}}>
+						{/* Current message ticker with info icon toggle */}
+						<div
+							className="system-message-ticker"
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								padding: '8px 12px',
+								backgroundColor: '#ffffff',
+								minHeight: '36px'
+							}}
+						>
+							{/* Info icon toggle */}
+							<button
+								style={{
+									background: 'none',
+									border: 'none',
+									fontSize: '18px',
+									cursor: 'pointer',
+									marginRight: '12px',
+									color: (() => {
+										// Check if current message is an error
+										if (state.modalSystemMessages?.length > 0) {
+											const lastMessage = state.modalSystemMessages[state.modalSystemMessages.length - 1];
+											if (lastMessage.type === 'error') return '#dc3545'; // Red for errors
+										}
+										return '#6b7280'; // Default gray
+									})(),
+									padding: '2px',
+									borderRadius: '50%'
+								}}
+								onclick={() => dispatch('TOGGLE_MODAL_SYSTEM_MESSAGES')}
+								title={state.modalSystemMessagesCollapsed ? 'Show message history' : 'Hide message history'}
+							>
+								ℹ️
+							</button>
+
+							{/* Current message display */}
+							{(() => {
+								const currentMessage = state.modalSystemMessages?.length > 0
+									? state.modalSystemMessages[state.modalSystemMessages.length - 1]
+									: null;
+
+								if (currentMessage) {
+									return (
+										<div style={{
+											display: 'flex',
+											alignItems: 'center',
+											flex: 1,
+											fontSize: '13px'
+										}}>
+											<span style={{
+												fontWeight: 'bold',
+												color: currentMessage.type === 'success' ? '#28a745' :
+													   currentMessage.type === 'error' ? '#dc3545' :
+													   currentMessage.type === 'warning' ? '#ffc107' : '#17a2b8',
+												marginRight: '8px'
+											}}>
+												{currentMessage.type === 'success' ? '✅' : currentMessage.type === 'error' ? '❌' : currentMessage.type === 'warning' ? '⚠️' : 'ℹ️'}
+											</span>
+											<span style={{flex: 1}}>{currentMessage.message}</span>
+											<span style={{
+												fontSize: '10px',
+												color: '#6b7280',
+												marginLeft: '8px'
+											}}>
+												{new Date(currentMessage.timestamp).toLocaleTimeString()}
+											</span>
+										</div>
+									);
+								} else {
+									return (
+										<span style={{
+											color: '#6b7280',
+											fontSize: '12px',
+											fontStyle: 'italic',
+											flex: 1
+										}}>
+											Ready for operations...
+										</span>
+									);
+								}
+							})()}
+						</div>
+
+						{/* Message history - only show when expanded */}
+						{!state.modalSystemMessagesCollapsed && state.modalSystemMessages?.length > 1 && (
+							<div
+								className="system-messages-history"
+								style={{
+									height: '150px',  // 2.5x height for expanded history
+									overflowY: 'auto',
+									borderTop: '1px solid #e0e0e0',
+									backgroundColor: '#f8f9fa'
+								}}
+								ref={(el) => {
+									// Auto-scroll to bottom to show latest message
+									if (el && state.modalSystemMessages?.length > 0) {
+										setTimeout(() => {
+											el.scrollTop = el.scrollHeight;
+										}, 10);
+									}
+								}}
+							>
+								<div style={{padding: '8px 12px', fontSize: '11px', fontWeight: '500', color: '#6b7280'}}>
+									Message History:
+								</div>
+								{state.modalSystemMessages.slice(0, -1).map((msg, index) => (
+									<div
+										key={index}
+										className={`system-message ${msg.type}`}
+										style={{
+											padding: '4px 12px 4px 48px', // Indent to align with ticker content
+											borderBottom: '1px solid #f0f0f0',
+											fontSize: '11px',
+											lineHeight: '1.3',
+											color: '#6b7280'
+										}}
+									>
+										<span style={{
+											color: msg.type === 'success' ? '#28a745' :
+												   msg.type === 'error' ? '#dc3545' :
+												   msg.type === 'warning' ? '#ffc107' : '#17a2b8',
+											marginRight: '6px'
+										}}>
+											{msg.type === 'success' ? '✅' : msg.type === 'error' ? '❌' : msg.type === 'warning' ? '⚠️' : 'ℹ️'}
+										</span>
+										<span>{msg.message}</span>
+										<span style={{
+											float: 'right',
+											fontSize: '9px',
+											color: '#9ca3af'
+										}}>
+											{new Date(msg.timestamp).toLocaleTimeString()}
+										</span>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
 
 					<div className="relationship-tabs">
 								<div
@@ -4258,14 +4773,8 @@ const view = (state, {updateState, dispatch}) => {
 												return <p>Loading question relationships...</p>;
 											}
 
-											// Check badge counts before showing "no questions"
-											const answer = state.currentQuestions?.questions?.find(q =>
-												q.answers?.some(a => a.ids.id === answerId)
-											)?.answers?.find(a => a.ids.id === answerId);
-
-											if (answer?.counts?.triggered_questions > 0) {
-												return <p>Questions exist but relationship data is loading...</p>;
-											}
+											// Use actual relationship data, not stale badge counts
+											// Badge counts are only updated on full section refresh, but relationship data is live
 											return <p>No questions linked to this answer.</p>;
 										})()}
 
@@ -4499,6 +5008,120 @@ const view = (state, {updateState, dispatch}) => {
 																					}}
 																					placeholder="Enter tooltip text"
 																				/>
+																			</div>,
+																			<div key="custom-attributes-field">
+																				<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '8px'}}>
+																					Custom Attributes
+																				</label>
+																				<div style={{border: '1px solid #d1d5db', borderRadius: '4px', padding: '12px', backgroundColor: '#f9fafb'}}>
+																					{(state.editingProblemData?.custom_attributes && Object.keys(state.editingProblemData.custom_attributes).length > 0) ? (
+																						Object.entries(state.editingProblemData.custom_attributes).map(([key, value], index) => (
+																							<div key={index} style={{display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center'}}>
+																								<input
+																									type="text"
+																									placeholder="Key"
+																									value={key}
+																									oninput={(e) => {
+																										const oldKey = key;
+																										const newKey = e.target.value;
+																										const newAttributes = {...state.editingProblemData.custom_attributes};
+																										delete newAttributes[oldKey];
+																										newAttributes[newKey] = value;
+																										updateState({
+																											editingProblemData: {
+																												...state.editingProblemData,
+																												custom_attributes: newAttributes
+																											}
+																										});
+																									}}
+																									style={{
+																										flex: '1',
+																										padding: '6px 8px',
+																										border: '1px solid #d1d5db',
+																										borderRadius: '4px',
+																										fontSize: '12px'
+																									}}
+																								/>
+																								<input
+																									type="text"
+																									placeholder="Value"
+																									value={value}
+																									oninput={(e) => {
+																										updateState({
+																											editingProblemData: {
+																												...state.editingProblemData,
+																												custom_attributes: {
+																													...state.editingProblemData.custom_attributes,
+																													[key]: e.target.value
+																												}
+																											}
+																										});
+																									}}
+																									style={{
+																										flex: '1',
+																										padding: '6px 8px',
+																										border: '1px solid #d1d5db',
+																										borderRadius: '4px',
+																										fontSize: '12px'
+																									}}
+																								/>
+																								<button
+																									onclick={() => {
+																										const newAttributes = {...state.editingProblemData.custom_attributes};
+																										delete newAttributes[key];
+																										updateState({
+																											editingProblemData: {
+																												...state.editingProblemData,
+																												custom_attributes: newAttributes
+																											}
+																										});
+																									}}
+																									style={{
+																										background: '#dc3545',
+																										color: 'white',
+																										border: 'none',
+																										padding: '6px 8px',
+																										borderRadius: '4px',
+																										cursor: 'pointer',
+																										fontSize: '12px'
+																									}}
+																									title="Remove this attribute"
+																								>
+																									✗
+																								</button>
+																							</div>
+																						))
+																					) : (
+																						<p style={{textAlign: 'center', color: '#6b7280', fontStyle: 'italic', margin: '8px 0', fontSize: '12px'}}>
+																							No custom attributes. Click "Add Attribute" to get started.
+																						</p>
+																					)}
+																					<button
+																						onclick={() => {
+																							updateState({
+																								editingProblemData: {
+																									...state.editingProblemData,
+																									custom_attributes: {
+																										...state.editingProblemData.custom_attributes,
+																										'': ''
+																									}
+																								}
+																							});
+																						}}
+																						style={{
+																							background: '#3b82f6',
+																							color: 'white',
+																							border: 'none',
+																							padding: '6px 12px',
+																							borderRadius: '4px',
+																							cursor: 'pointer',
+																							fontSize: '12px',
+																							width: '100%'
+																						}}
+																					>
+																						+ Add Attribute
+																					</button>
+																				</div>
 																			</div>
 																		]}
 																	</div>,
@@ -4715,6 +5338,120 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																												placeholder="Enter tooltip text"
 																											/>
+																										</div>
+																										<div>
+																											<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '8px'}}>
+																												Custom Attributes
+																											</label>
+																											<div style={{border: '1px solid #d1d5db', borderRadius: '4px', padding: '12px', backgroundColor: '#f9fafb'}}>
+																												{(state.editingGoalData?.custom_attributes && Object.keys(state.editingGoalData.custom_attributes).length > 0) ? (
+																													Object.entries(state.editingGoalData.custom_attributes).map(([key, value], index) => (
+																														<div key={index} style={{display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center'}}>
+																															<input
+																																type="text"
+																																placeholder="Key"
+																																value={key}
+																																oninput={(e) => {
+																																	const oldKey = key;
+																																	const newKey = e.target.value;
+																																	const newAttributes = {...state.editingGoalData.custom_attributes};
+																																	delete newAttributes[oldKey];
+																																	newAttributes[newKey] = value;
+																																	updateState({
+																																		editingGoalData: {
+																																			...state.editingGoalData,
+																																			custom_attributes: newAttributes
+																																		}
+																																	});
+																																}}
+																																style={{
+																																	flex: '1',
+																																	padding: '6px 8px',
+																																	border: '1px solid #d1d5db',
+																																	borderRadius: '4px',
+																																	fontSize: '12px'
+																																}}
+																															/>
+																															<input
+																																type="text"
+																																placeholder="Value"
+																																value={value}
+																																oninput={(e) => {
+																																	updateState({
+																																		editingGoalData: {
+																																			...state.editingGoalData,
+																																			custom_attributes: {
+																																				...state.editingGoalData.custom_attributes,
+																																				[key]: e.target.value
+																																			}
+																																		}
+																																	});
+																																}}
+																																style={{
+																																	flex: '1',
+																																	padding: '6px 8px',
+																																	border: '1px solid #d1d5db',
+																																	borderRadius: '4px',
+																																	fontSize: '12px'
+																																}}
+																															/>
+																															<button
+																																onclick={() => {
+																																	const newAttributes = {...state.editingGoalData.custom_attributes};
+																																	delete newAttributes[key];
+																																	updateState({
+																																		editingGoalData: {
+																																			...state.editingGoalData,
+																																			custom_attributes: newAttributes
+																																		}
+																																	});
+																																}}
+																																style={{
+																																	background: '#dc3545',
+																																	color: 'white',
+																																	border: 'none',
+																																	padding: '6px 8px',
+																																	borderRadius: '4px',
+																																	cursor: 'pointer',
+																																	fontSize: '12px'
+																																}}
+																																title="Remove this attribute"
+																															>
+																																✗
+																															</button>
+																														</div>
+																													))
+																												) : (
+																													<p style={{textAlign: 'center', color: '#6b7280', fontStyle: 'italic', margin: '8px 0', fontSize: '12px'}}>
+																														No custom attributes. Click "Add Attribute" to get started.
+																													</p>
+																												)}
+																												<button
+																													onclick={() => {
+																														updateState({
+																															editingGoalData: {
+																																...state.editingGoalData,
+																																custom_attributes: {
+																																	...state.editingGoalData.custom_attributes,
+																																	'': ''
+																																}
+																															}
+																														});
+																													}}
+																													style={{
+																														background: '#3b82f6',
+																														color: 'white',
+																														border: 'none',
+																														padding: '6px 12px',
+																														borderRadius: '4px',
+																														cursor: 'pointer',
+																														fontSize: '12px',
+																														width: '100%'
+																													}}
+																												>
+																													+ Add Attribute
+																												</button>
+																											</div>
 																										</div>
 																									</div>,
 																									<div key="edit-buttons" style={{display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '12px'}}>
@@ -4951,6 +5688,120 @@ const view = (state, {updateState, dispatch}) => {
 																																			<option value="reconcile">Reconcile</option>
 																																		</select>
 																																	</div>
+																																	<div>
+																																		<label style={{display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '8px'}}>
+																																			Custom Attributes
+																																		</label>
+																																		<div style={{border: '1px solid #d1d5db', borderRadius: '4px', padding: '12px', backgroundColor: '#f9fafb'}}>
+																																			{(state.editingInterventionData?.custom_attributes && Object.keys(state.editingInterventionData.custom_attributes).length > 0) ? (
+																																				Object.entries(state.editingInterventionData.custom_attributes).map(([key, value], index) => (
+																																					<div key={index} style={{display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center'}}>
+																																						<input
+																																							type="text"
+																																							placeholder="Key"
+																																							value={key}
+																																							oninput={(e) => {
+																																								const oldKey = key;
+																																								const newKey = e.target.value;
+																																								const newAttributes = {...state.editingInterventionData.custom_attributes};
+																																								delete newAttributes[oldKey];
+																																								newAttributes[newKey] = value;
+																																								updateState({
+																																									editingInterventionData: {
+																																										...state.editingInterventionData,
+																																										custom_attributes: newAttributes
+																																									}
+																																								});
+																																							}}
+																																							style={{
+																																								flex: '1',
+																																								padding: '6px 8px',
+																																								border: '1px solid #d1d5db',
+																																								borderRadius: '4px',
+																																								fontSize: '12px'
+																																							}}
+																																						/>
+																																						<input
+																																							type="text"
+																																							placeholder="Value"
+																																							value={value}
+																																							oninput={(e) => {
+																																								updateState({
+																																									editingInterventionData: {
+																																										...state.editingInterventionData,
+																																										custom_attributes: {
+																																											...state.editingInterventionData.custom_attributes,
+																																											[key]: e.target.value
+																																										}
+																																									}
+																																								});
+																																							}}
+																																							style={{
+																																								flex: '1',
+																																								padding: '6px 8px',
+																																								border: '1px solid #d1d5db',
+																																								borderRadius: '4px',
+																																								fontSize: '12px'
+																																							}}
+																																						/>
+																																						<button
+																																							onclick={() => {
+																																								const newAttributes = {...state.editingInterventionData.custom_attributes};
+																																								delete newAttributes[key];
+																																								updateState({
+																																									editingInterventionData: {
+																																										...state.editingInterventionData,
+																																										custom_attributes: newAttributes
+																																									}
+																																								});
+																																							}}
+																																							style={{
+																																								background: '#dc3545',
+																																								color: 'white',
+																																								border: 'none',
+																																								padding: '6px 8px',
+																																								borderRadius: '4px',
+																																								cursor: 'pointer',
+																																								fontSize: '12px'
+																																							}}
+																																							title="Remove this attribute"
+																																						>
+																																							✗
+																																						</button>
+																																					</div>
+																																				))
+																																			) : (
+																																				<p style={{textAlign: 'center', color: '#6b7280', fontStyle: 'italic', margin: '8px 0', fontSize: '12px'}}>
+																																					No custom attributes. Click "Add Attribute" to get started.
+																																				</p>
+																																			)}
+																																			<button
+																																				onclick={() => {
+																																					updateState({
+																																						editingInterventionData: {
+																																							...state.editingInterventionData,
+																																							custom_attributes: {
+																																								...state.editingInterventionData.custom_attributes,
+																																								'': ''
+																																							}
+																																						}
+																																					});
+																																				}}
+																																				style={{
+																																					background: '#3b82f6',
+																																					color: 'white',
+																																					border: 'none',
+																																					padding: '6px 12px',
+																																					borderRadius: '4px',
+																																					cursor: 'pointer',
+																																					fontSize: '12px',
+																																					width: '100%'
+																																				}}
+																																			>
+																																				+ Add Attribute
+																																			</button>
+																																		</div>
+																																	</div>
 																																	<div style={{display: 'flex', gap: '8px', marginTop: '8px'}}>
 																																		<button
 																																			style={{
@@ -5040,16 +5891,27 @@ const view = (state, {updateState, dispatch}) => {
 																																</span>
 																																<button
 																																	className="delete-intervention-btn"
-																																	style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
-																																	title="Delete intervention"
-																																	onclick={() => dispatch('DELETE_INTERVENTION', {
-																																		answerId: state.relationshipModalAnswerId,
-																																		interventionId: intervention.id,
-																																		interventionName: intervention.label,
-																																		goalId: goal.id
-																																	})}
+																																	style={{
+																																		marginLeft: '12px',
+																																		fontSize: '12px',
+																																		padding: '4px 8px',
+																																		opacity: state.deletingInterventions[intervention.id] ? 0.6 : 1,
+																																		cursor: state.deletingInterventions[intervention.id] ? 'not-allowed' : 'pointer'
+																																	}}
+																																	title={state.deletingInterventions[intervention.id] ? "Deleting..." : "Delete intervention"}
+																																	disabled={state.deletingInterventions[intervention.id]}
+																																	onclick={() => {
+																																		if (!state.deletingInterventions[intervention.id]) {
+																																			dispatch('DELETE_INTERVENTION', {
+																																				answerId: state.relationshipModalAnswerId,
+																																				interventionId: intervention.id,
+																																				interventionName: intervention.label,
+																																				goalId: goal.id
+																																			});
+																																		}
+																																	}}
 																																>
-																																	<XIcon />
+																																	{state.deletingInterventions[intervention.id] ? '🔄' : <XIcon />}
 																																</button>
 																															</div>
 																														);
@@ -5171,7 +6033,7 @@ const view = (state, {updateState, dispatch}) => {
 																															boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
 																															maxHeight: '200px',
 																															overflowY: 'auto',
-																															zIndex: 1000
+																															zIndex: 8000
 																														}}>
 																															{state.interventionTypeaheadResults[goal.id].map((intervention, interventionIdx) => (
 																																<div
@@ -5432,7 +6294,7 @@ const view = (state, {updateState, dispatch}) => {
 																						border: '1px solid #d1d5db',
 																						borderRadius: '6px',
 																						boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-																						zIndex: 1000,
+																						zIndex: 8000,
 																						maxHeight: '200px',
 																						overflowY: 'auto'
 																					}}>
@@ -5890,93 +6752,6 @@ const view = (state, {updateState, dispatch}) => {
 								)}
 							</div>
 
-							{/* Modal System Messages Window */}
-							<div className="modal-system-messages" style={{
-								borderTop: '1px solid #e0e0e0',
-								backgroundColor: '#f8f9fa'
-							}}>
-								{/* Header with toggle */}
-								<div
-									className="system-messages-header"
-									style={{
-										display: 'flex',
-										justifyContent: 'space-between',
-										alignItems: 'center',
-										padding: '8px 12px',
-										cursor: 'pointer',
-										borderBottom: state.modalSystemMessagesCollapsed ? 'none' : '1px solid #e0e0e0',
-										backgroundColor: '#f1f3f4'
-									}}
-									on={{click: () => dispatch('TOGGLE_MODAL_SYSTEM_MESSAGES')}}
-								>
-									<span style={{fontWeight: '500', fontSize: '14px'}}>
-										System Messages ({state.modalSystemMessages?.length || 0})
-									</span>
-									<span style={{fontSize: '12px'}}>
-										{state.modalSystemMessagesCollapsed ? '▶' : '▼'}
-									</span>
-								</div>
-
-								{/* Messages content - only show when not collapsed */}
-								{!state.modalSystemMessagesCollapsed && (
-									<div
-										className="system-messages-content"
-										style={{
-											height: '60px',  // About 2 lines at 14px font
-											overflowY: 'auto',
-											padding: '8px 12px',
-											backgroundColor: '#ffffff'
-										}}
-									>
-										{state.modalSystemMessages?.length > 0 ? (
-											<div>
-												{state.modalSystemMessages.map((msg, index) => (
-													<div
-														key={index}
-														className={`system-message ${msg.type}`}
-														style={{
-															padding: '4px 0',
-															borderBottom: index < state.modalSystemMessages.length - 1 ? '1px solid #f0f0f0' : 'none',
-															fontSize: '12px',
-															lineHeight: '1.3'
-														}}
-													>
-														<span className={`message-type ${msg.type}`} style={{
-															fontWeight: 'bold',
-															color: msg.type === 'success' ? '#28a745' :
-																   msg.type === 'error' ? '#dc3545' :
-																   msg.type === 'warning' ? '#ffc107' : '#17a2b8',
-															marginRight: '8px'
-														}}>
-															{msg.type === 'success' ? <CheckIcon /> :
-															 msg.type === 'error' ? <XIcon /> :
-															 msg.type === 'warning' ? '⚠' : 'ℹ'}
-														</span>
-														<span>{msg.message}</span>
-														<span style={{
-															float: 'right',
-															color: '#888',
-															fontSize: '10px'
-														}}>
-															{new Date(msg.timestamp).toLocaleTimeString()}
-														</span>
-													</div>
-												))}
-											</div>
-										) : (
-											<div style={{
-												color: '#888',
-												fontStyle: 'italic',
-												fontSize: '12px',
-												textAlign: 'center',
-												padding: '16px 0'
-											}}>
-												No messages while modal is open
-											</div>
-										)}
-									</div>
-								)}
-							</div>
 
 				</div>
 			)}
@@ -6176,7 +6951,7 @@ createCustomElement('cadal-careiq-builder', {
 		answerRelationships: {}, // Format: { answerId: { problems: [], barriers: [], guidelines: [], questions: [] } }
 		relationshipsLoading: {},
 		// UI state
-		systemMessagesCollapsed: false,
+		systemMessagesCollapsed: true,
 		showRelationships: false, // Toggle for relationship buttons visibility
 		scoringPanelOpen: false, // Toggle for scoring models side panel
 		scoringModels: null, // Array of scoring models for current assessment
@@ -6298,7 +7073,9 @@ createCustomElement('cadal-careiq-builder', {
 		interventionDetailsFallback: null,         // Fallback intervention data if API fails
 		editingInterventionGoalId: null,           // Goal ID containing the intervention being edited
 		lastEditedInterventionGoalId: null,        // Goal ID for the last edited intervention (for success handler)
-		currentInterventionsLoadingGoalId: null   // Track which goal is currently loading interventions
+		currentInterventionsLoadingGoalId: null,  // Track which goal is currently loading interventions
+		lastDeletedQuestionContext: null,         // Context for deleted question (for success handler)
+		deletingInterventions: {}                 // Track which interventions are being deleted
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -6367,11 +7144,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 		
 		'CAREIQ_CONFIG_FETCH_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.error('HTTP Effect Error:', action.payload);
+			const errorMessage = 'Failed to fetch system properties: ' + (action.payload?.message || 'Unknown error');
 			updateState({
 				loading: false,
-				error: 'Failed to fetch system properties: ' + (action.payload?.message || 'Unknown error')
+				error: errorMessage,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -6400,13 +7186,13 @@ createCustomElement('cadal-careiq-builder', {
 				loading: false,
 				accessToken: token
 			});
-			
+
 			// Automatically fetch use case categories after token success
 			dispatch('FETCH_USE_CASE_CATEGORIES', {
 				config: state.careiqConfig,
 				accessToken: token
 			});
-			
+
 			// Automatically fetch assessments after token success
 			dispatch('FETCH_ASSESSMENTS', {
 				offset: 0,
@@ -6416,11 +7202,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'TOKEN_EXCHANGE_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.error('Token Exchange Error - Full Response:', action.payload);
 			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
+			const errorMessage = 'Failed to exchange token: ' + (action.payload?.message || 'Unknown error');
 			updateState({
-				error: 'Failed to exchange token: ' + (action.payload?.message || 'Unknown error')
+				error: errorMessage,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -6448,15 +7243,9 @@ createCustomElement('cadal-careiq-builder', {
 
 		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
 			const {action, updateState} = coeffects;
-			// 
 			// Check if response has use_case_categories
 			const categories = action.payload?.use_case_categories;
-			// Log each category for UUID debugging
-			if (Array.isArray(categories)) {
-				categories.forEach((category, index) => {
-				});
-			}
-			
+
 			updateState({
 				useCaseCategories: categories || [],
 				categoriesLoading: false
@@ -6464,20 +7253,30 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'USE_CASE_CATEGORIES_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.error('USE_CASE_CATEGORIES_ERROR - Full Response:', action.payload);
 			console.error('Error type:', typeof action.payload);
 			console.error('Error keys:', Object.keys(action.payload || {}));
 			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
-			
-			const errorMessage = action.payload?.message || 
-							   action.payload?.error || 
-							   action.payload?.statusText || 
+
+			const errorMessage = action.payload?.message ||
+							   action.payload?.error ||
+							   action.payload?.statusText ||
 							   'Unknown error';
-			
+
+			const fullErrorMessage = 'Failed to fetch use case categories: ' + errorMessage;
+
 			updateState({
-				error: 'Failed to fetch use case categories: ' + errorMessage,
-				categoriesLoading: false
+				error: fullErrorMessage,
+				categoriesLoading: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -6538,16 +7337,42 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ASSESSMENTS_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
-			const errorMessage = action.payload?.detail ||
-							   action.payload?.message ||
-							   action.payload?.error ||
-							   'Unknown error';
+			const {action, updateState, state} = coeffects;
+			console.error('ASSESSMENTS_ERROR - Full Response:', action.payload);
+			console.error('Error type:', typeof action.payload);
+			console.error('Error keys:', Object.keys(action.payload || {}));
+			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
+
+			// Try to extract error message from various possible locations
+			let errorMessage = 'Unknown error';
+			if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			} else if (action.payload?.response) {
+				errorMessage = action.payload.response;
+			}
+
+			const fullErrorMessage = 'Failed to fetch assessments: ' + errorMessage;
 
 			updateState({
 				assessments: null,
-				error: 'Failed to fetch assessments: ' + errorMessage,
-				assessmentsLoading: false
+				error: fullErrorMessage,
+				assessmentsLoading: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -7663,6 +8488,7 @@ createCustomElement('cadal-careiq-builder', {
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
 			
+
 			updateState({
 				currentAssessment: action.payload,
 				assessmentDetailsLoading: false,
@@ -7676,6 +8502,9 @@ createCustomElement('cadal-careiq-builder', {
 				questionChanges: {},
 				answerChanges: {},
 				relationshipChanges: {},
+				// IMPORTANT: Preserve system messages during assessment refresh
+				systemMessages: state.systemMessages,
+				modalSystemMessages: state.modalSystemMessages,
 				// Reset relationship editing state after refresh - return to original state
 				showRelationships: false,
 				answerRelationships: {}, // Clear all expanded relationship data - closes panels
@@ -7718,17 +8547,27 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ASSESSMENT_DETAILS_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.error('ASSESSMENT_DETAILS_ERROR - Full Response:', action.payload);
-			
-			const errorMessage = action.payload?.message || 
-							   action.payload?.error || 
-							   action.payload?.statusText || 
+
+			const errorMessage = action.payload?.message ||
+							   action.payload?.error ||
+							   action.payload?.statusText ||
 							   'Unknown error';
-			
+
+			const fullErrorMessage = 'Failed to fetch assessment details: ' + errorMessage;
+
 			updateState({
-				error: 'Failed to fetch assessment details: ' + errorMessage,
-				assessmentDetailsLoading: false
+				error: fullErrorMessage,
+				assessmentDetailsLoading: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -7821,17 +8660,27 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SECTION_QUESTIONS_ERROR': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			console.error('SECTION_QUESTIONS_ERROR - Full Response:', action.payload);
-			
-			const errorMessage = action.payload?.message || 
-							   action.payload?.error || 
-							   action.payload?.statusText || 
+
+			const errorMessage = action.payload?.message ||
+							   action.payload?.error ||
+							   action.payload?.statusText ||
 							   'Unknown error';
-			
+
+			const fullErrorMessage = 'Failed to fetch section questions: ' + errorMessage;
+
 			updateState({
-				error: 'Failed to fetch section questions: ' + errorMessage,
-				questionsLoading: false
+				error: fullErrorMessage,
+				questionsLoading: false,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -8366,6 +9215,21 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Validate question label is not blank
+			if (!question.label || question.label.trim() === '') {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Question text cannot be blank. Please enter a question.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
 			// Check if there are answer changes for this question - if so, use SAVE_ALL_CHANGES
 			const questionAnswerChanges = Object.keys(state.answerChanges || {}).filter(answerId => {
 				const answerData = state.answerChanges[answerId];
@@ -8562,14 +9426,24 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ANSWER_RELATIONSHIPS_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
+
 			console.error('ANSWER_RELATIONSHIPS_ERROR - Full Response:', action.payload);
-			
+
+			const fullErrorMessage = 'Failed to fetch answer relationships: ' + (action.payload?.error || 'Unknown error');
+
 			// We'll need to track which answer this was for in loading state
 			// For now, clear all loading states on error
 			updateState({
 				relationshipsLoading: {},
-				error: 'Failed to fetch answer relationships: ' + (action.payload?.error || 'Unknown error')
+				error: fullErrorMessage,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
 			});
 		},
 
@@ -8675,16 +9549,23 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// Clear relationship changes and show success message
+			const successMessage = {
+				type: 'success',
+				message: `Question relationship saved successfully! Auto-refreshing now...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
 				relationshipChanges: {},
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Question relationship saved successfully! Auto-refreshing now...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+					successMessage
+				],
+				// ALSO add to modal system messages if relationship panel is open
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
@@ -8714,11 +9595,21 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
+
+			// Store deletion context in state for success handler (meta params don't work reliably)
+			updateState({
+				lastDeletedQuestionContext: {
+					answerId: answerId,
+					questionId: questionId,
+					questionLabel: questionLabel
+				}
+			});
+
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
 			});
-			
+
 			dispatch('MAKE_DELETE_BRANCH_QUESTION_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -8922,51 +9813,44 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 		'DELETE_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Get original data from meta (passed through HTTP effect)
-			const {answerId, questionId, questionLabel} = action.meta || {};
-			// Follow CLAUDE.md refresh pattern - store current section for reselection
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-			
-			// Clear all change tracking arrays and reset UI state for fresh start
+			// Get context from stored state (meta params don't work reliably in ServiceNow)
+			const context = state.lastDeletedQuestionContext || {};
+			const {answerId, questionId, questionLabel} = context;
+
+
+			// Clear the stored context
 			updateState({
-				relationshipChanges: {},
-				sectionChanges: {},
+				lastDeletedQuestionContext: null
+			});
+
+			// Show success message but don't clear excessive state - we're only refreshing relationships
+			const newSystemMessage = {
+				type: 'success',
+				message: `Successfully deleted triggered question "${questionLabel}" from answer relationship! Refreshing data...`,
+				timestamp: new Date().toISOString()
+			};
+
+
+			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Successfully deleted triggered question "${questionLabel}" from answer relationship! Refreshing data...`,
-						timestamp: new Date().toISOString()
-					}
+					newSystemMessage
 				],
-				// Store pending reselection data - both ID and label needed
-				pendingReselectionSection: currentSection,
-				pendingReselectionSectionLabel: currentSectionLabel,
-				// Reset UI state - edit mode on, relationships off, collapsed
-				builderMode: true,
-				showRelationships: false,
-				answerRelationships: {}, // Clear all expanded relationship data
-				relationshipsLoading: {},
-				// Clear any active relationship editing
-				addingRelationship: null,
-				selectedRelationshipType: null,
-				relationshipTypeaheadText: '',
-				relationshipTypeaheadResults: [],
-				selectedRelationshipQuestion: null
+				// ALSO add to modal system messages if relationship panel is open
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					newSystemMessage
+				] : state.modalSystemMessages
 			});
 			
-			// If we're in a modal context, refresh the relationships for immediate feedback
-			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
+			// Only refresh the specific answer relationships, not the entire assessment
+			if (answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
+			} else {
+				console.warn('No answerId available for relationship refresh');
 			}
-
-			// Dispatch FETCH_ASSESSMENT_DETAILS to reload complete assessment structure
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessmentId
-			});
 		},
 		'DELETE_BRANCH_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
@@ -9189,17 +10073,31 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('ADD_PROBLEM_RELATIONSHIP_ERROR:', action.payload);
 
-			const errorMessage = {
+			// Follow standard backend error extraction pattern
+			let errorMessage = 'Unknown error';
+			if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			}
+
+			const errorMessageObj = {
 				type: 'error',
-				message: `Failed to add problem relationship: ${action.payload?.error || 'Unknown error'}`,
+				message: `Failed to add problem: ${errorMessage}`,
 				timestamp: new Date().toISOString()
 			};
 
 			updateState({
-				systemMessages: [...(state.systemMessages || []), errorMessage],
+				systemMessages: [...(state.systemMessages || []), errorMessageObj],
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
-					errorMessage
+					errorMessageObj
 				] : state.modalSystemMessages
 			});
 		},
@@ -9287,6 +10185,30 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_PROBLEM_EDITS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemId, editData} = action.payload;
+
+			// Validate problem label is not blank
+			if (!editData.label || editData.label.trim() === '') {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Problem text cannot be blank. Please enter problem text.',
+							timestamp: new Date().toISOString()
+						}
+					],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Problem text cannot be blank. Please enter problem text.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return; // Don't clear editing state - keep save/cancel buttons
+			}
+
 			// Get current problem data for merging with edits
 			const relationships = state.answerRelationships?.[answerId];
 			const currentProblem = relationships?.problems?.problems?.find(p => p.id === problemId);
@@ -9314,7 +10236,7 @@ createCustomElement('cadal-careiq-builder', {
 				label: editData.label,
 				tooltip: editData.tooltip || '',
 				alternative_wording: editData.alternative_wording || '',
-				custom_attributes: currentProblem.custom_attributes || {},
+				custom_attributes: editData.custom_attributes || {},
 				required: currentProblem.required || false
 			});
 			dispatch('MAKE_SAVE_PROBLEM_EDITS_REQUEST', {
@@ -9409,17 +10331,31 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('SAVE_PROBLEM_EDITS_ERROR:', action.payload);
 
-			const errorMessage = {
+			// Follow standard backend error extraction pattern
+			let errorMessage = 'Unknown error';
+			if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			}
+
+			const errorMessageObj = {
 				type: 'error',
-				message: `Failed to update problem: ${action.payload?.error || 'Unknown error'}`,
+				message: `Failed to update problem: ${errorMessage}`,
 				timestamp: new Date().toISOString()
 			};
 
 			updateState({
-				systemMessages: [...(state.systemMessages || []), errorMessage],
+				systemMessages: [...(state.systemMessages || []), errorMessageObj],
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
-					errorMessage
+					errorMessageObj
 				] : state.modalSystemMessages
 			});
 		},
@@ -10039,16 +10975,22 @@ createCustomElement('cadal-careiq-builder', {
 					editingProblemData: {
 						label: action.payload.label || action.payload.name || '',
 						alternative_wording: action.payload.alternative_wording || '',
-						tooltip: action.payload.tooltip || ''
+						tooltip: action.payload.tooltip || '',
+						custom_attributes: action.payload.custom_attributes || {}
 					}
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
+				const fallbackData = state.problemDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: '',
+					custom_attributes: {}
+				};
 				updateState({
-					editingProblemData: state.problemDetailsFallback || {
-						label: '',
-						alternative_wording: '',
-						tooltip: ''
+					editingProblemData: {
+						...fallbackData,
+						custom_attributes: fallbackData.custom_attributes || {}
 					}
 				});
 			}
@@ -10697,9 +11639,14 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_INTERVENTION': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, interventionId, interventionName, goalId} = action.payload;
-			// Store goalId for success handler refresh (using working state-based pattern)
+			// Store context for success handler refresh and set deleting state
 			updateState({
-				lastDeletedInterventionGoalId: goalId
+				lastDeletedInterventionGoalId: goalId,
+				lastDeletedInterventionName: interventionName, // Store intervention name for success handler
+				deletingInterventions: {
+					...state.deletingInterventions,
+					[interventionId]: true
+				}
 			});
 
 			// AUTO-DELETE: Immediately call API
@@ -10739,7 +11686,15 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const meta = action.meta || {};
-			const {interventionName, answerId} = meta;
+			const interventionId = meta.interventionId;
+			// Use stored intervention name instead of unreliable meta parameter
+			const interventionName = state.lastDeletedInterventionName;
+
+			// Clear deleting state
+			const updatedDeletingInterventions = {...state.deletingInterventions};
+			if (interventionId) {
+				delete updatedDeletingInterventions[interventionId];
+			}
 
 			// Show success message (both windows)
 			const successMessage = {
@@ -10749,6 +11704,7 @@ createCustomElement('cadal-careiq-builder', {
 			};
 
 			updateState({
+				deletingInterventions: updatedDeletingInterventions,
 				systemMessages: [
 					...(state.systemMessages || []),
 					successMessage
@@ -10762,9 +11718,10 @@ createCustomElement('cadal-careiq-builder', {
 			// CRITICAL: Refresh intervention data using stored goalId (same pattern as add)
 			const goalId = state.lastDeletedInterventionGoalId;
 			if (goalId && state.currentAssessmentId) {
-				// Clear the stored ID after use
+				// Clear the stored context after use
 				updateState({
-					lastDeletedInterventionGoalId: null
+					lastDeletedInterventionGoalId: null,
+					lastDeletedInterventionName: null
 				});
 				dispatch('LOAD_GOAL_INTERVENTIONS', {
 					goalId: goalId,
@@ -10774,7 +11731,8 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// If modal is open, refresh the relationship data
-			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
+			const answerId = state.relationshipModalAnswerId;
+			if (answerId && state.relationshipPanelOpen) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {answerId: answerId});
 			}
 
@@ -10793,7 +11751,15 @@ createCustomElement('cadal-careiq-builder', {
 			console.error('DELETE_INTERVENTION_ERROR:', action.payload);
 
 			const meta = action.meta || {};
-			const {interventionName} = meta;
+			const interventionId = meta.interventionId;
+			// Use stored intervention name instead of unreliable meta parameter
+			const interventionName = state.lastDeletedInterventionName;
+
+			// Clear deleting state
+			const updatedDeletingInterventions = {...state.deletingInterventions};
+			if (interventionId) {
+				delete updatedDeletingInterventions[interventionId];
+			}
 
 			// Show error message (both windows)
 			const errorMessage = {
@@ -10803,6 +11769,10 @@ createCustomElement('cadal-careiq-builder', {
 			};
 
 			updateState({
+				deletingInterventions: updatedDeletingInterventions,
+				// Clear stored context after error
+				lastDeletedInterventionGoalId: null,
+				lastDeletedInterventionName: null,
 				systemMessages: [
 					...(state.systemMessages || []),
 					errorMessage
@@ -12138,143 +13108,35 @@ createCustomElement('cadal-careiq-builder', {
 
 				return; // Exit early for questions - ADD_BRANCH_QUESTION handles the rest
 			}
-			// Immediately add relationship to local answer data for instant feedback
-			let updatedQuestions = state.currentQuestions.questions;
-			
-			if (relationshipType === 'question') {
-				// Handle triggered questions
-				updatedQuestions = state.currentQuestions.questions.map(question => {
-					return {
-						...question,
-						answers: question.answers.map(answer => {
-							if (answer.ids.id === answerId) {
-								const currentTriggered = answer.triggered_questions || [];
-								if (!currentTriggered.includes(targetId)) {
-									const newTriggered = [...currentTriggered, targetId];
-									return {
-										...answer,
-										triggered_questions: newTriggered
-									};
-								} else {
-								}
-							}
-							return answer;
-						})
-					};
-				});
-			}
-			updatedQuestions.forEach((q, qIndex) => {
-				q.answers?.forEach((a, aIndex) => {
-					if (a.triggered_questions && a.triggered_questions.length > 0) {
-					}
-				});
-			});
-			
-			// Clear the add relationship UI and show success message
-			updateState({
-				addingRelationship: null,
-				selectedRelationshipType: null,
-				relationshipTypeaheadText: '',
-				relationshipTypeaheadResults: [],
-				selectedRelationshipQuestion: null,
-				// Update the local question data to show triggered question immediately
-				currentQuestions: {
-					...state.currentQuestions,
-					questions: updatedQuestions
-				},
-				// Add to relationship changes tracking
-				relationshipChanges: {
-					...state.relationshipChanges,
-					[relationshipKey]: {
-						action: 'add',
-						answerId: answerId,
-						relationshipType: relationshipType,
-						targetId: targetId,
-						targetLabel: selectedItem.category ? `${selectedItem.label} - ${selectedItem.category}` : selectedItem.label,
-						timestamp: new Date().toISOString()
-					}
-				},
-				// Add to system messages to show it's been queued for save
-				systemMessages: [
-					...(state.systemMessages || []),
-					
-					{
-						type: 'success',
-						message: `Triggered question "${selectedItem.label}" queued for save. Click "Save Changes" to apply.`,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
 		},
 		'REMOVE_TRIGGERED_QUESTION': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
-			// Immediately remove triggered question from local answer data
-			const updatedQuestions = state.currentQuestions.questions.map(question => {
-				return {
-					...question,
-					answers: question.answers.map(answer => {
-						if (answer.ids.id === answerId) {
-							// Remove the triggered question from this answer's triggered_questions array
-							const currentTriggered = answer.triggered_questions || [];
-							const updatedTriggered = currentTriggered.filter(id => id !== questionId);
-							return {
-								...answer,
-								triggered_questions: updatedTriggered
-							};
-						}
-						return answer;
-					})
-				};
-			});
-			
-			// Generate a unique key for this relationship change (same format as add)
-			const relationshipKey = `${answerId}_question_${questionId}`;
-			
-			// Also remove from answerRelationships display data for immediate UI feedback
-			const updatedAnswerRelationships = { ...state.answerRelationships };
-			if (updatedAnswerRelationships[answerId]?.questions?.questions) {
-				updatedAnswerRelationships[answerId] = {
-					...updatedAnswerRelationships[answerId],
-					questions: {
-						...updatedAnswerRelationships[answerId].questions,
-						questions: updatedAnswerRelationships[answerId].questions.questions.filter(q => q.id !== questionId),
-						questions_quantity: updatedAnswerRelationships[answerId].questions.questions.filter(q => q.id !== questionId).length
-					}
-				};
-			}
-			
-			// Track the deletion in relationshipChanges
+
+			// Add immediate system message to show the action was triggered
+			const immediateMessage = {
+				type: 'info',
+				message: `Deleting triggered question "${questionLabel}"... Please wait.`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				// Update local question data immediately
-				currentQuestions: {
-					...state.currentQuestions,
-					questions: updatedQuestions
-				},
-				// Update relationship display data immediately
-				answerRelationships: updatedAnswerRelationships,
-				// Track the delete operation for save
-				relationshipChanges: {
-					...state.relationshipChanges,
-					[relationshipKey]: {
-						action: 'delete',
-						answerId: answerId,
-						relationshipType: 'question',
-						targetId: questionId,
-						targetLabel: questionLabel,
-						timestamp: new Date().toISOString()
-					}
-				},
-				// Show success message indicating it's queued for save
 				systemMessages: [
 					...(state.systemMessages || []),
-					
-					{
-						type: 'success',
-						message: `Triggered question "${questionLabel}" queued for deletion. Click "Save Changes" to apply.`,
-						timestamp: new Date().toISOString()
-					}
-				]
+					immediateMessage
+				],
+				// ALSO add to modal system messages if relationship panel is open
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					immediateMessage
+				] : state.modalSystemMessages
+			});
+
+			// AUTO-SAVE: Immediately delete the triggered question like we do for adding
+			dispatch('DELETE_BRANCH_QUESTION', {
+				answerId: answerId,
+				questionId: questionId,
+				questionLabel: questionLabel
 			});
 		},
 
@@ -12412,6 +13274,30 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_PROBLEM_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemId, problemName, problemMasterId} = action.payload;
+
+			// Validate problem name is not blank
+			if (!problemName || problemName.trim() === '') {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Problem text cannot be blank. Please enter a problem name.',
+							timestamp: new Date().toISOString()
+						}
+					],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Problem text cannot be blank. Please enter a problem name.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return;
+			}
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -12572,16 +13458,22 @@ createCustomElement('cadal-careiq-builder', {
 					editingGoalData: {
 						label: action.payload.label || action.payload.name || '',
 						alternative_wording: action.payload.alternative_wording || '',
-						tooltip: action.payload.tooltip || ''
+						tooltip: action.payload.tooltip || '',
+						custom_attributes: action.payload.custom_attributes || {}
 					}
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
+				const fallbackData = state.goalDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: '',
+					custom_attributes: {}
+				};
 				updateState({
-					editingGoalData: state.goalDetailsFallback || {
-						label: '',
-						alternative_wording: '',
-						tooltip: ''
+					editingGoalData: {
+						...fallbackData,
+						custom_attributes: fallbackData.custom_attributes || {}
 					}
 				});
 			}
@@ -12816,17 +13708,23 @@ createCustomElement('cadal-careiq-builder', {
 						label: action.payload.label || action.payload.name || '',
 						alternative_wording: action.payload.alternative_wording || '',
 						tooltip: action.payload.tooltip || '',
-						category: action.payload.category || 'assist'
+						category: action.payload.category || 'assist',
+						custom_attributes: action.payload.custom_attributes || {}
 					}
 				});
 			} else {
 				// Fallback to cached data if API didn't return proper details
+				const fallbackData = state.interventionDetailsFallback || {
+					label: '',
+					alternative_wording: '',
+					tooltip: '',
+					category: 'assist',
+					custom_attributes: {}
+				};
 				updateState({
-					editingInterventionData: state.interventionDetailsFallback || {
-						label: '',
-						alternative_wording: '',
-						tooltip: '',
-						category: 'assist'
+					editingInterventionData: {
+						...fallbackData,
+						custom_attributes: fallbackData.custom_attributes || {}
 					},
 					interventionDetailsFallback: null
 				});
@@ -12901,6 +13799,7 @@ createCustomElement('cadal-careiq-builder', {
 				alternative_wording: interventionData.alternative_wording,
 				tooltip: interventionData.tooltip,
 				category: interventionData.category,
+				custom_attributes: interventionData.custom_attributes || {},
 				goal_id: goalId
 			});
 			// Make the API call
@@ -13927,13 +14826,182 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CANCEL_TOOLTIP_EDIT': (coeffects) => {
 			const {updateState} = coeffects;
-			
+
 			updateState({
 				editingTooltip: null,
 				editingTooltipText: null,
 				editingTooltipQuestionId: null,
 				editingTooltipAnswerId: null
 			});
+		},
+
+		// Custom Attributes Modal Actions
+		'OPEN_CUSTOM_ATTRIBUTES_MODAL': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {itemType, itemId, currentAttributes} = action.payload;
+
+			updateState({
+				customAttributesModalOpen: true,
+				customAttributesItemType: itemType,
+				customAttributesItemId: itemId,
+				customAttributesData: Object.keys(currentAttributes || {}).map(key => ({
+					key: key,
+					value: currentAttributes[key]
+				}))
+			});
+		},
+
+		'CLOSE_CUSTOM_ATTRIBUTES_MODAL': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				customAttributesModalOpen: false,
+				customAttributesItemType: null,
+				customAttributesItemId: null,
+				customAttributesData: []
+			});
+		},
+
+		'ADD_CUSTOM_ATTRIBUTE_ROW': (coeffects) => {
+			const {updateState, state} = coeffects;
+			updateState({
+				customAttributesData: [
+					...state.customAttributesData,
+					{key: '', value: ''}
+				]
+			});
+		},
+
+		'UPDATE_CUSTOM_ATTRIBUTE': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {index, field, value} = action.payload;
+
+			const updatedData = [...state.customAttributesData];
+			updatedData[index] = {
+				...updatedData[index],
+				[field]: value
+			};
+
+			updateState({
+				customAttributesData: updatedData
+			});
+		},
+
+		'REMOVE_CUSTOM_ATTRIBUTE_ROW': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const {index} = action.payload;
+
+			const updatedData = state.customAttributesData.filter((_, i) => i !== index);
+			updateState({
+				customAttributesData: updatedData
+			});
+		},
+
+		'SAVE_CUSTOM_ATTRIBUTES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			// Convert array back to object format
+			const customAttributes = {};
+			state.customAttributesData.forEach(item => {
+				if (item.key.trim() !== '') {
+					customAttributes[item.key.trim()] = item.value;
+				}
+			});
+
+			const itemType = state.customAttributesItemType;
+			const itemId = state.customAttributesItemId;
+
+			if (itemType === 'question') {
+				// Find the current question data
+				const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === itemId);
+				if (!currentQuestion) return;
+
+				// Update question locally first
+				const updatedQuestions = state.currentQuestions.questions.map(question => {
+					if (question.ids.id === itemId) {
+						return {
+							...question,
+							custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+						};
+					}
+					return question;
+				});
+
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					}
+				});
+
+				// Immediately save to backend with complete question data
+				dispatch('UPDATE_QUESTION_API', {
+					questionData: {
+						questionId: itemId,
+						label: currentQuestion.label,
+						type: currentQuestion.type,
+						required: currentQuestion.required,
+						tooltip: currentQuestion.tooltip || '',
+						alternative_wording: currentQuestion.alternative_wording || '',
+						voice: currentQuestion.voice || 'CaseManager',
+						sort_order: currentQuestion.sort_order,
+						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+					}
+				});
+
+			} else if (itemType === 'answer') {
+				// Find the current answer data
+				let currentAnswer = null;
+				state.currentQuestions.questions.forEach(question => {
+					const answer = question.answers?.find(a => a.ids.id === itemId);
+					if (answer) {
+						currentAnswer = answer;
+					}
+				});
+
+				if (!currentAnswer) return;
+
+				// Update answer locally first
+				const updatedQuestions = state.currentQuestions.questions.map(question => {
+					const updatedAnswers = question.answers?.map(answer => {
+						if (answer.ids.id === itemId) {
+							return {
+								...answer,
+								custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+							};
+						}
+						return answer;
+					}) || [];
+
+					return {
+						...question,
+						answers: updatedAnswers
+					};
+				});
+
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					}
+				});
+
+				// Immediately save to backend with complete answer data
+				dispatch('UPDATE_ANSWER_API', {
+					answerData: {
+						answerId: itemId,
+						label: currentAnswer.label,
+						tooltip: currentAnswer.tooltip || '',
+						alternative_wording: currentAnswer.alternative_wording || '',
+						required: currentAnswer.required || false,
+						sort_order: currentAnswer.sort_order,
+						secondary_input_type: currentAnswer.secondary_input_type || '',
+						mutually_exclusive: currentAnswer.mutually_exclusive || false,
+						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+					}
+				});
+			}
+
+			dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL');
 		},
 
 		'UPDATE_ANSWER_LABEL': (coeffects) => {
@@ -14139,7 +15207,45 @@ createCustomElement('cadal-careiq-builder', {
 			const relationshipChanges = Object.keys(relationshipChangesData);
 
 			// DEBUG: Log what we captured
-			// IMMEDIATELY clear change tracking to prevent duplicate calls
+			// FIRST: Run all validations before clearing change tracking or performing saves
+			const validationErrors = [];
+
+			// Validate all questions for blank text
+			if (questionChanges.length > 0) {
+				questionChanges.forEach(questionId => {
+					const questionData = questionChangesData[questionId];
+					if (!questionData.label || questionData.label.trim() === '') {
+						validationErrors.push('Question text cannot be blank. Please enter a question.');
+					}
+				});
+			}
+
+			// Validate all answers for blank text
+			if (answerChanges.length > 0) {
+				answerChanges.forEach(answerId => {
+					const answerData = answerChangesData[answerId];
+					if (!answerData.label || answerData.label.trim() === '') {
+						validationErrors.push('Answer text cannot be blank. Please enter answer text.');
+					}
+				});
+			}
+
+			// If any validation errors, show them and return early (preserve save/cancel buttons)
+			if (validationErrors.length > 0) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						...validationErrors.map(error => ({
+							type: 'error',
+							message: error,
+							timestamp: new Date().toISOString()
+						}))
+					]
+				});
+				return; // Exit early - validation failed, preserve editing state
+			}
+
+			// All validations passed - clear change tracking to hide save buttons
 			updateState({
 				sectionChanges: {},
 				questionChanges: {},
@@ -14155,7 +15261,7 @@ createCustomElement('cadal-careiq-builder', {
 				} : state.currentQuestions
 			});
 
-			// FIRST: Run all deduplication checks before any save operations
+			// SECOND: Run all deduplication checks
 
 			// Check for duplicate questions
 			if (questionChanges.length > 0) {
@@ -14293,22 +15399,43 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Check if this is a parent or child section by finding it in the assessment structure
 					let isParentSection = false;
+					let isChildSection = false;
+
+					// Check if it's a parent section (top-level)
 					for (const section of state.currentAssessment.sections) {
 						if (section.id === sectionId) {
 							isParentSection = true;
 							break;
 						}
+						// Also check if it's a child section (subsection)
+						if (section.subsections) {
+							for (const subsection of section.subsections) {
+								if (subsection.id === sectionId) {
+									isChildSection = true;
+									break;
+								}
+							}
+						}
+						if (isChildSection) break;
 					}
 
 					if (isParentSection) {
 						parentSections.push({sectionId, sectionData});
-					} else {
+					} else if (isChildSection) {
 						childSections.push({sectionId, sectionData});
+					} else {
+						// If not found in either, it's likely a new parent section with temp ID
+						parentSections.push({sectionId, sectionData});
 					}
 				});
 
+				// Debug logging
+				console.log('SAVE_ALL_CHANGES - Parent sections:', parentSections.map(p => ({id: p.sectionId, label: p.sectionData.label})));
+				console.log('SAVE_ALL_CHANGES - Child sections:', childSections.map(c => ({id: c.sectionId, label: c.sectionData.label})));
+
 				// Save parent sections first
 				parentSections.forEach(({sectionId, sectionData}) => {
+					console.log(`Saving parent section: ${sectionId} with label: ${sectionData.label}`);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -14497,7 +15624,9 @@ createCustomElement('cadal-careiq-builder', {
 
 				answerChanges.forEach(answerId => {
 					const answerData = answerChangesData[answerId];
+
 					if (answerData.action === 'add' || answerData.action === 'library_replace') {
+
 						// Skip if the question is also new (temp ID) - will be handled with question creation
 						if (answerData.question_id && answerData.question_id.startsWith('temp_')) {
 							return;
@@ -14910,22 +16039,28 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ANSWER_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.error('Update answer failed - Full error object:', action.payload);
-			console.error('Error status:', action.payload?.status);
-			console.error('Error response:', action.payload?.response);
-			console.error('Error message:', action.payload?.error?.message);
-			
-			const errorMessage = action.payload?.error?.message || action.payload?.message || action.payload?.response || 'Failed to update answer';
-			
-			console.error('Final error message:', errorMessage);
-			
+			console.error('Update answer error:', action.payload);
+
+			// Follow standard backend error extraction pattern
+			let errorMessage = 'Unknown error';
+			if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
 					{
 						type: 'error',
-						message: `Failed to update answer: ${errorMessage}`,
+						message: 'Failed to update answer: ' + errorMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -15080,13 +16215,24 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			console.error('Question add error:', action.payload);
-			
-			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add question';
-			
+
+			// Follow standard backend error extraction pattern
+			let errorMessage = 'Unknown error';
+			if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
 					{
 						type: 'error',
 						message: 'Error creating question: ' + errorMessage,
@@ -15437,13 +16583,24 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_ANSWER_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			console.error('Answer add error:', action.payload);
-			
-			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add answer';
-			
+
+			// Follow standard backend error extraction pattern
+			let errorMessage = 'Unknown error';
+			if (action.payload?.detail) {
+				errorMessage = action.payload.detail;
+			} else if (action.payload?.data?.error) {
+				errorMessage = action.payload.data.error;
+			} else if (action.payload?.error) {
+				errorMessage = action.payload.error;
+			} else if (action.payload?.message) {
+				errorMessage = action.payload.message;
+			} else if (action.payload?.statusText) {
+				errorMessage = action.payload.statusText;
+			}
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
 					{
 						type: 'error',
 						message: 'Error creating answer: ' + errorMessage,
@@ -15511,27 +16668,75 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			// The response contains the new section ID: { "id": "uuid" }
 			const newSectionId = action.payload.id;
-			// Find and update the temp section with the real ID locally
-			const updatedSections = state.currentAssessment.sections.map(section => ({
-				...section,
-				subsections: section.subsections?.map(subsection => {
-					// If this is the temp section (marked as isNew), replace with real data
-					if (subsection.isNew && subsection.id.startsWith('temp_')) {
-						return {
-							...subsection,
-							id: newSectionId,
-							isNew: false // Remove the temp flag
-						};
+
+			// Find which temp section was just saved
+			let oldTempSectionId = null;
+			for (const section of state.currentAssessment.sections) {
+				if (section.isNew && section.id.startsWith('temp_')) {
+					oldTempSectionId = section.id;
+					break;
+				}
+				// Also check subsections
+				if (section.subsections) {
+					for (const subsection of section.subsections) {
+						if (subsection.isNew && subsection.id.startsWith('temp_')) {
+							oldTempSectionId = subsection.id;
+							break;
+						}
 					}
-					return subsection;
-				}) || []
-			}));
+				}
+				if (oldTempSectionId) break;
+			}
+
+
+			// Update any child sections in sectionChanges that reference this temp parent ID
+			const updatedSectionChanges = {...state.sectionChanges};
+			let childSectionsUpdated = 0;
+			Object.keys(updatedSectionChanges).forEach(sectionId => {
+				const sectionData = updatedSectionChanges[sectionId];
+				if (sectionData.parent_section_id === oldTempSectionId) {
+					updatedSectionChanges[sectionId] = {
+						...sectionData,
+						parent_section_id: newSectionId
+					};
+					childSectionsUpdated++;
+				}
+			});
+
+			// Find and update the temp section with the real ID locally
+			const updatedSections = state.currentAssessment.sections.map(section => {
+				// If this section was just saved (temp -> real UUID), update it
+				if (section.isNew && section.id === oldTempSectionId) {
+					return {
+						...section,
+						id: newSectionId,
+						isNew: false // Remove the temp flag
+					};
+				}
+
+				// For all sections, update any subsections that were just saved
+				return {
+					...section,
+					subsections: section.subsections?.map(subsection => {
+						// If this is the temp subsection (marked as isNew), replace with real data
+						if (subsection.isNew && subsection.id === oldTempSectionId) {
+							return {
+								...subsection,
+								id: newSectionId,
+								isNew: false // Remove the temp flag
+							};
+						}
+						return subsection;
+					}) || []
+				};
+			});
 
 			updateState({
 				currentAssessment: {
 					...state.currentAssessment,
 					sections: updatedSections
 				},
+				sectionChanges: updatedSectionChanges, // Update sectionChanges with corrected parent IDs
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -15540,28 +16745,36 @@ createCustomElement('cadal-careiq-builder', {
 						message: 'Section added successfully! No refresh needed.',
 						timestamp: new Date().toISOString()
 					}
-				],
-				// Clear the pending child section save since parent is now saved
-				pendingChildSectionSave: null
+				]
 			});
-
-			// Check if there's a pending child section save and save it now that parent has real UUID
-			const pendingChildSave = state.pendingChildSectionSave;
-			if (pendingChildSave) {
-				// Save the child section now that the parent has a real UUID
-				setTimeout(() => {
-					dispatch('SAVE_SECTION_IMMEDIATELY', {
-						sectionId: pendingChildSave.sectionId,
-						sectionLabel: pendingChildSave.sectionLabel,
-						libraryId: pendingChildSave.libraryId
-					});
-				}, 100); // Small delay to ensure state updates are processed
-			}
 
 			// Check if there are pending child sections to save after parent sections are done
 			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
-				// Save all pending child sections
-				state.pendingChildSections.forEach(({sectionId, sectionData}) => {
+				console.log('ADD_SECTION_SUCCESS - Processing pending child sections:', state.pendingChildSections.map(c => ({id: c.sectionId, label: c.sectionData.label, parentId: c.sectionData.parent_section_id})));
+
+				// Update child sections' parent_section_id from temp ID to real UUID
+				const updatedChildSections = state.pendingChildSections.map(({sectionId, sectionData}) => {
+					// Check if this child section's parent_section_id is a temp ID that needs updating
+					let updatedSectionData = {...sectionData};
+
+					// Find all sections that were just saved and map temp IDs to real UUIDs
+					// Look through the current assessment for temp IDs that were replaced
+					if (sectionData.parent_section_id && sectionData.parent_section_id.startsWith('temp_')) {
+						// This child section has a temp parent ID - we need to update it to the real UUID
+						// Since we just got a successful response, the newSectionId is the real UUID for the parent
+						updatedSectionData = {
+							...sectionData,
+							parent_section_id: newSectionId
+						};
+						console.log(`Updated child section ${sectionId} parent_section_id from ${sectionData.parent_section_id} to ${newSectionId}`);
+					}
+
+					return {sectionId, sectionData: updatedSectionData};
+				});
+
+				// Save all pending child sections with updated parent IDs
+				updatedChildSections.forEach(({sectionId, sectionData}) => {
+					console.log(`Saving child section: ${sectionId} with label: ${sectionData.label} and parent_section_id: ${sectionData.parent_section_id}`);
 					dispatch('SAVE_SECTION', {
 						sectionId: sectionId,
 						sectionData: sectionData,
@@ -16042,7 +17255,7 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipModalAnswerId: answerId,
 				relationshipModalActiveTab: 'guidelines',
 				modalSystemMessages: [],  // Initialize empty modal messages
-				modalSystemMessagesCollapsed: true,  // Start collapsed
+				modalSystemMessagesCollapsed: true,   // Start collapsed
 				// Clear any existing typeahead state to prevent contamination
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],

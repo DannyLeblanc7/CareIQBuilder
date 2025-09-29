@@ -18,7 +18,7 @@
   border-radius: 4px;
   font-size: 0.75rem;
   font-family: monospace;
-  z-index: 9999;
+  z-index: 99998;
   user-select: none;
 }
 
@@ -908,7 +908,7 @@
     left: 0;
     width: 80vw;
     height: 100vh;
-    z-index: 9999;
+    z-index: 99998;
     background-color: #ffffff;
     border: none;
     border-radius: 0;
@@ -1214,7 +1214,7 @@
     left: 0;
     width: 80vw;
     height: 100vh;
-    z-index: 9999;
+    z-index: 99998;
     background-color: #ffffff;
     border: none;
     border-radius: 0;
@@ -1354,9 +1354,34 @@
   color: #6b7280;
   cursor: help;
   font-size: 0.875rem;
-  
+
   &:hover {
     color: #374151;
+  }
+}
+
+.custom-attributes-icon {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 4px;
+  background-color: #e5e7eb;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: #d1d5db;
+    color: #374151;
+    border-color: #9ca3af;
+  }
+
+  &:active {
+    background-color: #9ca3af;
+    transform: translateY(1px);
   }
 }
 
@@ -2461,7 +2486,7 @@
   &.dragging {
     opacity: 0.5;
     transform: rotate(2deg);
-    z-index: 9999;
+    z-index: 99998;
   }
 }
 
@@ -2476,7 +2501,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 99998;
 }
 
 .tooltip-modal {
@@ -3086,7 +3111,7 @@
   &.dragging {
     opacity: 0.5;
     transform: rotate(1deg);
-    z-index: 9999;
+    z-index: 99998;
   }
 }
 
@@ -3168,7 +3193,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 99998;
 }
 
 .modal-content {
@@ -4188,7 +4213,7 @@
   left: 0;
   width: 80vw;
   height: 100vh;
-  z-index: 9999;
+  z-index: 99998;
   background-color: #ffffff;
   border: none;
   border-radius: 0;
@@ -4203,7 +4228,7 @@
     left: 0;
     width: 80vw;
     height: 100vh;
-    z-index: 9999;
+    z-index: 99998;
     background-color: #ffffff;
     border: none;
     border-radius: 0;
@@ -4217,6 +4242,8 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      position: relative;
+      z-index: 99999;
 
       .relationship-title-container {
         display: flex;
@@ -4307,6 +4334,8 @@
   .relationship-tabs {
       border-bottom: 1px solid #e5e7eb;
       display: flex;
+      position: relative;
+      z-index: 99999;
 
       .tab {
         padding: 12px 20px;
@@ -4335,6 +4364,9 @@
       padding: 1.5rem;
 
       .tab-content {
+        position: relative;
+        z-index: 99999;
+
         h4 {
           margin: 0 0 1rem 0;
           font-size: 1.1rem;
