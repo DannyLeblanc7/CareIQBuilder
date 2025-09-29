@@ -3,101 +3,19 @@ import {createHttpEffect} from '@servicenow/ui-effect-http';
 import snabbdom from '@servicenow/ui-renderer-snabbdom';
 import styles from './styles.scss';
 import packageJson from '../../package.json';
+import {
+	groupAssessmentsByMasterId,
+	paginateAssessments,
+	loadCareIQConfig,
+	hasRelationships,
+	calculateVisibleQuestions
+} from './utils.js';
+import * as effects from './effects.js';
+import {coreActions} from './core-actions.js';
+import {configActions} from './config-actions.js';
 
 const {COMPONENT_BOOTSTRAPPED} = actionTypes;
 
-// Group assessments by master_id
-const groupAssessmentsByMasterId = (assessments) => {
-	const grouped = {};
-	
-	assessments.forEach(assessment => {
-		const masterId = assessment.master_id;
-		if (!grouped[masterId]) {
-			grouped[masterId] = [];
-		}
-		grouped[masterId].push(assessment);
-	});
-	
-	// Sort versions within each group by version number (descending)
-	Object.keys(grouped).forEach(masterId => {
-		grouped[masterId].sort((a, b) => {
-			const versionA = parseFloat(a.version) || 0;
-			const versionB = parseFloat(b.version) || 0;
-			return versionB - versionA; // Descending order (newest first)
-		});
-	});
-	
-	return grouped;
-};
-
-// Paginate assessments for client-side display
-const paginateAssessments = (assessments, currentPage, pageSize) => {
-	if (!assessments || assessments.length === 0) return [];
-	
-	const startIndex = currentPage * pageSize;
-	const endIndex = startIndex + pageSize;
-	
-	return assessments.slice(startIndex, endIndex);
-};
-
-// Load CareIQ config using dispatch action
-const loadCareIQConfig = (dispatch) => {
-	dispatch('LOAD_CAREIQ_CONFIG');
-};
-
-// Check if answer has any relationships
-const hasRelationships = (counts) => {
-	if (!counts) return false;
-	
-	return (counts.triggered_guidelines > 0) || 
-		   (counts.problems > 0) || 
-		   (counts.triggered_questions > 0) || 
-		   (counts.evidence > 0) || 
-		   (counts.barriers > 0);
-};
-
-// Calculate which questions should be visible based on selected answers and their relationships
-const calculateVisibleQuestions = (selectedAnswers, currentQuestions, answerRelationships = {}) => {
-	if (!currentQuestions || currentQuestions.length === 0) {
-		return [];
-	}
-	
-	let visibleQuestions = [];
-	
-	// Start with questions that don't have a 'hidden' flag or have hidden: false
-	currentQuestions.forEach(question => {
-		if (!question.hidden) {
-			visibleQuestions.push(question.ids.id); // Use correct UUID path
-		}
-	});
-	// Add questions that should be shown based on triggered_questions relationships
-	Object.keys(selectedAnswers).forEach(questionId => {
-		const selectedAnswerIds = selectedAnswers[questionId];
-		selectedAnswerIds.forEach(answerId => {
-			// Find the answer in the questions using correct UUID paths
-			const question = currentQuestions.find(q => q.ids.id === questionId);
-			const answer = question?.answers?.find(a => a.ids.id === answerId);
-			// First check if the answer has triggered_questions in the section data
-			if (answer?.triggered_questions && Array.isArray(answer.triggered_questions)) {
-				answer.triggered_questions.forEach(triggeredQuestionId => {
-					if (!visibleQuestions.includes(triggeredQuestionId)) {
-						visibleQuestions.push(triggeredQuestionId);
-					}
-				});
-			}
-			// Otherwise, check if we have relationship data for this answer
-			else if (answerRelationships[answerId] && answerRelationships[answerId].questions?.questions?.length > 0) {
-				answerRelationships[answerId].questions.questions.forEach(triggeredQuestion => {
-					if (!visibleQuestions.includes(triggeredQuestion.id)) {
-						visibleQuestions.push(triggeredQuestion.id);
-					}
-				});
-			} else {
-			}
-		});
-	});
-	return visibleQuestions;
-};
 
 const view = (state, {updateState, dispatch}) => {
 	// Reusable SVG Icons
@@ -511,8 +429,17 @@ const view = (state, {updateState, dispatch}) => {
 										</button>
 										<h3>Sections</h3>
 									</div>
-									{state.builderMode && state.currentAssessment?.status === 'draft' && (
-										<button 
+									{(() => {
+										// Debug logging for button visibility
+										console.log('Add Section Button Debug:', {
+											builderMode: state.builderMode,
+											currentAssessment: !!state.currentAssessment,
+											status: state.currentAssessment?.status,
+											shouldShow: state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status)
+										});
+										return state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status);
+									})() && (
+										<button
 											className="add-section-btn"
 											onclick={() => dispatch('ADD_SECTION')}
 											title="Add new section"
@@ -6400,53 +6327,15 @@ createCustomElement('cadal-careiq-builder', {
 			document.addEventListener('visibilitychange', checkMobile);
 		},
 		
-		'CHECK_MOBILE_VIEW': (coeffects) => {
-			const {updateState} = coeffects;
-			// Increase threshold to catch dev tools scenarios (1342px in your case)
-			const isMobile = window.innerWidth <= 1400;
-			//
-			updateState({
-				isMobileView: isMobile
-			});
-		},
+		// Core UI Actions (mobile view, panel toggles, system messages)
+		...coreActions,
 
-		'TOGGLE_SECTIONS_PANEL': (coeffects) => {
-			const {updateState, state} = coeffects;
-			updateState({
-				sectionsPanelExpanded: !state.sectionsPanelExpanded
-			});
-		},
-
-		'TOGGLE_QUESTIONS_PANEL': (coeffects) => {
-			const {updateState, state} = coeffects;
-			updateState({
-				questionsPanelExpanded: !state.questionsPanelExpanded
-			});
-		},
-
-		'TOGGLE_RELATIONSHIP_PANEL': (coeffects) => {
-			const {updateState, state} = coeffects;
-			updateState({
-				relationshipPanelOpen: !state.relationshipPanelOpen
-			});
-		},
 		
-		'LOAD_CAREIQ_CONFIG': createHttpEffect('/api/now/table/sys_properties', {
-			method: 'GET',
-			queryParams: {
-				// Real CareIQ properties query
-				sysparm_query: 'nameLIKEx_1628056_careiq.careiq.platform',
-				sysparm_fields: 'name,value'
-			},
-			startActionType: 'CAREIQ_CONFIG_FETCH_START',
-			successActionType: 'CAREIQ_CONFIG_FETCH_SUCCESS',
-			errorActionType: 'CAREIQ_CONFIG_FETCH_ERROR'
-		}),
+		'LOAD_CAREIQ_CONFIG': effects.LOAD_CAREIQ_CONFIG,
 
-		'CAREIQ_CONFIG_FETCH_START': (coeffects) => {
-			const {updateState} = coeffects;
-			updateState({loading: true, error: null});
-		},
+		// Configuration Actions (config loading, token exchange, use case categories)
+		...configActions,
+
 		
 		'CAREIQ_CONFIG_FETCH_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch} = coeffects;
@@ -6501,15 +6390,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_TOKEN_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_TOKEN_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/token-exchange', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'TOKEN_EXCHANGE_SUCCESS',
-			errorActionType: 'TOKEN_EXCHANGE_ERROR'
-		}),
+		'MAKE_TOKEN_REQUEST': effects.MAKE_TOKEN_REQUEST,
 
 		'TOKEN_EXCHANGE_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
@@ -6558,16 +6439,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_USE_CASE_CATEGORIES_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_USE_CASE_CATEGORIES_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/use-case-categories', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			startActionType: 'USE_CASE_CATEGORIES_FETCH_START',
-			successActionType: 'USE_CASE_CATEGORIES_SUCCESS',
-			errorActionType: 'USE_CASE_CATEGORIES_ERROR'
-		}),
+		'MAKE_USE_CASE_CATEGORIES_REQUEST': effects.MAKE_USE_CASE_CATEGORIES_REQUEST,
 
 		'USE_CASE_CATEGORIES_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
@@ -6609,32 +6481,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'FETCH_ASSESSMENTS': (coeffects) => {
-			const {action, dispatch, updateState} = coeffects;
-			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
-			updateState({assessmentsLoading: true});
-
-			const requestBody = JSON.stringify({
-				useCase: 'CM',
-				offset: offset,
-				limit: limit,
-				contentSource: 'Organization',
-				latestVersionOnly: latestVersionOnly,
-				searchValue: searchValue
-			});
-			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
-		},
-
-		'MAKE_ASSESSMENTS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-assessments', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			startActionType: 'ASSESSMENTS_FETCH_START',
-			successActionType: 'ASSESSMENTS_SUCCESS',
-			errorActionType: 'ASSESSMENTS_ERROR'
-		}),
+		'MAKE_ASSESSMENTS_REQUEST': effects.MAKE_ASSESSMENTS_REQUEST,
 
 		'ASSESSMENTS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
@@ -6643,8 +6490,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
-			// 
-			
+
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
 			const offset = action.payload?.offset || 0;
@@ -6652,15 +6498,15 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if this is a version fetch request
 			const isVersionFetch = state.currentRequest?.isVersionFetch;
 			const targetAssessmentId = state.currentRequest?.targetAssessmentId;
-			
+
 			if (isVersionFetch && targetAssessmentId) {
 				// This is a version fetch - cache the versions and expand
 				const newVersions = {...state.assessmentVersions};
 				newVersions[targetAssessmentId] = assessments;
-				
+
 				const newExpandedState = {...state.expandedAssessments};
 				newExpandedState[targetAssessmentId] = true;
-				
+
 				updateState({
 					assessmentVersions: newVersions,
 					expandedAssessments: newExpandedState,
@@ -6674,7 +6520,7 @@ createCustomElement('cadal-careiq-builder', {
 					const titleB = b.title.toLowerCase();
 					return titleA.localeCompare(titleB);
 				});
-				
+
 				updateState({
 					assessments: sortedAssessments,
 					assessmentsLoading: false,
@@ -6693,17 +6539,32 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_ERROR': (coeffects) => {
 			const {action, updateState} = coeffects;
-			console.error('ASSESSMENTS_ERROR - Full Response:', action.payload);
-			
-			const errorMessage = action.payload?.message || 
-							   action.payload?.error || 
-							   action.payload?.statusText || 
+			const errorMessage = action.payload?.detail ||
+							   action.payload?.message ||
+							   action.payload?.error ||
 							   'Unknown error';
-			
+
 			updateState({
+				assessments: null,
 				error: 'Failed to fetch assessments: ' + errorMessage,
 				assessmentsLoading: false
 			});
+		},
+
+		'FETCH_ASSESSMENTS': (coeffects) => {
+			const {action, dispatch, updateState} = coeffects;
+			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
+			updateState({assessmentsLoading: true});
+
+			const requestBody = JSON.stringify({
+				useCase: 'CM',
+				offset: offset,
+				limit: limit,
+				contentSource: 'Organization',
+				latestVersionOnly: latestVersionOnly || true,
+				searchValue: searchValue || ''
+			});
+			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
 		},
 
 		'CREATE_NEW_ASSESSMENT': (coeffects) => {
@@ -6713,9 +6574,9 @@ createCustomElement('cadal-careiq-builder', {
 				// Reset form to defaults
 				newAssessmentForm: {
 					guidelineName: '',
-					useCaseCategory: 'Chronic Care', // Use actual category from API
+					useCaseCategory: 'Chronic Care',
 					type: 'Assessment Only',
-					contentSource: '',
+					contentSource: 'Organization',
 					codePolicyNumber: '',
 					effectiveDate: '',
 					endDate: '',
@@ -6750,13 +6611,14 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state, dispatch} = coeffects;
 			// Validate required fields
 			const form = state.newAssessmentForm;
-			if (!form.guidelineName || !form.useCaseCategory) {
+
+			if (!form.guidelineName || !form.useCaseCategory || !form.effectiveDate) {
 				updateState({
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'error',
-							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
+							message: 'Please fill in all required fields (Guideline Name, Use Case Category, and Effective Date)',
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -6797,9 +6659,6 @@ createCustomElement('cadal-careiq-builder', {
 			let useCaseCategoryId = assessmentData.useCaseCategory;
 			// Find the category UUID from loaded categories
 			if (state.useCaseCategories && Array.isArray(state.useCaseCategories)) {
-				state.useCaseCategories.forEach((cat, index) => {
-				});
-
 				const matchingCategory = state.useCaseCategories.find(cat =>
 					cat.name === assessmentData.useCaseCategory ||
 					cat.label === assessmentData.useCaseCategory ||
@@ -6807,25 +6666,19 @@ createCustomElement('cadal-careiq-builder', {
 				);
 
 				if (matchingCategory) {
-					const oldId = useCaseCategoryId;
 					useCaseCategoryId = matchingCategory.id || matchingCategory.uuid;
 				} else {
-					console.error('❌ Could not find UUID for category:', assessmentData.useCaseCategory);
-					console.error('Available category names:', state.useCaseCategories.map(cat => cat.name || cat.label || cat.display_name));
-
 					// CRITICAL: Don't send invalid category name - use first available category as fallback
 					const fallbackCategory = state.useCaseCategories[0];
 					if (fallbackCategory) {
 						useCaseCategoryId = fallbackCategory.id || fallbackCategory.uuid;
 					}
 				}
-			} else {
-				console.error('CRITICAL: No use case categories loaded for UUID lookup');
 			}
 
 			// Build request body - ServiceNow wraps in data automatically
 			// CRITICAL: Send fields directly, ServiceNow HTTP framework adds data wrapper
-			const requestBody = JSON.stringify({
+			const payload = {
 				app: config.app,
 				region: config.region,
 				version: config.version,
@@ -6837,10 +6690,7 @@ createCustomElement('cadal-careiq-builder', {
 				external_id: assessmentData.external_id || '',
 				custom_attributes: assessmentData.custom_attributes || {},
 				tags: assessmentData.tags || [],
-				effective_date: assessmentData.effectiveDate,
-				end_date: assessmentData.endDate,
-				review_date: assessmentData.reviewDate,
-				next_review_date: assessmentData.nextReviewDate,
+				effective_date: assessmentData.effectiveDate, // Required - already validated
 				tooltip: assessmentData.tooltip || '',
 				alternative_wording: assessmentData.alternative_wording || '',
 				available: assessmentData.available || false,
@@ -6854,66 +6704,82 @@ createCustomElement('cadal-careiq-builder', {
 				mcg_content_enabled: assessmentData.allowMcgContent || false,
 				select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
 				multi_tenant_default: assessmentData.multi_tenant_default || false
-			});
+			};
+
+			// Only add optional date fields if they are not empty
+			if (assessmentData.endDate && assessmentData.endDate.trim() !== '') {
+				payload.end_date = assessmentData.endDate;
+			}
+			if (assessmentData.reviewDate && assessmentData.reviewDate.trim() !== '') {
+				payload.review_date = assessmentData.reviewDate;
+			}
+			if (assessmentData.nextReviewDate && assessmentData.nextReviewDate.trim() !== '') {
+				payload.next_review_date = assessmentData.nextReviewDate;
+			}
+
+			const requestBody = JSON.stringify(payload);
 			dispatch('MAKE_CREATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_CREATE_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-assessment', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'CREATE_ASSESSMENT_SUCCESS',
-			errorActionType: 'CREATE_ASSESSMENT_ERROR'
-		}),
+		'MAKE_CREATE_ASSESSMENT_REQUEST': effects.MAKE_CREATE_ASSESSMENT_REQUEST,
 
-		'MAKE_CREATE_VERSION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-version', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'CREATE_VERSION_SUCCESS',
-			errorActionType: 'CREATE_VERSION_ERROR'
-		}),
+		'MAKE_CREATE_VERSION_REQUEST': effects.MAKE_CREATE_VERSION_REQUEST,
 
-		'MAKE_UPDATE_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-assessment', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'UPDATE_ASSESSMENT_SUCCESS',
-			errorActionType: 'UPDATE_ASSESSMENT_ERROR'
-		}),
+		'MAKE_UPDATE_ASSESSMENT_REQUEST': effects.MAKE_UPDATE_ASSESSMENT_REQUEST,
 
-		'MAKE_PUBLISH_ASSESSMENT_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/publish-assessment', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'PUBLISH_ASSESSMENT_SUCCESS',
-			errorActionType: 'PUBLISH_ASSESSMENT_ERROR'
-		}),
+		'MAKE_PUBLISH_ASSESSMENT_REQUEST': effects.MAKE_PUBLISH_ASSESSMENT_REQUEST,
 
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			// First check if this is actually a validation error disguised as success
+			if (action.payload?.detail && Array.isArray(action.payload.detail)) {
+				const hasValidationErrors = action.payload.detail.some(item =>
+					item && typeof item === 'object' && (
+						item.type === 'date_from_datetime_parsing' ||
+						item.type === 'validation_error' ||
+						item.type === 'uuid_parsing' ||
+						item.msg // Any item with a message is likely an error
+					)
+				);
+
+				if (hasValidationErrors) {
+					// Treat this as an error, not success
+					const errorMessages = action.payload.detail
+						.filter(item => item && item.msg)
+						.map(item => item.msg)
+						.join('; ');
+
+					updateState({
+						newAssessmentForm: {
+							...state.newAssessmentForm,
+							isCreating: false
+						},
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'error',
+								message: `Assessment creation failed: ${errorMessages}`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return; // Exit early - don't try to open builder
+				}
+			}
+
 			// Try to extract the assessment ID from various possible locations
 			let newAssessmentId = action.payload?.id || action.payload?.data?.id;
 
-			// Check if the ID is in the detail array
-			if (!newAssessmentId && action.payload?.detail?.[0]) {
-				const firstDetail = action.payload.detail[0];
-				newAssessmentId = firstDetail?.id || firstDetail;
+			// Check if the ID is in the response root or nested
+			if (!newAssessmentId && action.payload?.detail?.[0] && typeof action.payload.detail[0] === 'string') {
+				newAssessmentId = action.payload.detail[0];
 			}
 
 			const assessmentTitle = state.newAssessmentForm.guidelineName;
+
 			// Check if we have a valid ID
 			if (!newAssessmentId) {
-				console.error('CRITICAL: No assessment ID found in response');
-				console.error('Cannot proceed to open assessment builder without ID');
 				updateState({
 					newAssessmentForm: {
 						...state.newAssessmentForm,
@@ -7772,16 +7638,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_ASSESSMENT_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-sections', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			startActionType: 'ASSESSMENT_DETAILS_FETCH_START',
-			successActionType: 'ASSESSMENT_DETAILS_SUCCESS',
-			errorActionType: 'ASSESSMENT_DETAILS_ERROR'
-		}),
+		'MAKE_ASSESSMENT_DETAILS_REQUEST': effects.MAKE_ASSESSMENT_DETAILS_REQUEST,
 
 		'ASSESSMENT_DETAILS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
@@ -7916,16 +7773,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_SECTION_QUESTIONS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_SECTION_QUESTIONS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-section-questions', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			startActionType: 'SECTION_QUESTIONS_FETCH_START',
-			successActionType: 'SECTION_QUESTIONS_SUCCESS',
-			errorActionType: 'SECTION_QUESTIONS_ERROR'
-		}),
+		'MAKE_SECTION_QUESTIONS_REQUEST': effects.MAKE_SECTION_QUESTIONS_REQUEST,
 
 		'SECTION_QUESTIONS_FETCH_START': (coeffects) => {
 			const {updateState} = coeffects;
@@ -9576,13 +9424,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'TOGGLE_SYSTEM_MESSAGES': (coeffects) => {
-			const {updateState, state} = coeffects;
-			
-			updateState({
-				systemMessagesCollapsed: !state.systemMessagesCollapsed
-			});
-		},
 
 		'TOGGLE_EDIT_RELATIONSHIPS': (coeffects) => {
 			const {updateState, state} = coeffects;
@@ -16520,13 +16361,6 @@ createCustomElement('cadal-careiq-builder', {
 			// TODO: Implement actual save logic to backend when needed
 		},
 
-		'TOGGLE_MODAL_SYSTEM_MESSAGES': (coeffects) => {
-			const {updateState, state} = coeffects;
-			updateState({
-				modalSystemMessagesCollapsed: !state.modalSystemMessagesCollapsed
-			});
-		},
 
-	},
-	reducers: {}
+	}
 });
