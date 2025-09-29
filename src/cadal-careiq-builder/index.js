@@ -5075,6 +5075,15 @@ const view = (state, {updateState, dispatch}) => {
 																												custom_attributes: newAttributes
 																											}
 																										});
+																										// Auto-save after removing custom attribute
+																										dispatch('SAVE_PROBLEM_EDITS', {
+																											answerId: answerId,
+																											problemId: problem.id,
+																											editData: {
+																												...state.editingProblemData,
+																												custom_attributes: newAttributes
+																											}
+																										});
 																									}}
 																									style={{
 																										background: '#dc3545',
@@ -5401,6 +5410,14 @@ const view = (state, {updateState, dispatch}) => {
 																																	delete newAttributes[key];
 																																	updateState({
 																																		editingGoalData: {
+																																			...state.editingGoalData,
+																																			custom_attributes: newAttributes
+																																		}
+																																	});
+																																	// Auto-save after removing custom attribute
+																																	dispatch('SAVE_GOAL_EDITS', {
+																																		goalId: goal.id,
+																																		goalData: {
 																																			...state.editingGoalData,
 																																			custom_attributes: newAttributes
 																																		}
@@ -5750,6 +5767,14 @@ const view = (state, {updateState, dispatch}) => {
 																																								delete newAttributes[key];
 																																								updateState({
 																																									editingInterventionData: {
+																																										...state.editingInterventionData,
+																																										custom_attributes: newAttributes
+																																									}
+																																								});
+																																								// Auto-save after removing custom attribute
+																																								dispatch('SAVE_INTERVENTION_EDITS', {
+																																									interventionId: intervention.id,
+																																									interventionData: {
 																																										...state.editingInterventionData,
 																																										custom_attributes: newAttributes
 																																									}
@@ -9272,7 +9297,7 @@ createCustomElement('cadal-careiq-builder', {
 					updateState({
 						systemMessages: [
 					...(state.systemMessages || []),
-							
+
 							{
 								type: 'error',
 								message: `Question "${question.label}" already exists in this section. Please use a different name.`,
@@ -9281,6 +9306,35 @@ createCustomElement('cadal-careiq-builder', {
 						]
 					});
 					return; // Stop the save process
+				}
+
+				// PRE-SAVE LIBRARY DETECTION: Check if this matches a library question for Single/Multiselect types
+				if ((question.type === 'Single Select' || question.type === 'Multiselect') && !question.isLibraryQuestion) {
+					// Store context for library search and trigger pre-save check
+					updateState({
+						preSaveQuestionContext: {
+							questionId: questionId,
+							questionData: question,
+							sectionId: state.selectedSection,
+							isPreSaveCheck: true
+						},
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Checking if "${question.label}" matches a library question...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Search for exact library matches using generic typeahead
+					dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+						searchText: question.label,
+						type: 'question',
+						isPreSaveCheck: true // Flag to identify this as pre-save library check
+					});
+					return; // Stop normal save process, let the search result handler continue
 				}
 				// New question - use new 2-step process
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
@@ -11911,6 +11965,7 @@ createCustomElement('cadal-careiq-builder', {
 			const questionSearchContext = state.currentQuestionSearchContext;
 			const preSaveGoalContext = state.preSaveGoalContext;
 			const preSaveProblemContext = state.preSaveProblemContext;
+			const preSaveQuestionContext = state.preSaveQuestionContext;
 			// Check if this is a pre-save exact match check for goals
 			if (preSaveGoalContext && preSaveGoalContext.isPreSaveCheck) {
 				// Look for exact match
@@ -12047,6 +12102,56 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					preSaveInterventionContext: null,
 					pendingInterventionSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a pre-save exact match check for questions
+			if (preSaveQuestionContext && preSaveQuestionContext.isPreSaveCheck) {
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					// Found library question - fetch full details including answers
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: `Found library question "${exactMatch.label || exactMatch.name}" with answers! Auto-populating and saving...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Fetch the complete library question with answers
+					dispatch('FETCH_LIBRARY_QUESTION_FOR_PRESAVE', {
+						libraryQuestionId: exactMatch.id,
+						questionContext: preSaveQuestionContext
+					});
+				} else {
+					// No exact match - proceed with normal save
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `No library match found. Proceeding with new question save...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Continue with normal save process using stored context
+					dispatch('CONTINUE_QUESTION_SAVE_AFTER_CHECK', {
+						questionContext: preSaveQuestionContext
+					});
+				}
+
+				// Clear pre-save context
+				updateState({
+					preSaveQuestionContext: null
 				});
 
 				return; // Exit early - this was a pre-save check, not a UI typeahead
@@ -12330,12 +12435,106 @@ createCustomElement('cadal-careiq-builder', {
 
 		'LIBRARY_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Debug library question structure
-			if (action.payload.answers) {
-				action.payload.answers.forEach((answer, index) => {
-				});
-			}
 			const libraryQuestion = action.payload;
+			// Check if this is a pre-save operation
+					// CRITICAL: Use state-based pre-save context (HTTP effect meta doesn't work)
+			const preSaveContext = state.preSaveLibraryContext;
+
+			if (preSaveContext && preSaveContext.isPreSave && preSaveContext.questionContext) {
+				// This is a pre-save library question fetch - populate question with library data and save
+				const questionContext = preSaveContext.questionContext;
+				const questionId = questionContext.questionId;
+				const sectionId = questionContext.sectionId;
+
+				// Transform library answers for UI display (they need ids structure and proper field names)
+				const transformedAnswers = (libraryQuestion.answers || []).map((answer, index) => ({
+					ids: { id: `temp_answer_${Date.now()}_${index}` },
+					label: answer.text || answer.label,
+					tooltip: answer.tooltip || '',
+					alternative_wording: answer.alternative_wording || '',
+					secondary_input_type: answer.secondary_input_type || null,
+					mutually_exclusive: answer.mutually_exclusive || false,
+					sort_order: answer.sort_order || index,
+					isLibraryAnswer: true,
+					libraryAnswerId: answer.master_id || answer.id
+				}));
+
+				// Update the question in UI with library data
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: state.currentQuestions.questions.map(q => {
+							if (q.ids.id === questionId) {
+								return {
+									...q,
+									label: libraryQuestion.label,
+									type: libraryQuestion.type,
+									required: libraryQuestion.required || false,
+									tooltip: libraryQuestion.tooltip || '',
+									answers: transformedAnswers,
+									isLibraryQuestion: true,
+									libraryQuestionId: libraryQuestion.master_id || libraryQuestion.id,
+									libraryStatus: 'unmodified'
+								};
+							}
+							return q;
+						})
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: `Auto-populated with library question "${libraryQuestion.label}" (${libraryQuestion.answers?.length || 0} answers). Saving...`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Now save the library question with all its answers
+				const questionData = {
+					label: libraryQuestion.label,
+					type: libraryQuestion.type,
+					required: libraryQuestion.required || false,
+					tooltip: libraryQuestion.tooltip || '',
+					voice: libraryQuestion.voice || 'CaseManager',
+					sort_order: questionContext.questionData.sort_order,
+					alternative_wording: libraryQuestion.alternative_wording || '',
+					custom_attributes: libraryQuestion.custom_attributes || {},
+					available: libraryQuestion.available || false,
+					has_quality_measures: libraryQuestion.has_quality_measures || false,
+					library_id: libraryQuestion.master_id || libraryQuestion.id // CRITICAL: Use master_id (library questions use master_id, not id)
+				};
+
+				// Process library answers to mark them with library metadata
+				const processedLibraryAnswers = (libraryQuestion.answers || []).map((answer, index) => ({
+					label: answer.text || answer.label, // Library answers use 'text' field
+					tooltip: answer.tooltip || '',
+					alternative_wording: answer.alternative_wording || '',
+					secondary_input_type: answer.secondary_input_type || null,
+					mutually_exclusive: answer.mutually_exclusive || false,
+					custom_attributes: answer.custom_attributes || {},
+					required: answer.required || false,
+					sort_order: answer.sort_order || index,
+					isLibraryAnswer: true,
+					libraryAnswerId: answer.master_id || answer.id // CRITICAL: Use master_id for library answers
+				}));
+
+			// Clear pre-save context before dispatching
+			updateState({
+				preSaveLibraryContext: null
+			});
+
+				dispatch('ADD_QUESTION_TO_SECTION_API', {
+					questionData: questionData,
+					sectionId: sectionId,
+					// Include all library answers for step 2
+					pendingAnswers: processedLibraryAnswers
+				});
+
+				return; // Exit early for pre-save operations
+			}
+
+			// Normal library question replacement (existing functionality)
 			const targetQuestionId = state.pendingLibraryQuestionReplacementId;
 
 			// Clear the typeahead and pending replacement ID
@@ -12375,6 +12574,73 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
+		},
+
+		'FETCH_LIBRARY_QUESTION_FOR_PRESAVE': (coeffects) => {
+			const {action, dispatch, updateState} = coeffects;
+			const {libraryQuestionId, questionContext} = action.payload;
+
+			// CRITICAL: Store pre-save context in state (HTTP effect meta doesn't work reliably)
+			updateState({
+				preSaveLibraryContext: {
+					isPreSave: true,
+					questionContext: questionContext
+				}
+			});
+
+			dispatch('MAKE_LIBRARY_QUESTION_REQUEST', {
+				requestBody: JSON.stringify({questionId: libraryQuestionId})
+			});
+		},
+
+		'CONTINUE_QUESTION_SAVE_AFTER_CHECK': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {questionContext} = action.payload;
+
+			// Continue with normal save process using stored context
+			const question = questionContext.questionData;
+			const questionId = questionContext.questionId;
+			const sectionId = questionContext.sectionId;
+
+			// Proceed with normal save logic (same as original SAVE_QUESTION_IMMEDIATELY)
+			if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
+				// Step 1: Add question to section (no answers needed)
+				dispatch('ADD_QUESTION_TO_SECTION_API', {
+					questionData: {
+						label: question.label,
+						type: question.type,
+						required: question.required,
+						tooltip: question.tooltip || '',
+						voice: question.voice || 'CaseManager',
+						sort_order: question.sort_order,
+						alternative_wording: '',
+						custom_attributes: {},
+						available: false,
+						has_quality_measures: false
+					},
+					sectionId: sectionId
+				});
+			} else if (question.type === 'Single Select' || question.type === 'Multiselect') {
+				const questionData = {
+					label: question.label,
+					type: question.type,
+					required: question.required,
+					tooltip: question.tooltip || '',
+					voice: question.voice || 'CaseManager',
+					sort_order: question.sort_order,
+					alternative_wording: '',
+					custom_attributes: {},
+					available: false,
+					has_quality_measures: false
+				};
+
+				dispatch('ADD_QUESTION_TO_SECTION_API', {
+					questionData: questionData,
+					sectionId: sectionId,
+					// Store answers for step 2 (regular questions)
+					pendingAnswers: question.answers || []
+				});
+			}
 		},
 
 
@@ -13517,6 +13783,30 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_GOAL_EDITS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {goalId, goalData} = action.payload;
+
+			// Validate goal label is not blank
+			if (!goalData.label || goalData.label.trim() === '') {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Goal text cannot be blank. Please enter goal text.',
+							timestamp: new Date().toISOString()
+						}
+					],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Goal text cannot be blank. Please enter goal text.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return; // Don't clear editing state - keep save/cancel buttons
+			}
+
 			// Store problem ID before clearing it
 			const problemId = state.editingGoalProblemId;
 
@@ -13765,6 +14055,30 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_INTERVENTION_EDITS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {interventionId, interventionData} = action.payload;
+
+			// Validate intervention label is not blank
+			if (!interventionData.label || interventionData.label.trim() === '') {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Intervention text cannot be blank. Please enter intervention text.',
+							timestamp: new Date().toISOString()
+						}
+					],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Intervention text cannot be blank. Please enter intervention text.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return; // Don't clear editing state - keep save/cancel buttons
+			}
+
 			// Store goal ID before clearing it
 			const goalId = state.editingInterventionGoalId;
 
@@ -15565,6 +15879,7 @@ createCustomElement('cadal-careiq-builder', {
 					const answerData = answerChangesData[answerId];
 					if (answerData && answerData.label && answerData.label.trim()) {
 						// Make synchronous call to typeahead API to check for exact match
+						// NOTE: ServiceNow automatically wraps the body in {data: ...} on the server side
 						try {
 							const typeaheadResponse = await fetch('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
 								method: 'POST',
@@ -15894,6 +16209,7 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_TO_SECTION_API': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {questionData, sectionId, pendingAnswers} = action.payload;
+
 			// Store pending answers in state for later use in success handler
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				// Process pending answers to add library_id for library answers ONLY
@@ -16032,8 +16348,8 @@ createCustomElement('cadal-careiq-builder', {
 			
 			// Trigger data refresh with proper reselection
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessment.ids.id,
-				assessmentTitle: state.currentAssessment.title
+				assessmentId: state.currentAssessmentId,
+				assessmentTitle: state.currentAssessment?.title || 'Assessment'
 			});
 		},
 
@@ -16172,28 +16488,54 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Log the question UUID to console
-			if (action.payload && action.payload.id) {
-			}
 
-			// Check for backend messages (like duplicate prevention)
+			// ALWAYS log the full response for debugging
+			console.log('ADD_QUESTION_SUCCESS - Full response payload:', JSON.stringify(action.payload, null, 2));
+
+			// Default success message
 			let systemMessage = 'Question created successfully! Refreshing data...';
 			let messageType = 'success';
 
-			// Debug: Check all possible locations for the message
-			// Surface any backend detail messages to user
-			if (action.payload && action.payload.detail) {
-				systemMessage = action.payload.detail;
-				messageType = 'warning';
-			} else if (action.payload && action.payload.data && action.payload.data.detail) {
-				systemMessage = action.payload.data.detail;
-				messageType = 'warning';
+			// COMPREHENSIVE backend message extraction - check ALL possible locations
+			if (action.payload) {
+				// Check direct detail field
+				if (action.payload.detail) {
+					systemMessage = action.payload.detail;
+					messageType = action.payload.detail.toLowerCase().includes('duplicate') ? 'warning' : 'success';
+				}
+				// Check nested data.detail
+				else if (action.payload.data && action.payload.data.detail) {
+					systemMessage = action.payload.data.detail;
+					messageType = action.payload.data.detail.toLowerCase().includes('duplicate') ? 'warning' : 'success';
+				}
+				// Check message field
+				else if (action.payload.message) {
+					systemMessage = action.payload.message;
+					messageType = action.payload.message.toLowerCase().includes('error') ? 'error' : 'success';
+				}
+				// Check nested data.message
+				else if (action.payload.data && action.payload.data.message) {
+					systemMessage = action.payload.data.message;
+					messageType = action.payload.data.message.toLowerCase().includes('error') ? 'error' : 'success';
+				}
+				// Check status_message field
+				else if (action.payload.status_message) {
+					systemMessage = action.payload.status_message;
+					messageType = 'info';
+				}
+				// Check response field
+				else if (action.payload.response) {
+					systemMessage = action.payload.response;
+					messageType = 'info';
+				}
 			}
+
+			// Always show what we found in console for debugging
+			console.log('ADD_QUESTION_SUCCESS - Final message:', systemMessage, 'Type:', messageType);
 
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
 					{
 						type: messageType,
 						message: systemMessage,
@@ -16244,6 +16586,10 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_QUESTION_TO_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			// ALWAYS log the full response for debugging
+			console.log('ADD_QUESTION_TO_SECTION_SUCCESS - Full response payload:', JSON.stringify(action.payload, null, 2));
+
 			// Handle different response formats
 			let newQuestionId = action.payload.id;
 			let isLibraryResponse = false;
@@ -16322,9 +16668,9 @@ createCustomElement('cadal-careiq-builder', {
 						required: false
 					};
 
-					// CRITICAL: Preserve library_id for library answers
-					if (answer.library_id) {
-						apiAnswer.library_id = answer.library_id;
+					// CRITICAL: Preserve library_id for library answers (check both field names)
+					if (answer.library_id || answer.libraryAnswerId) {
+						apiAnswer.library_id = answer.library_id || answer.libraryAnswerId;
 					}
 
 					return apiAnswer;
@@ -17273,6 +17619,9 @@ createCustomElement('cadal-careiq-builder', {
 				currentGoalSearchContext: null,  // Store current goal search context
 				preSaveGoalContext: null,       // Store pre-save goal context
 				pendingGoalSave: null,          // Store pending goal save data
+
+				// Question pre-save state
+				preSaveQuestionContext: null,   // Store pre-save question context
 
 				// Initialize intervention state tracking (same pattern as goals)
 				expandedGoals: {},          // Track which goals are expanded to show interventions

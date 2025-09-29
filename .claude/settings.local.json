@@ -5,7 +5,9 @@
       "Read(//c/Users/zolmo/.claude/**)",
       "WebSearch",
       "WebFetch(domain:app.stg.careiq.cadalysapp.com)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
