@@ -2112,7 +2112,27 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																											/>
 																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
-																												<div className="typeahead-dropdown">
+																												<div
+																													className="typeahead-dropdown"
+																													hook-insert={(vnode) => {
+																														const input = vnode.elm.parentElement.querySelector('.relationship-typeahead-input');
+																														if (input) {
+																															const rect = input.getBoundingClientRect();
+																															vnode.elm.style.top = `${rect.bottom}px`;
+																															vnode.elm.style.left = `${rect.left}px`;
+																															vnode.elm.style.width = `${rect.width}px`;
+																														}
+																													}}
+																													hook-update={(oldVnode, vnode) => {
+																														const input = vnode.elm.parentElement.querySelector('.relationship-typeahead-input');
+																														if (input) {
+																															const rect = input.getBoundingClientRect();
+																															vnode.elm.style.top = `${rect.bottom}px`;
+																															vnode.elm.style.left = `${rect.left}px`;
+																															vnode.elm.style.width = `${rect.width}px`;
+																														}
+																													}}
+																												>
 																													{state.relationshipTypeaheadResults.map((question, index) => (
 																														<div 
 																															key={question.ids?.id || index}
@@ -2945,7 +2965,27 @@ const view = (state, {updateState, dispatch}) => {
 																												}}
 																											/>
 																											{state.relationshipTypeaheadResults && state.relationshipTypeaheadResults.length > 0 && (
-																												<div className="typeahead-dropdown">
+																												<div
+																													className="typeahead-dropdown"
+																													hook-insert={(vnode) => {
+																														const input = vnode.elm.parentElement.querySelector('.relationship-typeahead-input');
+																														if (input) {
+																															const rect = input.getBoundingClientRect();
+																															vnode.elm.style.top = `${rect.bottom}px`;
+																															vnode.elm.style.left = `${rect.left}px`;
+																															vnode.elm.style.width = `${rect.width}px`;
+																														}
+																													}}
+																													hook-update={(oldVnode, vnode) => {
+																														const input = vnode.elm.parentElement.querySelector('.relationship-typeahead-input');
+																														if (input) {
+																															const rect = input.getBoundingClientRect();
+																															vnode.elm.style.top = `${rect.bottom}px`;
+																															vnode.elm.style.left = `${rect.left}px`;
+																															vnode.elm.style.width = `${rect.width}px`;
+																														}
+																													}}
+																												>
 																													{state.relationshipTypeaheadResults.map((question, index) => (
 																														<div 
 																															key={question.ids?.id || index}
@@ -6060,42 +6100,47 @@ const view = (state, {updateState, dispatch}) => {
 																															overflowY: 'auto',
 																															zIndex: 8000
 																														}}>
-																															{state.interventionTypeaheadResults[goal.id].map((intervention, interventionIdx) => (
-																																<div
-																																	key={interventionIdx}
-																																	style={{
-																																		padding: '8px 12px',
-																																		cursor: 'pointer',
-																																		fontSize: '14px',
-																																		borderBottom: interventionIdx < state.interventionTypeaheadResults[goal.id].length - 1 ? '1px solid #e5e7eb' : 'none'
-																																	}}
-																																	on={{
-																																		click: () => {
-																																			updateState({
-																																				interventionTypeaheadText: {
-																																					...state.interventionTypeaheadText,
-																																					[goal.id]: intervention.label || intervention.name
-																																				},
-																																				interventionTypeaheadResults: {
-																																					...state.interventionTypeaheadResults,
-																																					[goal.id]: []
-																																				},
-																																				selectedInterventionData: {
-																																					...state.selectedInterventionData,
-																																					[goal.id]: intervention
-																																				}
-																																			});
-																																		}
-																																	}}
-																																>
-																																	<div style={{fontWeight: '500'}}>{intervention.label || intervention.name}</div>
-																																	{intervention.category && (
-																																		<div style={{fontSize: '12px', color: '#6b7280', marginTop: '2px'}}>
-																																			Category: {intervention.category}
-																																		</div>
-																																	)}
-																																</div>
-																															))}
+																															{state.interventionTypeaheadResults[goal.id].map((intervention, interventionIdx) => {
+																																const interventionText = intervention.label || intervention.name;
+																																const searchText = state.interventionTypeaheadText?.[goal.id] || '';
+																																const isExactMatch = interventionText.toLowerCase().trim() === searchText.toLowerCase().trim();
+																																return (
+																																	<div
+																																		key={interventionIdx}
+																																		style={{
+																																			padding: '8px 12px',
+																																			cursor: 'pointer',
+																																			fontSize: '14px',
+																																			borderBottom: interventionIdx < state.interventionTypeaheadResults[goal.id].length - 1 ? '1px solid #e5e7eb' : 'none'
+																																		}}
+																																		on={{
+																																			click: () => {
+																																				updateState({
+																																					interventionTypeaheadText: {
+																																						...state.interventionTypeaheadText,
+																																						[goal.id]: interventionText
+																																					},
+																																					interventionTypeaheadResults: {
+																																						...state.interventionTypeaheadResults,
+																																						[goal.id]: []
+																																					},
+																																					selectedInterventionData: {
+																																						...state.selectedInterventionData,
+																																						[goal.id]: intervention
+																																					}
+																																				});
+																																			}
+																																		}}
+																																	>
+																																		<div style={{fontWeight: isExactMatch ? 'bold' : '500'}}>{interventionText}</div>
+																																		{intervention.category && (
+																																			<div style={{fontSize: '12px', color: '#6b7280', marginTop: '2px'}}>
+																																				Category: {intervention.category}
+																																			</div>
+																																		)}
+																																	</div>
+																																);
+																															})}
 																														</div>
 																													)}
 																												</div>
@@ -6323,39 +6368,45 @@ const view = (state, {updateState, dispatch}) => {
 																						maxHeight: '200px',
 																						overflowY: 'auto'
 																					}}>
-																						{state.goalTypeaheadResults[problem.id].map((goal, goalIdx) => (
-																							<div
-																								key={goalIdx}
-																								style={{
-																									padding: '8px 12px',
-																									cursor: 'pointer',
-																									fontSize: '14px',
-																									borderBottom: goalIdx < state.goalTypeaheadResults[problem.id].length - 1 ? '1px solid #e5e7eb' : 'none'
-																								}}
-																								on={{
-																									click: () => {
-																										updateState({
-																											goalTypeaheadText: {
-																												...state.goalTypeaheadText,
-																												[problem.id]: goal.label || goal.name
-																											},
-																											goalTypeaheadResults: {
-																												...state.goalTypeaheadResults,
-																												[problem.id]: []
-																											},
-																											selectedGoalData: {
-																												...state.selectedGoalData,
-																												[problem.id]: goal
-																											}
-																										});
-																									},
-																									mouseenter: (e) => e.target.style.backgroundColor = '#f3f4f6',
-																									mouseleave: (e) => e.target.style.backgroundColor = '#ffffff'
-																								}}
-																							>
-																								{goal.label || goal.name}
-																							</div>
-																						))}
+																						{state.goalTypeaheadResults[problem.id].map((goal, goalIdx) => {
+																							const goalText = goal.label || goal.name;
+																							const searchText = state.goalTypeaheadText?.[problem.id] || '';
+																							const isExactMatch = goalText.toLowerCase().trim() === searchText.toLowerCase().trim();
+																							return (
+																								<div
+																									key={goalIdx}
+																									style={{
+																										padding: '8px 12px',
+																										cursor: 'pointer',
+																										fontSize: '14px',
+																										borderBottom: goalIdx < state.goalTypeaheadResults[problem.id].length - 1 ? '1px solid #e5e7eb' : 'none',
+																										fontWeight: isExactMatch ? 'bold' : 'normal'
+																									}}
+																									on={{
+																										click: () => {
+																											updateState({
+																												goalTypeaheadText: {
+																													...state.goalTypeaheadText,
+																													[problem.id]: goalText
+																												},
+																												goalTypeaheadResults: {
+																													...state.goalTypeaheadResults,
+																													[problem.id]: []
+																												},
+																												selectedGoalData: {
+																													...state.selectedGoalData,
+																													[problem.id]: goal
+																												}
+																											});
+																										},
+																										mouseenter: (e) => e.target.style.backgroundColor = '#f3f4f6',
+																										mouseleave: (e) => e.target.style.backgroundColor = '#ffffff'
+																									}}
+																								>
+																									{goalText}
+																								</div>
+																							);
+																						})}
 																					</div>
 																				)}
 
@@ -6562,24 +6613,51 @@ const view = (state, {updateState, dispatch}) => {
 											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
-												<div className="typeahead-dropdown">
-													{state.relationshipTypeaheadResults.map((problem, index) => (
-														<div
-															key={problem.id}
-															className="typeahead-item"
-															on={{
-																click: () => {
-																	updateState({
-																		selectedProblemData: problem,
-																		relationshipTypeaheadText: problem.label || problem.name,
-																		relationshipTypeaheadResults: []
-																	});
-																}
-															}}
-														>
-															{problem.label || problem.name}
-														</div>
-													))}
+												<div
+													className="typeahead-dropdown"
+													hook-insert={(vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+													hook-update={(oldVnode, vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+												>
+													{state.relationshipTypeaheadResults.map((problem, index) => {
+														const problemText = problem.label || problem.name;
+														const searchText = state.relationshipTypeaheadText || '';
+														const isExactMatch = problemText.toLowerCase().trim() === searchText.toLowerCase().trim();
+
+														return (
+															<div
+																key={problem.id}
+																className="typeahead-item"
+																style={isExactMatch ? {fontWeight: 'bold'} : {}}
+																on={{
+																	click: () => {
+																		updateState({
+																			selectedProblemData: problem,
+																			relationshipTypeaheadText: problemText,
+																			relationshipTypeaheadResults: []
+																		});
+																	}
+																}}
+															>
+																{problemText}
+															</div>
+														);
+													})}
 												</div>
 											)}
 										</div>
@@ -6731,7 +6809,27 @@ const view = (state, {updateState, dispatch}) => {
 
 											{/* Simple Dropdown - Direct Click */}
 											{state.relationshipTypeaheadResults?.length > 0 && (
-												<div className="typeahead-dropdown">
+												<div
+													className="typeahead-dropdown"
+													hook-insert={(vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+													hook-update={(oldVnode, vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+												>
 													{(() => {
 														const answerId = state.relationshipModalAnswerId;
 														const relationships = state.answerRelationships[answerId];
@@ -6751,24 +6849,31 @@ const view = (state, {updateState, dispatch}) => {
 																   !existingBarrierIds.includes(barrier.master_id);
 														});
 
-														return filteredBarriers.map((barrier, index) => (
-															<div
-																key={barrier.id || index}
-																className="typeahead-item"
-																on={{
-																	click: () => {
-																		// Fill input and store barrier data with master_id
-																		updateState({
-																			relationshipTypeaheadText: barrier.name || barrier.label,
-																			relationshipTypeaheadResults: [],
-																			selectedBarrierData: barrier
-																		});
-																	}
-																}}
-															>
-																{barrier.name || barrier.label}
-															</div>
-														));
+														return filteredBarriers.map((barrier, index) => {
+															const barrierText = barrier.name || barrier.label;
+															const searchText = state.relationshipTypeaheadText || '';
+															const isExactMatch = barrierText.toLowerCase().trim() === searchText.toLowerCase().trim();
+
+															return (
+																<div
+																	key={barrier.id || index}
+																	className="typeahead-item"
+																	style={isExactMatch ? {fontWeight: 'bold'} : {}}
+																	on={{
+																		click: () => {
+																			// Fill input and store barrier data with master_id
+																			updateState({
+																				relationshipTypeaheadText: barrierText,
+																				relationshipTypeaheadResults: [],
+																				selectedBarrierData: barrier
+																			});
+																		}
+																	}}
+																>
+																	{barrierText}
+																</div>
+															);
+														});
 													})()}
 												</div>
 											)}
@@ -9978,42 +10083,40 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_BARRIER_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Check if the response contains an error (API can return 200 with error details)
-			if (action.payload?.detail && (
-				action.payload.detail.toLowerCase().includes('required') ||
-				action.payload.detail.toLowerCase().includes('should be provided') ||
-				action.payload.detail.toLowerCase().includes('error') ||
-				action.payload.detail.toLowerCase().includes('failed')
-			)) {
-				console.error('API returned error in success response:', action.payload.detail);
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: `Failed to add barrier: ${action.payload.detail}`,
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
+
+			// ALWAYS surface backend detail message if present (including duplicates, warnings, etc)
+			let messageType = 'success';
+			let messageText = 'Barrier added successfully! Refreshing data...';
+
+			if (action.payload?.detail) {
+				messageText = action.payload.detail;
+				const lowerDetail = action.payload.detail.toLowerCase();
+				// Classify message type based on content
+				if (lowerDetail.includes('duplicate') || lowerDetail.includes('already')) {
+					messageType = 'warning'; // Duplicate is informational, not error
+				} else if (lowerDetail.includes('error') || lowerDetail.includes('failed') || lowerDetail.includes('required')) {
+					messageType = 'error';
+				}
+			} else {
+				// Get original data from response payload for custom message
+				const originalRequest = action.payload?.originalRequest || {};
+				const {barrierName} = originalRequest;
+				if (barrierName) {
+					messageText = `Successfully added barrier "${barrierName}"! Refreshing data...`;
+				}
 			}
 
-			// Get original data from response payload
-			const originalRequest = action.payload?.originalRequest || {};
-			const {answerId, barrierName} = originalRequest;
-			// Show success message
-			const successMessage = {
-				type: 'success',
-				message: `Successfully added barrier "${barrierName}"! Refreshing data...`,
+			const message = {
+				type: messageType,
+				message: messageText,
 				timestamp: new Date().toISOString()
 			};
 
 			updateState({
-				systemMessages: [...(state.systemMessages || []), successMessage],
+				systemMessages: [...(state.systemMessages || []), message],
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
-					successMessage
+					message
 				] : state.modalSystemMessages,
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
@@ -10022,6 +10125,8 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId} = originalRequest;
 			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
@@ -10059,46 +10164,44 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_PROBLEM_RELATIONSHIP_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Check if the response contains an error (API can return 200 with error details)
-			if (action.payload?.detail && (
-				action.payload.detail.toLowerCase().includes('required') ||
-				action.payload.detail.toLowerCase().includes('should be provided') ||
-				action.payload.detail.toLowerCase().includes('error') ||
-				action.payload.detail.toLowerCase().includes('failed')
-			)) {
-				console.error('API returned error in success response:', action.payload.detail);
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: `Failed to add problem: ${action.payload.detail}`,
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
+
+			// ALWAYS surface backend detail message if present (including duplicates, warnings, etc)
+			let messageType = 'success';
+			let messageText = 'Problem added successfully! Refreshing data...';
+
+			if (action.payload?.detail) {
+				messageText = action.payload.detail;
+				const lowerDetail = action.payload.detail.toLowerCase();
+				// Classify message type based on content
+				if (lowerDetail.includes('duplicate') || lowerDetail.includes('already')) {
+					messageType = 'warning'; // Duplicate is informational, not error
+				} else if (lowerDetail.includes('error') || lowerDetail.includes('failed') || lowerDetail.includes('required')) {
+					messageType = 'error';
+				}
+			} else {
+				// Get original data from response payload for custom message
+				const originalRequest = action.payload?.originalRequest || {};
+				const {problemName} = originalRequest;
+				if (problemName) {
+					messageText = `Successfully added problem "${problemName}"! Refreshing data...`;
+				}
 			}
 
-			// Get original data from response payload
-			const originalRequest = action.payload?.originalRequest || {};
-			const {answerId, problemName} = originalRequest;
-			// Show success message
-			const successMessage = {
-				type: 'success',
-				message: `Successfully added problem "${problemName}"! Refreshing data...`,
+			const message = {
+				type: messageType,
+				message: messageText,
 				timestamp: new Date().toISOString()
 			};
 
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					successMessage
+					message
 				],
 				// Also add to modal messages if modal is open
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
-					successMessage
+					message
 				] : state.modalSystemMessages,
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
@@ -10107,6 +10210,8 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
+			const originalRequest = action.payload?.originalRequest || {};
+			const {answerId} = originalRequest;
 			if (answerId && state.relationshipPanelOpen && state.relationshipModalAnswerId === answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
@@ -11318,13 +11423,15 @@ createCustomElement('cadal-careiq-builder', {
 			let systemMessage = `Goal "${goalText}" processed! Refreshing data...`;
 			let messageType = 'success';
 
-			// Surface any backend detail messages to user (like duplicate warnings)
+			// ALWAYS surface backend detail messages to user (duplicates, errors, warnings, etc)
 			if (action.payload && action.payload.detail) {
 				systemMessage = action.payload.detail;
+				const lowerMessage = systemMessage.toLowerCase();
 				// Classify message type based on content
-				if (systemMessage.toLowerCase().includes('duplicate') ||
-					systemMessage.toLowerCase().includes('already')) {
+				if (lowerMessage.includes('duplicate') || lowerMessage.includes('already')) {
 					messageType = 'warning'; // Informational, not error
+				} else if (lowerMessage.includes('error') || lowerMessage.includes('failed') || lowerMessage.includes('required')) {
+					messageType = 'error';
 				}
 			}
 
@@ -11521,13 +11628,15 @@ createCustomElement('cadal-careiq-builder', {
 			let systemMessage = `Intervention "${interventionText}" processed! Refreshing data...`;
 			let messageType = 'success';
 
-			// Surface any backend detail messages to user (like duplicate warnings)
+			// ALWAYS surface backend detail messages to user (duplicates, errors, warnings, etc)
 			if (action.payload && action.payload.detail) {
 				systemMessage = action.payload.detail;
+				const lowerMessage = systemMessage.toLowerCase();
 				// Classify message type based on content
-				if (systemMessage.toLowerCase().includes('duplicate') ||
-					systemMessage.toLowerCase().includes('already')) {
+				if (lowerMessage.includes('duplicate') || lowerMessage.includes('already')) {
 					messageType = 'warning'; // Informational, not error
+				} else if (lowerMessage.includes('error') || lowerMessage.includes('failed') || lowerMessage.includes('required')) {
+					messageType = 'error';
 				}
 			}
 
@@ -12197,6 +12306,51 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					preSaveSectionContext: null,
 					pendingSectionSave: null
+				});
+
+				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a pre-save exact match check for barriers
+			const preSaveBarrierContext = state.preSaveBarrierContext;
+			if (preSaveBarrierContext && preSaveBarrierContext.isPreSaveCheck) {
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+
+				if (exactMatch) {
+					// Use the exact match as selectedBarrier with library data
+					const selectedBarrier = {
+						id: exactMatch.id,
+						name: exactMatch.name || exactMatch.label,
+						label: exactMatch.label || exactMatch.name,
+						master_id: exactMatch.master_id
+					};
+
+					// Get pending save data and proceed with library barrier
+					const pendingBarrierSave = state.pendingBarrierSave;
+					if (pendingBarrierSave) {
+						dispatch('ADD_BARRIER_RELATIONSHIP', {
+							answerId: pendingBarrierSave.answerId,
+							barrierId: selectedBarrier.id,
+							barrierName: selectedBarrier.name || selectedBarrier.label,
+							barrierMasterId: selectedBarrier.master_id
+						});
+					}
+				} else {
+					// No exact match, proceed with new barrier creation
+					const pendingBarrierSave = state.pendingBarrierSave;
+					if (pendingBarrierSave) {
+						dispatch('CREATE_NEW_BARRIER_AFTER_CHECK', {
+							answerId: pendingBarrierSave.answerId,
+							barrierName: pendingBarrierSave.barrierName
+						});
+					}
+				}
+
+				// Clear pre-save context and pending data
+				updateState({
+					preSaveBarrierContext: null,
+					pendingBarrierSave: null
 				});
 
 				return; // Exit early - this was a pre-save check, not a UI typeahead
@@ -13508,11 +13662,61 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_BARRIER': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, barrierName} = action.payload;
+			// Show saving message
+			const savingMessage = {
+				type: 'info',
+				message: `Creating new barrier "${barrierName}"...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
+			});
+
+			// Clear input immediately for better UX
+			updateState({
+				relationshipTypeaheadText: '',
+				relationshipTypeaheadResults: [],
+				selectedBarrierData: null
+			});
+
+			// ALWAYS do pre-save typeahead check for exact matches to prevent duplicates
+			// Store original save data for after the check
+			updateState({
+				pendingBarrierSave: {
+					answerId: answerId,
+					barrierName: barrierName
+				},
+				// Store pre-save context separately from UI context to prevent clearing
+				preSaveBarrierContext: {
+					contentType: 'barrier',
+					answerId: answerId,
+					searchText: barrierName,
+					isPreSaveCheck: true
+				}
+			});
+
+			// Search for exact matches using generic typeahead
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: barrierName,
+				type: 'barrier',
+				answerId: answerId,
+				isPreSaveCheck: true  // Flag to identify this as pre-save check
+			});
+		},
+
+		'CREATE_NEW_BARRIER_AFTER_CHECK': (coeffects) => {
+			const {action, state, updateState, dispatch} = coeffects;
+			const {answerId, barrierName} = action.payload;
 			// Calculate sort_order based on existing barriers
 			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
 			const sortOrder = existingBarriers.length + 1;
 
-			// AUTO-SAVE: Immediately call API (no barrierId means new barrier)
+			// Prepare request body for barrier creation
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				barrierName: barrierName,
@@ -13524,16 +13728,19 @@ createCustomElement('cadal-careiq-builder', {
 				requestBody: requestBody
 			});
 
-			// Show system message about auto-save
+			// Show system message about creating new barrier
+			const creatingMessage = {
+				type: 'info',
+				message: 'Creating new barrier and saving to backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Creating new barrier and saving to backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), creatingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					creatingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -15544,6 +15751,58 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 
+			// Validate for duplicate answers within questions being saved
+			// Check ALL questions that have answer changes
+			if (answerChanges.length > 0 && state.currentQuestions?.questions) {
+				// Build set of unique question IDs that have answer changes
+				const questionIdsWithAnswerChanges = new Set();
+				answerChanges.forEach(answerId => {
+					const answerData = answerChangesData[answerId];
+					// Find which question this answer belongs to
+					if (state.currentQuestions?.questions) {
+						for (let question of state.currentQuestions.questions) {
+							if (question.answers) {
+								const foundAnswer = question.answers.find(ans => ans.ids.id === answerId);
+								if (foundAnswer) {
+									questionIdsWithAnswerChanges.add(question.ids.id);
+									break;
+								}
+							}
+						}
+					}
+					// Also check if question_id is in answerData
+					if (answerData.question_id) {
+						questionIdsWithAnswerChanges.add(answerData.question_id);
+					}
+				});
+
+				// Check each question for duplicate answers
+				questionIdsWithAnswerChanges.forEach(questionId => {
+					const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+
+					if (currentQuestion && currentQuestion.answers && currentQuestion.answers.length > 0) {
+						const answerLabels = [];
+						const duplicatesFound = [];
+
+						currentQuestion.answers.forEach(answer => {
+							const trimmedLabel = answer.label.toLowerCase().trim();
+							if (answerLabels.includes(trimmedLabel)) {
+								// This is a duplicate within the same question
+								if (!duplicatesFound.includes(answer.label)) {
+									duplicatesFound.push(answer.label);
+								}
+							} else {
+								answerLabels.push(trimmedLabel);
+							}
+						});
+
+						if (duplicatesFound.length > 0) {
+							validationErrors.push(`Question "${currentQuestion.label}" has duplicate answers: ${duplicatesFound.join(', ')}`);
+						}
+					}
+				});
+			}
+
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
 			if (validationErrors.length > 0) {
 				updateState({
@@ -15611,62 +15870,6 @@ createCustomElement('cadal-careiq-builder', {
 							{
 								type: 'error',
 								message: `Question(s) already exist in this section: ${duplicateList}. Please use different names.`,
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
-					return; // Stop the entire save process
-				}
-			}
-
-			// Check for duplicate answers
-			if (answerChanges.length > 0) {
-				const duplicateAnswers = [];
-				answerChanges.forEach(answerId => {
-					const answerData = answerChangesData[answerId];
-					if (answerData.action === 'add' || answerData.action === 'library_replace') {
-						// Find which question this answer belongs to
-						let targetQuestion = null;
-						if (state.currentQuestions?.questions) {
-							for (let question of state.currentQuestions.questions) {
-								if (question.answers) {
-									const foundAnswer = question.answers.find(ans => ans.ids.id === answerId);
-									if (foundAnswer) {
-										targetQuestion = question;
-										break;
-									}
-								}
-							}
-						}
-
-						if (targetQuestion) {
-							// Check if this answer already exists in the target question
-							const existingAnswers = [];
-							targetQuestion.answers.forEach(existingAnswer => {
-								// Don't compare with itself
-								if (existingAnswer.ids.id !== answerId) {
-									existingAnswers.push(existingAnswer.label.toLowerCase().trim());
-								}
-							});
-
-							const currentAnswerLabel = answerData.label.toLowerCase().trim();
-							if (existingAnswers.includes(currentAnswerLabel)) {
-								duplicateAnswers.push(`"${answerData.label}" in question "${targetQuestion.label}"`);
-							}
-						}
-					}
-				});
-
-				// If duplicates found, show error and stop saving
-				if (duplicateAnswers.length > 0) {
-					const duplicateList = duplicateAnswers.join(', ');
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'error',
-								message: `Answer(s) already exist: ${duplicateList}. Please use different answer text.`,
 								timestamp: new Date().toISOString()
 							}
 						]
@@ -16716,15 +16919,16 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state} = coeffects;
 			console.error('Add answers to question error:', action.payload);
 
-			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add answers to question';
+			// Surface backend error messages - check detail, error, and message fields
+			const errorMessage = action.payload?.detail || action.payload?.error || action.payload?.message || 'Failed to add answers to question';
 
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					
+
 					{
 						type: 'error',
-						message: 'Error adding answers to question: ' + errorMessage,
+						message: errorMessage,
 						timestamp: new Date().toISOString()
 					}
 				]
