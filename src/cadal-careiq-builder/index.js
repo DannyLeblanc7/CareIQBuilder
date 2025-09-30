@@ -15872,66 +15872,8 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 			
-			// Save answer changes - First check for exact library matches
-			if (answerChanges.length > 0) {
-				// Check each answer against library for exact matches
-				for (let answerId of answerChanges) {
-					const answerData = answerChangesData[answerId];
-					if (answerData && answerData.label && answerData.label.trim()) {
-						// Make synchronous call to typeahead API to check for exact match
-						// NOTE: ServiceNow automatically wraps the body in {data: ...} on the server side
-						try {
-							const typeaheadResponse = await fetch('/api/x_cadal_careiq_b_0/careiq_api/answer-typeahead', {
-								method: 'POST',
-								headers: {
-									'Content-Type': 'application/json'
-								},
-								body: JSON.stringify({
-									searchText: answerData.label.trim()
-								})
-							});
-
-							if (typeaheadResponse.ok) {
-								const typeaheadData = await typeaheadResponse.json();
-								if (typeaheadData.results && typeaheadData.results.length > 0) {
-									// Check for exact match (case insensitive)
-									const exactMatch = typeaheadData.results.find(result => {
-										if (!result || !result.name) {
-											return false;
-										}
-										return result.name.toLowerCase().trim() === answerData.label.toLowerCase().trim();
-									});
-									if (exactMatch) {
-										// Update the answer to use library reference
-										const updatedAnswerData = {
-											...answerData,
-											action: 'library_replace',
-											libraryAnswerId: exactMatch.id,
-											originalLibraryData: exactMatch
-										};
-										answerChangesData[answerId] = updatedAnswerData;
-										// Add system message about using library answer
-										updateState({
-											systemMessages: [
-												...(state.systemMessages || []),
-												{
-													type: 'info',
-													message: `Found existing library answer for "${answerData.label}", using library version`,
-													timestamp: new Date().toISOString()
-												}
-											]
-										});
-									}
-								}
-							}
-						} catch (error) {
-							// Continue with normal processing if typeahead fails
-						}
-					}
-				}
-			}
-
 			// Save answer changes - Group by question and action type
+			// Note: Library matching happens during interactive typeahead, not during save
 			if (answerChanges.length > 0) {
 				// Group answers by question ID and action type
 				const answersGroupedByQuestion = {};

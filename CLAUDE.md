@@ -25,6 +25,11 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
   }
   ```
 
+### API Call Pattern
+- **NEVER use direct `fetch()` calls** - All API calls must use ServiceNow HTTP effects (createHttpEffect)
+- **DO NOT add local dev checks** - All 52+ API calls work locally, if one doesn't work it's a code problem not an environment problem
+- Use the established HTTP effect pattern: `dispatch('MAKE_*_REQUEST', {requestBody})`
+
 ### CRITICAL: Complete Data Flow Pattern (Component → ServiceNow → CareIQ)
 **The MOST IMPORTANT pattern to understand for avoiding "Missing required fields" errors**
 
