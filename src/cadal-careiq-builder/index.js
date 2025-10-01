@@ -665,10 +665,6 @@ const view = (state, {updateState, dispatch}) => {
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
 						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''} ${state.questionsPanelExpanded ? 'questions-expanded' : ''}`}>
 							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`} style={{position: "relative"}}>
-								{/* Global loading overlay for adding section */}
-								{state.addingSection && (
-									<LoadingOverlay message="Adding section..." />
-								)}
 
 								<div className="sections-header">
 									<div className="sections-title-container">
@@ -697,15 +693,6 @@ const view = (state, {updateState, dispatch}) => {
 											.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 											.map(section => (
 											<div key={section.id} className="section-item" style={{position: "relative"}}>
-												{/* Loading overlay for section operations */}
-												{(state.deletingSections[section.id] || state.updatingSections[section.id]) && (
-													<LoadingOverlay message={
-														state.deletingSections[section.id] ? "Deleting section..." :
-														state.updatingSections[section.id] ? "Updating section..." :
-														"Loading..."
-													} />
-												)}
-
 												<div className="section-header">
 													<div
 														className={`section-item draggable ${state.selectedSection === section.id ? 'selected' : ''} ${state.dragOverSection === section.id ? 'drag-over' : ''}`}
@@ -888,14 +875,6 @@ const view = (state, {updateState, dispatch}) => {
 															.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 															.map(subsection => (
 															<div key={subsection.id} style={{position: "relative"}}>
-																{/* Loading overlay for subsection operations */}
-																{(state.deletingSections[subsection.id] || state.updatingSections[subsection.id]) && (
-																	<LoadingOverlay message={
-																		state.deletingSections[subsection.id] ? "Deleting section..." :
-																		state.updatingSections[subsection.id] ? "Updating section..." :
-																		"Loading..."
-																	} />
-																)}
 																<div
 																	className={`subsection-item draggable ${state.selectedSection === subsection.id ? 'selected' : ''} ${state.dragOverSection === subsection.id ? 'drag-over' : ''}`}
 																	draggable={false}
