@@ -7,7 +7,11 @@
       "WebFetch(domain:app.stg.careiq.cadalysapp.com)",
       "Bash(npm run build:*)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Read(//c//**)",
+      "Read(//c/**)"
     ],
     "deny": [],
     "ask": []

@@ -6075,7 +6075,7 @@ const view = (state, {updateState, dispatch}) => {
 																									{/* Add New Intervention */}
 																									<div className="add-intervention" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																										{/* Loading overlay for intervention save */}
-																										{false && (
+																										{state.savingInterventions[goal.id] && (
 																											<LoadingOverlay message="Saving intervention..." />
 																										)}
 																										<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
@@ -6345,7 +6345,7 @@ const view = (state, {updateState, dispatch}) => {
 																	{/* Add New Goal */}
 																	<div className="add-goal" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																		{/* Loading overlay for goal save */}
-																		{false && (
+																		{state.savingGoals[problem.id] && (
 																			<LoadingOverlay message="Saving goal..." />
 																		)}
 																		<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
@@ -11997,7 +11997,17 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
-			// Spinner already shows deletion status - no need for system message
+			// Show system message about deletion
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: `Deleting goal "${goalName}"...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 		},
 
 		'DELETE_GOAL_SUCCESS': (coeffects) => {
@@ -12110,7 +12120,23 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
-			// Spinner already shows deletion status - no need for system message
+			// Show deleting message (both windows)
+			const deletingMessage = {
+				type: 'info',
+				message: `Deleting intervention "${interventionName}"...`,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					deletingMessage
+				],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					deletingMessage
+				] : state.modalSystemMessages
+			});
 		},
 
 		'DELETE_INTERVENTION_SUCCESS': (coeffects) => {

@@ -1,5 +1,15 @@
 @import '@servicenow/sass-kit/host';
 
+// Spinner animation
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .careiq-builder {
   position: relative;
   min-height: 100vh;
