@@ -1270,3 +1270,37 @@ saveScoringModelValue: function(scoringModelId, guidelineTemplateId, label, scor
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// BUILDER - QUESTION BUNDLE OPERATIONS
+
+createQuestionBundle: function(contentId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the question bundle endpoint
+        var endpoint = this._buildEndpoint('/builder/library/question/bundle');
+        var r = this._createRESTMessage('Create Question Bundle', endpoint);
+
+        // Set method to POST
+        r.setHttpMethod('POST');
+
+        // Build payload
+        var payload = {
+            "content_id": contentId
+        };
+
+        // Set the request body
+        r.setRequestBody(JSON.stringify(payload));
+
+        var response = this._executeRequestWithRetry(r, 'CreateQuestionBundle');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('CreateQuestionBundle - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

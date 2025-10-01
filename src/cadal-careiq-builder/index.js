@@ -12692,15 +12692,21 @@ createCustomElement('cadal-careiq-builder', {
 				// DON'T clear context - let it be cleared by blur/escape events like goals/interventions
 			} else if (answerSearchContext && answerSearchContext.contentType === 'answer') {
 				// Answer typeahead using generic endpoint with stored context pattern
+				console.log('=== ANSWER TYPEAHEAD SUCCESS ===');
+				console.log('answerSearchContext:', answerSearchContext);
+				console.log('relationshipPanelOpen:', state.relationshipPanelOpen);
+				console.log('relationshipTypeaheadLoading:', state.relationshipTypeaheadLoading);
 				// Apply same filtering logic as original ANSWER_SEARCH_SUCCESS
 				if (state.relationshipPanelOpen && state.relationshipTypeaheadLoading) {
 					// This is for relationship modal - use relationship typeahead state
+					console.log('Setting relationship typeahead results');
 					updateState({
 						relationshipTypeaheadResults: results,
 						relationshipTypeaheadLoading: false
 					});
 				} else {
 					// Regular answer typeahead (not in relationship modal)
+					console.log('Setting regular answer typeahead results');
 					updateState({
 						answerTypeaheadResults: results,
 						answerTypeaheadLoading: false,
@@ -12709,6 +12715,8 @@ createCustomElement('cadal-careiq-builder', {
 				}
 				// DON'T clear context - let it be cleared by blur/escape events like goals/interventions/questions
 			} else {
+				console.log('=== GENERIC_TYPEAHEAD_SUCCESS - NO MATCH ===');
+				console.log('answerSearchContext:', answerSearchContext);
 				// Default to relationship typeahead (also catches any orphaned loading states)
 				updateState({
 					relationshipTypeaheadResults: results,
@@ -16991,6 +16999,16 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_ANSWERS_TO_QUESTION_ERROR'
 		}),
 
+		'MAKE_CREATE_QUESTION_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-question-bundle', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'CREATE_QUESTION_BUNDLE_SUCCESS',
+			errorActionType: 'CREATE_QUESTION_BUNDLE_ERROR'
+		}),
+
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
@@ -17043,6 +17061,22 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 
+			// Check if this is a brand new Single Select/Multiselect question (not library)
+			// If so, silently create a question bundle
+			const originalRequest = action.payload?.originalRequest;
+			const questionId = action.payload?.id;
+
+			if (originalRequest && questionId && !originalRequest.library_id &&
+				(originalRequest.type === 'Single Select' || originalRequest.type === 'Multiselect')) {
+
+				// Create question bundle silently
+				const requestBody = JSON.stringify({
+					contentId: questionId
+				});
+
+				dispatch('MAKE_CREATE_QUESTION_BUNDLE_REQUEST', {requestBody: requestBody});
+			}
+
 			// Refresh the questions for the current section
 			if (state.selectedSection) {
 				dispatch('FETCH_SECTION_QUESTIONS', {
@@ -17077,6 +17111,41 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: 'Error creating question: ' + errorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_QUESTION_BUNDLE_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			// Silent success message - don't disrupt user flow
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Question bundle created successfully',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_QUESTION_BUNDLE_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+
+			// Silent error - don't disrupt user flow
+			// Log for debugging but don't show prominent error message
+			console.error('Question bundle creation failed:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: 'Question bundle creation skipped',
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -17913,11 +17982,13 @@ createCustomElement('cadal-careiq-builder', {
 		'SECTION_TYPEAHEAD_SELECT': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {selectedItem} = action.payload;
+			// Get section name from either name or label field
+			const sectionName = selectedItem.name || selectedItem.label;
 			// Update the editing section name with selected item
 			updateState({
-				editingSectionName: selectedItem.name,
+				editingSectionName: sectionName,
 				sectionTypeaheadVisible: false,
-				sectionTypeaheadQuery: selectedItem.name,
+				sectionTypeaheadQuery: sectionName,
 				sectionTypeaheadResults: [],
 				// Store the master_id for use as library_id when creating the section
 				selectedSectionLibraryId: selectedItem.master_id
