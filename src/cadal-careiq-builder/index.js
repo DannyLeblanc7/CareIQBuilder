@@ -12447,6 +12447,65 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const results = action.payload?.results || [];
 
+			// Check if this is an answer duplicate check during save
+			const answerContext = action.meta?.answerContext || state.answerDuplicateCheckContext;
+			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Answer Context:', answerContext);
+			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Pending Answers to Check:', state.pendingAnswersToCheck);
+			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Results:', results);
+
+			if (answerContext && state.pendingAnswersToCheck) {
+				console.log('DANNY: This is an answer duplicate check');
+				// Look for exact match
+				const exactMatch = results.find(result => result.exact_match === true);
+				console.log('DANNY: Exact match found?', exactMatch);
+
+				if (exactMatch) {
+					// Found library match! Update the answer with library_id
+					console.log('DANNY: Library match found! Adding library_id to answer:', exactMatch.id);
+
+					// Find the answer in pendingAnswersToCheck and add library_id
+					const updatedAnswersToCheck = state.pendingAnswersToCheck.map(answer => {
+						if (answer.questionId === answerContext.questionId &&
+							answer.answerLabel === answerContext.answerLabel) {
+							return {
+								...answer,
+								library_id: exactMatch.id,
+								isLibraryAnswer: true
+							};
+						}
+						return answer;
+					});
+
+					// Check next answer
+					const nextIndex = (state.pendingAnswersCheckIndex || 0) + 1;
+					updateState({
+						pendingAnswersToCheck: updatedAnswersToCheck,
+						pendingAnswersCheckIndex: nextIndex,
+						answerDuplicateCheckContext: null,
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Answer "${answerContext.answerLabel}" matched library answer - using library reference.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					dispatch('CHECK_NEXT_ANSWER_FOR_DUPLICATE', {});
+					return;
+				} else {
+					// No duplicate, check next answer
+					console.log('DANNY: No duplicate, checking next answer');
+					const nextIndex = (state.pendingAnswersCheckIndex || 0) + 1;
+					updateState({
+						pendingAnswersCheckIndex: nextIndex,
+						answerDuplicateCheckContext: null
+					});
+					dispatch('CHECK_NEXT_ANSWER_FOR_DUPLICATE', {});
+					return;
+				}
+			}
+
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
 			const interventionSearchContext = state.currentInterventionSearchContext;
@@ -12839,7 +12898,34 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'GENERIC_TYPEAHEAD_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('DANNY: GENERIC_TYPEAHEAD_ERROR called');
+			console.log('DANNY: Error payload:', action.payload);
+			console.log('DANNY: answerDuplicateCheckContext:', state.answerDuplicateCheckContext);
+			console.log('DANNY: pendingAnswersToCheck:', state.pendingAnswersToCheck);
+
+			// Check if this was an answer duplicate check
+			if (state.answerDuplicateCheckContext && state.pendingAnswersToCheck) {
+				console.log('DANNY: Error during answer duplicate check - aborting');
+				updateState({
+					pendingAnswersToCheck: null,
+					pendingAnswersCheckIndex: null,
+					answerDuplicateCheckContext: null,
+					isCheckingAnswerDuplicates: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Error checking answer duplicates: ${action.payload?.error || 'Unknown error'}. Continuing with save...`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				// Continue with save despite error
+				dispatch('RESUME_SAVE_AFTER_ANSWER_CHECK', {});
+				return;
+			}
 
 			// Use stored context from state instead of meta
 			const goalSearchContext = state.currentGoalSearchContext;
@@ -16230,7 +16316,7 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 
-				// Check each question for duplicate answers
+				// Check each question for duplicate answers (within same question)
 				questionIdsWithAnswerChanges.forEach(questionId => {
 					const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
 
@@ -16255,6 +16341,50 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					}
 				});
+
+				// CRITICAL: Check each answer against existing library/database answers
+				// This prevents backend duplicate errors for answers like "Option 1", "Option 2", etc.
+				// ONLY do this if we haven't already checked (prevent infinite loop)
+				const answersToCheck = [];
+
+				if (!state.answerDuplicateCheckCompleted) {
+					questionIdsWithAnswerChanges.forEach(questionId => {
+						const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+						if (currentQuestion && currentQuestion.answers && currentQuestion.answers.length > 0) {
+							currentQuestion.answers.forEach(answer => {
+								answersToCheck.push({
+									questionId: questionId,
+									questionLabel: currentQuestion.label,
+									answerLabel: answer.label
+								});
+							});
+						}
+					});
+				}
+
+				// If we have answers to check, dispatch check action and pause save
+				if (answersToCheck.length > 0 && !state.answerDuplicateCheckCompleted) {
+					console.log('DANNY: Setting up answer duplicate checking for', answersToCheck.length, 'answers');
+					updateState({
+						pendingAnswersToCheck: answersToCheck,
+						pendingAnswersCheckIndex: 0,
+						isCheckingAnswerDuplicates: true, // Flag to prevent state clearing
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Checking ${answersToCheck.length} answer(s) against existing library...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Start checking first answer - use setTimeout to ensure state is updated first
+					setTimeout(() => {
+						dispatch('CHECK_NEXT_ANSWER_FOR_DUPLICATE', {});
+					}, 100);
+					return; // Pause save until all answers are checked
+				}
 			}
 
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
@@ -16278,6 +16408,7 @@ createCustomElement('cadal-careiq-builder', {
 				questionChanges: {},
 				answerChanges: {},
 				relationshipChanges: {},
+				answerDuplicateCheckCompleted: false, // Reset for next save
 				// Clear isUnsaved flags from all questions to hide save buttons
 				currentQuestions: state.currentQuestions ? {
 					...state.currentQuestions,
@@ -16715,7 +16846,7 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'warning',
 							message: 'No changes to save.',
@@ -16724,6 +16855,121 @@ createCustomElement('cadal-careiq-builder', {
 					]
 				});
 			}
+		},
+
+		'CHECK_NEXT_ANSWER_FOR_DUPLICATE': (coeffects) => {
+			const {state, dispatch, updateState} = coeffects;
+			const answersToCheck = state.pendingAnswersToCheck || [];
+			const currentIndex = state.pendingAnswersCheckIndex || 0;
+
+			console.log('DANNY: CHECK_NEXT_ANSWER_FOR_DUPLICATE');
+			console.log('DANNY: Answers to check:', answersToCheck);
+			console.log('DANNY: Current index:', currentIndex);
+
+			if (currentIndex >= answersToCheck.length) {
+				// All answers checked, no duplicates found - continue with save
+				console.log('DANNY: All answers checked, resuming save');
+
+				// CRITICAL: Store answers before clearing, then clear state before resume
+				const finalAnswersToTransfer = answersToCheck;
+
+				updateState({
+					pendingAnswersToCheck: null, // MUST clear before resume to prevent infinite loop
+					pendingAnswersCheckIndex: null,
+					isCheckingAnswerDuplicates: false,
+					answerDuplicateCheckCompleted: true, // Mark as completed to prevent re-checking
+					answersToTransferLibraryIds: finalAnswersToTransfer, // Store for transfer
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'All answers validated successfully! Continuing save...',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Resume the save process by calling SAVE_ALL_CHANGES again
+				// This time pendingAnswersToCheck will be null so it won't re-check
+				setTimeout(() => {
+					dispatch('RESUME_SAVE_AFTER_ANSWER_CHECK', {});
+				}, 100);
+				return;
+			}
+
+			const answerToCheck = answersToCheck[currentIndex];
+			console.log('DANNY: Checking answer:', answerToCheck);
+
+			// Store context in state for SUCCESS handler
+			updateState({
+				answerDuplicateCheckContext: answerToCheck
+			});
+
+			// Call answer typeahead to check for exact match
+			console.log('DANNY: Dispatching GENERIC_TYPEAHEAD_SEARCH for answer:', answerToCheck.answerLabel);
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: answerToCheck.answerLabel,
+				type: 'answer',
+				isPreSaveCheck: true
+			});
+		},
+
+		'RESUME_SAVE_AFTER_ANSWER_CHECK': (coeffects) => {
+			const {state, dispatch, updateState} = coeffects;
+
+			console.log('DANNY: RESUME_SAVE_AFTER_ANSWER_CHECK called');
+
+			// Transfer library_id from answersToTransferLibraryIds to actual question answers
+			// This was stored before clearing pendingAnswersToCheck
+			const answersToCheck = state.answersToTransferLibraryIds || [];
+			console.log('DANNY: Answers with library IDs to transfer:', answersToCheck);
+
+			if (answersToCheck.length > 0 && state.currentQuestions?.questions) {
+				// Update questions with library_id for matched answers
+				const updatedQuestions = state.currentQuestions.questions.map(question => {
+					// Check if this question has answers that were checked
+					const answersForThisQuestion = answersToCheck.filter(a => a.questionId === question.ids.id);
+
+					if (answersForThisQuestion.length > 0) {
+						// Update answers with library_id
+						const updatedAnswers = question.answers.map(answer => {
+							const matchedAnswer = answersForThisQuestion.find(a => a.answerLabel === answer.label);
+							if (matchedAnswer && matchedAnswer.library_id) {
+								console.log('DANNY: Adding library_id', matchedAnswer.library_id, 'to answer:', answer.label);
+								return {
+									...answer,
+									library_id: matchedAnswer.library_id,
+									isLibraryAnswer: true
+								};
+							}
+							return answer;
+						});
+
+						return {
+							...question,
+							answers: updatedAnswers
+						};
+					}
+
+					return question;
+				});
+
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					answersToTransferLibraryIds: null // Clear after use
+				});
+			} else {
+				updateState({
+					answersToTransferLibraryIds: null // Clear even if no transfer needed
+				});
+			}
+
+			// Re-run SAVE_ALL_CHANGES but without answer checking
+			// (pendingAnswersToCheck is already null so it won't re-check)
+			dispatch('SAVE_ALL_CHANGES', {});
 		},
 
 		'SAVE_SECTION': (coeffects) => {
@@ -16785,8 +17031,18 @@ createCustomElement('cadal-careiq-builder', {
 			console.log('DANNY: Question Data:', questionData);
 			console.log('DANNY: Section ID:', sectionId);
 			console.log('DANNY: Pending Answers:', pendingAnswers);
+			if (pendingAnswers && pendingAnswers.length > 0) {
+				pendingAnswers.forEach((ans, idx) => {
+					console.log(`DANNY: Answer ${idx}:`, ans.label, 'library_id:', ans.library_id, 'isLibraryAnswer:', ans.isLibraryAnswer);
+				});
+			}
 
-			// Store pending answers in state for later use in success handler
+			// Store question metadata for bundle creation decision
+			const shouldCreateBundle = !questionData.library_id &&
+				(questionData.type === 'Single Select' || questionData.type === 'Multiselect') &&
+				pendingAnswers && pendingAnswers.length > 0;
+
+			// Store pending answers and metadata in state for later use in success handler
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				// Process pending answers to add library_id for library answers ONLY
 				const processedPendingAnswers = pendingAnswers.map((answer, index) => {
@@ -16803,15 +17059,20 @@ createCustomElement('cadal-careiq-builder', {
 					};
 
 					// ONLY add library_id for library answers
-					if (answer.isLibraryAnswer && answer.libraryAnswerId) {
-						answerPayload.library_id = answer.libraryAnswerId;
+					if (answer.isLibraryAnswer && answer.library_id) {
+						answerPayload.library_id = answer.library_id;
 					} else {
 					}
 					return answerPayload;
 				});
 
 				updateState({
-					pendingQuestionAnswers: processedPendingAnswers
+					pendingQuestionAnswers: processedPendingAnswers,
+					pendingQuestionMetadata: {
+						shouldCreateBundle: shouldCreateBundle,
+						questionType: questionData.type,
+						isLibrary: !!questionData.library_id
+					}
 				});
 			}
 
@@ -17272,6 +17533,11 @@ createCustomElement('cadal-careiq-builder', {
 				return question;
 			});
 
+			// Store the question ID for later use in bundle creation
+			updateState({
+				lastCreatedQuestionId: newQuestionId
+			});
+
 			// Check if there are pending answers to add (for Single Select/Multiselect questions)
 			const pendingAnswers = state.pendingQuestionAnswers;
 			console.log('DANNY: Pending Answers from State:', pendingAnswers);
@@ -17403,7 +17669,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'ADD_ANSWERS_TO_QUESTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			// The response should contain array of answer UUIDs
 			const newAnswerIds = action.payload;
 			// Handle different response types - success vs duplicate/warning
@@ -17429,6 +17695,31 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
+
+			// Check if we should create a question bundle
+			// This happens for brand new Single Select/Multiselect questions (not library)
+			const metadata = state.pendingQuestionMetadata;
+			const questionId = state.lastCreatedQuestionId; // We'll need to track this
+
+			console.log('DANNY: Bundle Check - Metadata:', metadata);
+			console.log('DANNY: Bundle Check - Question ID:', questionId);
+
+			if (metadata && metadata.shouldCreateBundle && questionId) {
+				console.log('DANNY: Creating question bundle for question:', questionId);
+
+				// Create question bundle silently
+				const requestBody = JSON.stringify({
+					contentId: questionId
+				});
+
+				dispatch('MAKE_CREATE_QUESTION_BUNDLE_REQUEST', {requestBody: requestBody});
+
+				// Clear metadata after use
+				updateState({
+					pendingQuestionMetadata: null,
+					lastCreatedQuestionId: null
+				});
+			}
 		},
 
 		'ADD_ANSWERS_TO_QUESTION_ERROR': (coeffects) => {

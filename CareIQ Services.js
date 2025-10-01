@@ -1322,6 +1322,32 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			return '{"error": "' + e.message + '"}';
 		}
 	},
+	createQuestionBundle: function(contentId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/question-bundle');
+			var r = this._createRESTMessage('POST Create Question Bundle', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request body with contentId (question UUID)
+			var requestBody = {
+				content_id: contentId
+			};
+
+			r.setRequestBody(JSON.stringify(requestBody));
+
+			var response = this._executeRequestWithRetry(r, 'CreateQuestionBundle');
+			return response.getBody();
+		} catch (e) {
+			this._logError('CreateQuestionBundle - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
 	builderAnswerTypeahead: function(searchText) {
 		try {
 			var config = this._getConfig();
