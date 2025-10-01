@@ -1304,3 +1304,35 @@ createQuestionBundle: function(contentId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+createProblemBundle: function(contentId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the problem bundle endpoint
+        var endpoint = this._buildEndpoint('/builder/library/problem/bundle');
+        var r = this._createRESTMessage('Create Problem Bundle', endpoint);
+
+        // Set method to POST
+        r.setHttpMethod('POST');
+
+        // Build payload
+        var payload = {
+            "content_id": contentId
+        };
+
+        // Set the request body
+        r.setRequestBody(JSON.stringify(payload));
+
+        var response = this._executeRequestWithRetry(r, 'CreateProblemBundle');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('CreateProblemBundle - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},

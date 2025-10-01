@@ -1511,6 +1511,28 @@ const view = (state, {updateState, dispatch}) => {
 																>
 																	🗑️
 																</button>
+																{(question.type === 'Single Select' || question.type === 'Multiselect') && (
+																	<button
+																		className="save-bundle-btn"
+																		title="Save Question Bundle to Library"
+																		style={state.isMobileView ? {
+																			flexShrink: '0',
+																			minWidth: '40px',
+																			marginBottom: '0.5rem',
+																			marginLeft: '4px'
+																		} : {
+																			marginLeft: '4px'
+																		}}
+																		onclick={() => {
+																			dispatch('SAVE_QUESTION_BUNDLE', {
+																				questionId: question.ids.id,
+																				questionLabel: question.label
+																			});
+																		}}
+																	>
+																		📦
+																	</button>
+																)}
 															</div>
 														</div>
 													) : (
@@ -5331,19 +5353,50 @@ const view = (state, {updateState, dispatch}) => {
 																		>
 																			{problem.label || problem.name}
 																		</span>,
-																		<button
-																			className="cancel-relationship-btn"
-																			onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
-																				answerId: answerId,
+																	<button
+																		className="confirm-relationship-btn"
+																		onclick={() => {
+																			dispatch('FETCH_PROBLEM_DETAILS', {
 																				problemId: problem.id,
-																				problemName: problem.label || problem.name
-																			})}
-																			title="Delete problem"
-																		>
-																			<XIcon />
-																		</button>
-																	]
-																)}
+																				fallbackData: {
+																					label: problem.label || problem.name,
+																					alternative_wording: problem.alternative_wording || '',
+																					tooltip: problem.tooltip || ''
+																				}
+																			});
+																		}}
+																		title="Edit problem"
+																		style={{marginLeft: '8px'}}
+																	>
+																		<CheckIcon />
+																	</button>,
+																	<button
+																		className="cancel-relationship-btn"
+																		onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
+																			answerId: answerId,
+																			problemId: problem.id,
+																			problemName: problem.label || problem.name
+																		})}
+																		title="Delete problem"
+																			style={{marginLeft: '8px'}}
+																	>
+																		<XIcon />
+																	</button>,
+																	<button
+																		className="save-bundle-btn"
+																		title="Save Problem Bundle to Library"
+																		onclick={() => {
+																			dispatch('SAVE_PROBLEM_BUNDLE', {
+																				problemId: problem.id,
+																				problemLabel: problem.label || problem.name
+																			});
+																		}}
+																		style={{marginLeft: '8px'}}
+																	>
+																		📦
+																	</button>
+																]
+															)}
 															</div>,
 
 															// Goals Display - Show when problem is expanded (outside flex container)
@@ -8245,6 +8298,12 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 
+			// Store current section for reselection after refresh
+			updateState({
+				pendingReselectionSection: state.selectedSection,
+				pendingReselectionSectionLabel: state.selectedSectionLabel
+			});
+
 			// If we got a new ID, use it to reload the assessment
 			if (newAssessmentId) {
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
@@ -8318,6 +8377,12 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Refresh assessment data to reflect server changes
 			if (state.currentAssessmentId) {
+				// Store current section for reselection after refresh
+				updateState({
+					pendingReselectionSection: state.selectedSection,
+					pendingReselectionSectionLabel: state.selectedSectionLabel
+				});
+
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
 					assessmentId: state.currentAssessmentId,
 					assessmentTitle: state.currentAssessment?.title || 'Assessment'
@@ -9533,6 +9598,70 @@ createCustomElement('cadal-careiq-builder', {
 					});
 				}
 			}
+		},
+
+		'SAVE_QUESTION_BUNDLE': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId, questionLabel} = action.payload;
+
+			// Show system message that we're saving
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: `Saving question bundle "${questionLabel}" to library...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Call the existing HTTP effect with questionId as contentId
+			const requestBody = JSON.stringify({
+				contentId: questionId
+			});
+
+			dispatch('MAKE_CREATE_QUESTION_BUNDLE_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					questionId: questionId,
+					questionLabel: questionLabel
+				}
+			});
+		},
+
+		'SAVE_PROBLEM_BUNDLE': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			console.log('SAVE_PROBLEM_BUNDLE called!');
+			console.log('problemId:', action.payload.problemId);
+			console.log('problemLabel:', action.payload.problemLabel);
+			const {problemId, problemLabel} = action.payload;
+
+			// Store problemLabel in state for success handler
+			updateState({
+				currentProblemBundleLabel: problemLabel,
+				modalSystemMessages: [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'loading',
+						message: `Saving problem bundle "${problemLabel}" to library...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Call the HTTP effect with problemId as contentId
+			const requestBody = JSON.stringify({
+				contentId: problemId
+			});
+
+			dispatch('MAKE_CREATE_PROBLEM_BUNDLE_REQUEST', {
+				requestBody: requestBody,
+				meta: {
+					problemId: problemId,
+					problemLabel: problemLabel
+				}
+			});
 		},
 
 		'SAVE_QUESTION_IMMEDIATELY': (coeffects) => {
@@ -13068,7 +13197,7 @@ createCustomElement('cadal-careiq-builder', {
 					mutually_exclusive: answer.mutually_exclusive || false,
 					sort_order: answer.sort_order || index,
 					isLibraryAnswer: true,
-					libraryAnswerId: answer.master_id || answer.id
+					library_id: answer.master_id || answer.id // CRITICAL: Use library_id field name for consistency
 				}));
 
 				// Update the question in UI with library data
@@ -13128,7 +13257,7 @@ createCustomElement('cadal-careiq-builder', {
 					required: answer.required || false,
 					sort_order: answer.sort_order || index,
 					isLibraryAnswer: true,
-					libraryAnswerId: answer.master_id || answer.id // CRITICAL: Use master_id for library answers
+					library_id: answer.master_id || answer.id // CRITICAL: Use library_id field name for consistency
 				}));
 
 			// Clear pre-save context before dispatching
@@ -13350,7 +13479,7 @@ createCustomElement('cadal-careiq-builder', {
 						sort_order: libraryAnswer.sort_order || index,
 						// Mark as library answer for proper backend handling
 						isLibraryAnswer: true,
-						libraryAnswerId: libraryAnswer.master_id || libraryAnswer.id
+						library_id: libraryAnswer.master_id || libraryAnswer.id
 					};
 				});
 			}
@@ -13394,7 +13523,7 @@ createCustomElement('cadal-careiq-builder', {
 					mutually_exclusive: answer.mutually_exclusive,
 					sort_order: answer.sort_order,
 					isLibraryAnswer: true,
-					libraryAnswerId: answer.libraryAnswerId,
+					library_id: answer.library_id,
 					timestamp: new Date().toISOString()
 				};
 			});
@@ -13473,7 +13602,7 @@ createCustomElement('cadal-careiq-builder', {
 						sort_order: libraryAnswer.sort_order || (index + 1),
 						triggered_questions: [],
 						isLibraryAnswer: true,
-						libraryAnswerId: libraryAnswer.master_id || libraryAnswer.id
+						library_id: libraryAnswer.master_id || libraryAnswer.id
 					};
 				});
 			}
@@ -13527,7 +13656,7 @@ createCustomElement('cadal-careiq-builder', {
 					mutually_exclusive: answer.mutually_exclusive,
 					sort_order: answer.sort_order,
 					isLibraryAnswer: true,
-					libraryAnswerId: answer.libraryAnswerId,
+					library_id: answer.library_id,
 					libraryStatus: 'unmodified',  // Track modification status
 					originalLibraryData: {  // Store original library answer data
 						label: originalLibraryAnswer.text || originalLibraryAnswer.label,
@@ -13537,7 +13666,7 @@ createCustomElement('cadal-careiq-builder', {
 						mutually_exclusive: originalLibraryAnswer.mutually_exclusive || false,
 						sort_order: originalLibraryAnswer.sort_order || (index + 1)
 					},
-					libraryAnswerId: answer.libraryAnswerId,
+					library_id: answer.library_id,
 					timestamp: new Date().toISOString()
 				};
 			});
@@ -16040,6 +16169,15 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_LABEL': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newLabel} = action.payload;
+
+			// Find the question that contains this answer
+			let parentQuestionId = null;
+			state.currentQuestions?.questions?.forEach(question => {
+				if (question.answers?.some(answer => answer.ids.id === answerId)) {
+					parentQuestionId = question.ids.id;
+				}
+			});
+
 			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -16066,6 +16204,7 @@ createCustomElement('cadal-careiq-builder', {
 					[answerId]: {
 						action: 'update',
 						answerId: answerId,
+						questionId: parentQuestionId, // CRITICAL: Add questionId for library checking
 						label: newLabel
 					}
 				}
@@ -16273,6 +16412,9 @@ createCustomElement('cadal-careiq-builder', {
 			// Validate for duplicate answers within questions being saved
 			// Check ALL questions that have answer changes
 			if (answerChanges.length > 0 && state.currentQuestions?.questions) {
+				console.log('DANNY: Checking for duplicate answers within questions...');
+				console.log('DANNY: answerChanges count:', answerChanges.length);
+
 				// Build set of unique question IDs that have answer changes
 				const questionIdsWithAnswerChanges = new Set();
 				answerChanges.forEach(answerId => {
@@ -16293,20 +16435,31 @@ createCustomElement('cadal-careiq-builder', {
 					if (answerData.question_id) {
 						questionIdsWithAnswerChanges.add(answerData.question_id);
 					}
+					if (answerData.questionId) {
+						questionIdsWithAnswerChanges.add(answerData.questionId);
+					}
 				});
+
+				console.log('DANNY: Questions with answer changes:', Array.from(questionIdsWithAnswerChanges));
 
 				// Check each question for duplicate answers (within same question)
 				questionIdsWithAnswerChanges.forEach(questionId => {
 					const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
 
+					console.log('DANNY: Checking question:', questionId, 'found:', !!currentQuestion);
+
 					if (currentQuestion && currentQuestion.answers && currentQuestion.answers.length > 0) {
 						const answerLabels = [];
 						const duplicatesFound = [];
+
+						console.log('DANNY: Question has', currentQuestion.answers.length, 'answers');
+						console.log('DANNY: Answer labels:', currentQuestion.answers.map(a => a.label));
 
 						currentQuestion.answers.forEach(answer => {
 							const trimmedLabel = answer.label.toLowerCase().trim();
 							if (answerLabels.includes(trimmedLabel)) {
 								// This is a duplicate within the same question
+								console.log('DANNY: DUPLICATE ANSWER FOUND:', answer.label);
 								if (!duplicatesFound.includes(answer.label)) {
 									duplicatesFound.push(answer.label);
 								}
@@ -16316,6 +16469,7 @@ createCustomElement('cadal-careiq-builder', {
 						});
 
 						if (duplicatesFound.length > 0) {
+							console.log('DANNY: Adding validation error for duplicate answers:', duplicatesFound);
 							validationErrors.push(`Question "${currentQuestion.label}" has duplicate answers: ${duplicatesFound.join(', ')}`);
 						}
 					}
@@ -16327,18 +16481,37 @@ createCustomElement('cadal-careiq-builder', {
 				const answersToCheck = [];
 
 				if (!state.answerDuplicateCheckCompleted) {
-					questionIdsWithAnswerChanges.forEach(questionId => {
-						const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
-						if (currentQuestion && currentQuestion.answers && currentQuestion.answers.length > 0) {
-							currentQuestion.answers.forEach(answer => {
+					console.log('DANNY: Checking for answers to validate...');
+					console.log('DANNY: answerChanges:', state.answerChanges);
+
+					// Only check NEW answers (action: 'add' OR temp ID with 'update') for library matches
+					Object.keys(state.answerChanges || {}).forEach(answerId => {
+						const answerChange = state.answerChanges[answerId];
+						console.log('DANNY: Checking answerId:', answerId, 'answerChange:', answerChange);
+						console.log('DANNY: answerChange.action:', answerChange?.action);
+
+						// Check answers that are being added OR are temp answers being updated (new answers that were edited)
+						const isNewAnswer = answerChange && (answerChange.action === 'add' || (answerChange.action === 'update' && answerId.startsWith('temp_')));
+
+						if (isNewAnswer) {
+							const questionId = answerChange.questionId;
+							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+
+							console.log('DANNY: Answer action is ADD, questionId:', questionId, 'currentQuestion found:', !!currentQuestion);
+
+							if (currentQuestion) {
 								answersToCheck.push({
 									questionId: questionId,
 									questionLabel: currentQuestion.label,
-									answerLabel: answer.label
+									answerLabel: answerChange.label,
+									answerId: answerId // Store answerId for later matching
 								});
-							});
+								console.log('DANNY: Added answer to check list:', answerChange.label);
+							}
 						}
 					});
+
+					console.log('DANNY: Total answers to check:', answersToCheck.length);
 				}
 
 				// If we have answers to check, dispatch check action and pause save
@@ -16365,6 +16538,43 @@ createCustomElement('cadal-careiq-builder', {
 					return; // Pause save until all answers are checked
 				}
 			}
+
+			// Check for duplicate questions BEFORE clearing state
+			if (questionChanges.length > 0) {
+				console.log('DANNY: Checking for duplicate questions...');
+				console.log('DANNY: questionChanges:', questionChanges);
+				console.log('DANNY: Current questions in section:', state.currentQuestions?.questions?.map(q => q.label));
+
+				questionChanges.forEach(questionId => {
+					const questionData = questionChangesData[questionId];
+					console.log('DANNY: Checking question:', questionId, 'action:', questionData.action, 'label:', questionData.label);
+
+					// Check for duplicate questions - applies to 'add' and 'library_replace' actions
+					if (questionData.action === 'add' || questionData.action === 'library_replace') {
+						// Check if this question already exists in the current section
+						const existingQuestions = [];
+						if (state.currentQuestions?.questions) {
+							state.currentQuestions.questions.forEach(existingQuestion => {
+								// Don't compare with itself (in case it's a temp ID)
+								if (existingQuestion.ids.id !== questionId) {
+									existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+								}
+							});
+						}
+
+						const currentQuestionLabel = questionData.label.toLowerCase().trim();
+						console.log('DANNY: Comparing:', currentQuestionLabel, 'against existing:', existingQuestions);
+
+						if (existingQuestions.includes(currentQuestionLabel)) {
+							console.log('DANNY: DUPLICATE FOUND!', questionData.label);
+							validationErrors.push(`Question "${questionData.label}" already exists in this section. Please use a different name.`);
+						}
+					}
+				});
+			}
+
+			console.log('DANNY: Total validation errors found:', validationErrors.length);
+			console.log('DANNY: Validation errors:', validationErrors);
 
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
 			if (validationErrors.length > 0) {
@@ -16397,50 +16607,6 @@ createCustomElement('cadal-careiq-builder', {
 					}))
 				} : state.currentQuestions
 			});
-
-			// SECOND: Run all deduplication checks
-
-			// Check for duplicate questions
-			if (questionChanges.length > 0) {
-				const duplicateQuestions = [];
-				questionChanges.forEach(questionId => {
-					const questionData = questionChangesData[questionId];
-					if (questionData.action === 'add') {
-						// Check if this question already exists in the current section
-						const existingQuestions = [];
-						if (state.currentQuestions?.questions) {
-							state.currentQuestions.questions.forEach(existingQuestion => {
-								// Don't compare with itself (in case it's a temp ID)
-								if (existingQuestion.ids.id !== questionId) {
-									existingQuestions.push(existingQuestion.label.toLowerCase().trim());
-								}
-							});
-						}
-
-						const currentQuestionLabel = questionData.label.toLowerCase().trim();
-						if (existingQuestions.includes(currentQuestionLabel)) {
-							duplicateQuestions.push(questionData.label);
-						}
-					}
-				});
-
-				// If duplicates found, show error and stop saving
-				if (duplicateQuestions.length > 0) {
-					const duplicateList = duplicateQuestions.join(', ');
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'error',
-								message: `Question(s) already exist in this section: ${duplicateList}. Please use different names.`,
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
-					return; // Stop the entire save process
-				}
-			}
 
 			const hasChanges = sectionChanges.length > 0 || questionChanges.length > 0 || answerChanges.length > 0 || relationshipChanges.length > 0;
 
@@ -16641,7 +16807,11 @@ createCustomElement('cadal-careiq-builder', {
 				answerChanges.forEach(answerId => {
 					const answerData = answerChangesData[answerId];
 
-					if (answerData.action === 'add' || answerData.action === 'library_replace') {
+					// Treat temp IDs with 'update' as 'add' (new answers that were edited)
+					const isTempAnswer = answerId.startsWith('temp_');
+					const isAddAction = answerData.action === 'add' || answerData.action === 'library_replace' || (isTempAnswer && answerData.action === 'update');
+
+					if (isAddAction) {
 
 						// Skip if the question is also new (temp ID) - will be handled with question creation
 						if (answerData.question_id && answerData.question_id.startsWith('temp_')) {
@@ -16697,7 +16867,7 @@ createCustomElement('cadal-careiq-builder', {
 							}
 
 							return {
-								library_id: answerData.libraryAnswerId, // Use library ID for library answers
+								library_id: answerData.library_id, // Use library ID for library answers
 								sort_order: currentAnswer ? currentAnswer.sort_order : 0, // Required field
 								label: answerData.label,
 								tooltip: answerData.tooltip || '',
@@ -16720,7 +16890,7 @@ createCustomElement('cadal-careiq-builder', {
 								}
 							}
 
-							return {
+							const answerPayload = {
 								label: currentAnswer ? currentAnswer.label : answerData.label,
 								sort_order: currentAnswer ? currentAnswer.sort_order : 0, // Required field
 								tooltip: currentAnswer ? (currentAnswer.tooltip || '') : (answerData.tooltip || ''),
@@ -16730,6 +16900,13 @@ createCustomElement('cadal-careiq-builder', {
 								custom_attributes: answerData.custom_attributes || {},
 								required: answerData.required || false
 							};
+
+							// Add library_id if this answer was matched to library during duplicate check
+							if (answerData.library_id || (currentAnswer && currentAnswer.library_id)) {
+								answerPayload.library_id = answerData.library_id || currentAnswer.library_id;
+							}
+
+							return answerPayload;
 						}
 					});
 
@@ -16933,11 +17110,28 @@ createCustomElement('cadal-careiq-builder', {
 					return question;
 				});
 
+				// ALSO update answerChanges with library_id for answers being added
+				const updatedAnswerChanges = {...state.answerChanges};
+				answersToCheck.forEach(checkedAnswer => {
+					if (checkedAnswer.library_id && checkedAnswer.answerId) {
+						const answerChange = updatedAnswerChanges[checkedAnswer.answerId];
+						if (answerChange) {
+							updatedAnswerChanges[checkedAnswer.answerId] = {
+								...answerChange,
+								library_id: checkedAnswer.library_id,
+								isLibraryAnswer: true
+							};
+							console.log('DANNY: Updated answerChanges with library_id for answerId:', checkedAnswer.answerId);
+						}
+					}
+				});
+
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
 					},
+					answerChanges: updatedAnswerChanges,
 					answersToTransferLibraryIds: null // Clear after use
 				});
 			} else {
@@ -17340,6 +17534,16 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'CREATE_QUESTION_BUNDLE_ERROR'
 		}),
 
+		'MAKE_CREATE_PROBLEM_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-problem-bundle', {
+			method: 'POST',
+			dataParam: 'requestBody',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			successActionType: 'CREATE_PROBLEM_BUNDLE_SUCCESS',
+			errorActionType: 'CREATE_PROBLEM_BUNDLE_ERROR'
+		}),
+
 		'ADD_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
@@ -17450,14 +17654,19 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_QUESTION_BUNDLE_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
+			const questionLabel = action.meta?.questionLabel || 'Question';
 
-			// Silent success message - don't disrupt user flow
+			// Check if this was triggered by manual save button or auto-save
+			const isManualSave = action.meta?.questionLabel; // Manual saves include questionLabel in meta
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
-						type: 'info',
-						message: 'Question bundle created successfully',
+						type: 'success',
+						message: isManualSave
+							? `Question bundle "${questionLabel}" saved to library successfully!`
+							: 'Question bundle created successfully',
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -17466,17 +17675,67 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_QUESTION_BUNDLE_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
+			const questionLabel = action.meta?.questionLabel || 'Question';
+			const errorMessage = action.payload?.error || action.payload?.message || 'Unknown error';
 
-			// Silent error - don't disrupt user flow
-			// Log for debugging but don't show prominent error message
+			// Check if this was triggered by manual save button or auto-save
+			const isManualSave = action.meta?.questionLabel;
+
 			console.error('Question bundle creation failed:', action.payload);
 
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
-						type: 'info',
-						message: 'Question bundle creation skipped',
+						type: isManualSave ? 'error' : 'info',
+						message: isManualSave
+							? `Failed to save question bundle "${questionLabel}": ${errorMessage}`
+							: 'Question bundle creation skipped',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_PROBLEM_BUNDLE_SUCCESS': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.log('CREATE_PROBLEM_BUNDLE_SUCCESS called!');
+			console.log('Action:', action);
+			console.log('Meta:', action.meta);
+			console.log('Payload:', action.payload);
+			const problemLabel = state.currentProblemBundleLabel || 'Problem';
+
+			updateState({
+				currentProblemBundleLabel: null, // Clear after use
+				modalSystemMessages: [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'success',
+						message: `Problem bundle "${problemLabel}" saved to library successfully!`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		'CREATE_PROBLEM_BUNDLE_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			const problemLabel = state.currentProblemBundleLabel || 'Problem';
+			const errorMessage = action.payload?.error || action.payload?.message || 'Unknown error';
+
+			console.error('CREATE_PROBLEM_BUNDLE_ERROR called!');
+			console.error('Action:', action);
+			console.error('Meta:', action.meta);
+			console.error('Payload:', action.payload);
+			console.error('Problem bundle creation failed:', action.payload);
+
+			updateState({
+				currentProblemBundleLabel: null, // Clear after use
+				modalSystemMessages: [
+					...(state.modalSystemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to save problem bundle "${problemLabel}": ${errorMessage}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -17575,8 +17834,8 @@ createCustomElement('cadal-careiq-builder', {
 					};
 
 					// CRITICAL: Preserve library_id for library answers (check both field names)
-					if (answer.library_id || answer.libraryAnswerId) {
-						apiAnswer.library_id = answer.library_id || answer.libraryAnswerId;
+					if (answer.library_id || answer.library_id) {
+						apiAnswer.library_id = answer.library_id || answer.library_id;
 					}
 
 					return apiAnswer;
@@ -18457,7 +18716,7 @@ createCustomElement('cadal-careiq-builder', {
 							secondary_input_type: libraryAnswerData.secondary_input_type,
 							mutually_exclusive: libraryAnswerData.mutually_exclusive || false,
 							isLibraryAnswer: true,
-							libraryAnswerId: libraryAnswerData.id,
+							library_id: libraryAnswerData.id,
 							libraryStatus: 'unmodified',
 							originalLibraryData: {
 								label: libraryAnswerData.label,
@@ -18478,7 +18737,7 @@ createCustomElement('cadal-careiq-builder', {
 				[answerId]: {
 					action: 'library_replace',
 					isLibraryAnswer: true,
-					libraryAnswerId: libraryAnswerData.id,
+					library_id: libraryAnswerData.id,
 					libraryStatus: 'unmodified',
 					originalLibraryData: {
 						label: libraryAnswerData.label,
