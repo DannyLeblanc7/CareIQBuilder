@@ -4446,6 +4446,29 @@ const view = (state, {updateState, dispatch}) => {
 								minHeight: '36px'
 							}}
 						>
+						{/* Info icon button - LEFT SIDE */}
+						{state.modalSystemMessages?.length > 0 && (
+							<button
+								onclick={() => {
+									updateState({
+										modalSystemMessagesCollapsed: !state.modalSystemMessagesCollapsed
+									});
+								}}
+								style={{
+									background: 'none',
+									border: 'none',
+									cursor: 'pointer',
+									padding: '4px',
+									fontSize: '18px',
+									color: '#17a2b8',
+									fontWeight: 'bold',
+									marginRight: '12px'
+								}}
+								title={state.modalSystemMessagesCollapsed ? 'Show message history' : 'Hide message history'}
+							>
+								ℹ️
+							</button>
+						)}
 
 							{/* Current message display */}
 							{(() => {
@@ -4962,7 +4985,26 @@ const view = (state, {updateState, dispatch}) => {
 											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
-												<div className="typeahead-dropdown">
+												<div className="typeahead-dropdown"
+													hook-insert={(vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+													hook-update={(oldVnode, vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[type="text"]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+												>
 													{state.relationshipTypeaheadResults.map((question, index) => (
 														<div
 															key={question.ids.id}
@@ -8902,7 +8944,14 @@ createCustomElement('cadal-careiq-builder', {
 				visibleQuestions: initialVisibleQuestions,
 				// Clear all changes after successful data refresh
 				sectionChanges: {},
-				relationshipChanges: {}
+				relationshipChanges: {},
+				// Clear answer typeahead UI state to prevent stuck loading
+				// NOTE: Do NOT clear currentAnswerSearchContext here - it must persist for in-flight requests
+				// Context is only cleared by HIDE/ERROR handlers per CLAUDE.md pattern
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: false,
+				answerTypeaheadResults: [],
+				editingAnswerId: null
 			});
 		},
 
@@ -9182,7 +9231,14 @@ createCustomElement('cadal-careiq-builder', {
 							}
 						]
 					}
-				}
+				},
+				// Clear answer typeahead UI state when adding new question
+				// NOTE: Do NOT clear currentAnswerSearchContext here - it must persist for in-flight requests
+				// Context is only cleared by HIDE/ERROR handlers per CLAUDE.md pattern
+				answerTypeaheadLoading: false,
+				answerTypeaheadVisible: false,
+				answerTypeaheadResults: [],
+				editingAnswerId: null
 			});
 		},
 
@@ -9814,7 +9870,8 @@ createCustomElement('cadal-careiq-builder', {
 				'Content-Type': 'application/json'
 			},
 			successActionType: 'ADD_BRANCH_QUESTION_SUCCESS',
-			errorActionType: 'ADD_BRANCH_QUESTION_ERROR'
+			errorActionType: 'ADD_BRANCH_QUESTION_ERROR',
+			metaParam: 'meta'
 		}),
 
 		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-guideline-relationship', {
@@ -9891,22 +9948,65 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
+			console.log('action.meta:', action.meta);
+			console.log('action.payload:', action.payload);
+
+			// Check if backend returned an error in the payload (returns 200 but with error detail)
+			// Errors contain messages like "answer do not belong", "failed", etc.
+			// Success messages contain "added", "saved", "created", etc.
+			if (action.payload && action.payload.detail) {
+				const detail = action.payload.detail.toLowerCase();
+				const isError = detail.includes('do not belong') ||
+				                detail.includes('failed') ||
+				                detail.includes('error') ||
+				                detail.includes('not found') ||
+				                detail.includes('invalid');
+
+				if (isError) {
+					console.error('Backend returned error:', action.payload.detail);
+					const errorMessage = {
+						type: 'error',
+						message: `Failed to add triggered question: ${action.payload.detail}`,
+						timestamp: new Date().toISOString()
+					};
+
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							errorMessage
+						],
+						modalSystemMessages: state.relationshipPanelOpen ? [
+							...(state.modalSystemMessages || []),
+							errorMessage
+						] : state.modalSystemMessages
+					});
+					return; // Stop here, don't refresh
+				}
+				// If not an error, it's a success detail message - continue to normal success flow
+			}
+
 			// Get the answer ID using the same fallback pattern as guidelines
 			let answerId = null;
 			try {
 				// The answerId should be in the original request that triggered this success
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
+					console.log('Got answerId from action.meta:', answerId);
 				} else {
 					// Fallback: look for the currently opened relationship panel
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
 						answerId = openPanels[0]; // Use the first open panel
+						console.log('Got answerId from fallback:', answerId);
 					}
 				}
 			} catch (e) {
 				console.error('Error extracting answerId:', e);
 			}
+
+			console.log('Final answerId:', answerId);
 
 			// Clear relationship changes and show success message
 			const successMessage = {
@@ -9930,26 +10030,38 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
 			if (answerId) {
+				console.log('Dispatching LOAD_ANSWER_RELATIONSHIPS with answerId:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
+			} else {
+				console.error('No answerId found - cannot refresh relationships!');
 			}
 		},
 
 		'ADD_BRANCH_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
-			console.error('ADD_BRANCH_QUESTION_ERROR:', action.payload);
-			
+
+			console.log('=== ADD_BRANCH_QUESTION_ERROR ===');
+			console.log('action.payload:', action.payload);
+			console.log('action.meta:', action.meta);
+
+			const errorMessage = {
+				type: 'error',
+				message: `Failed to add triggered question: ${action.payload?.error || 'Unknown error'}`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add triggered question: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				]
+					errorMessage
+				],
+				// Also add to modal messages if relationship panel is open
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					errorMessage
+				] : state.modalSystemMessages
 			});
 		},
 		'DELETE_BRANCH_QUESTION': (coeffects) => {
@@ -12717,12 +12829,11 @@ createCustomElement('cadal-careiq-builder', {
 			} else {
 				console.log('=== GENERIC_TYPEAHEAD_SUCCESS - NO MATCH ===');
 				console.log('answerSearchContext:', answerSearchContext);
-				// Default to relationship typeahead (also catches any orphaned loading states)
+				// Default to relationship typeahead (orphaned responses with cleared context)
+				// NOTE: Do NOT touch answerTypeaheadLoading here - answer might still be in flight
 				updateState({
 					relationshipTypeaheadResults: results,
-					relationshipTypeaheadLoading: false,
-					// Safety: clear answer loading if no other condition matched
-					answerTypeaheadLoading: false
+					relationshipTypeaheadLoading: false
 				});
 			}
 		},
@@ -12815,13 +12926,11 @@ createCustomElement('cadal-careiq-builder', {
 					]
 				});
 			} else {
-				// Default error handler (also catches any orphaned loading states)
+				// Default error handler (orphaned errors with cleared context)
+				// NOTE: Do NOT touch answerTypeaheadLoading here - answer might still be in flight
 				updateState({
 					relationshipTypeaheadResults: [],
 					relationshipTypeaheadLoading: false,
-					// Safety: clear answer loading if no other condition matched
-					answerTypeaheadLoading: false,
-					answerTypeaheadVisible: false,
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
@@ -13661,7 +13770,10 @@ createCustomElement('cadal-careiq-builder', {
 				questionTypeaheadVisible: false,
 				questionTypeaheadResults: [],
 				questionTypeaheadSelectedIndex: -1,
-				editingQuestionId: null
+				editingQuestionId: null,
+				questionTypeaheadLoading: false,
+				currentQuestionSearchContext: null,  // CRITICAL: Must clear context like answer typeahead
+				currentQuestionSearchSectionId: null
 			});
 		},
 
@@ -13866,11 +13978,19 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
+
+			console.log('=== ADD_BRANCH_QUESTION ===');
+			console.log('answerId:', answerId);
+			console.log('questionId:', questionId);
+			console.log('questionLabel:', questionLabel);
+
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
 			});
-			
+
+			console.log('requestBody:', requestBody);
+
 			dispatch('MAKE_ADD_BRANCH_QUESTION_REQUEST', {
 				requestBody: requestBody,
 				meta: {
@@ -16306,37 +16426,29 @@ createCustomElement('cadal-careiq-builder', {
 					console.log('Saving question:', questionId, 'with sectionId:', questionData.sectionId, 'section_id:', questionData.section_id, 'current selectedSection:', state.selectedSection);
 					// Handle new questions with ADD API
 					if (questionData.action === 'add') {
+						// CORRECT IMPLEMENTATION: 2-step process (add question to section, then add answers)
 						// CRITICAL: Get current question from UI state to include ALL answers (not just from questionChanges)
 						const currentQuestion = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
 						const allAnswers = currentQuestion?.answers || questionData.answers || [];
 
-						// Prepare data for backend API
+						// Step 1: Add question to section (NO answers in this call)
 						const backendQuestionData = {
 							label: questionData.label,
 							type: questionData.type,
 							tooltip: questionData.tooltip || '',
 							alternative_wording: '',
-							answers: allAnswers.map(answer => ({
-								label: answer.label,
-								tooltip: answer.tooltip || '',
-								alternative_wording: '',
-								secondary_input_type: answer.secondary_input_type || null,
-								mutually_exclusive: answer.mutually_exclusive || false,
-								custom_attributes: {},
-								required: answer.required || false
-							})),
-							guideline_template_id: questionData.guideline_template_id,
-							section_id: questionData.section_id,
 							sort_order: questionData.sort_order,
 							custom_attributes: {},
 							voice: 'CaseManager',
 							required: questionData.required || false,
-							available: false
+							available: false,
+							has_quality_measures: false
 						};
 
-						dispatch('ADD_QUESTION_API', {
+						dispatch('ADD_QUESTION_TO_SECTION_API', {
 							questionData: backendQuestionData,
-							sectionId: questionData.sectionId
+							sectionId: state.selectedSection,
+							pendingAnswers: allAnswers // Step 2 will add these after question creation
 						});
 					} else if (questionData.action === 'delete') {
 						// Skip if the question has a temp ID (was never saved to backend)
@@ -16664,30 +16776,15 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_SECTION_ERROR'
 		}),
 
-		'ADD_QUESTION_API': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {questionData} = action.payload;
-			// CORRECT: Send fields directly - ServiceNow HTTP framework adds data wrapper automatically
-			const requestBody = JSON.stringify({
-				label: questionData.label,
-				type: questionData.type,
-				tooltip: questionData.tooltip,
-				alternative_wording: questionData.alternative_wording,
-				answers: questionData.answers,
-				guideline_template_id: questionData.guideline_template_id,
-				section_id: questionData.section_id,
-				sort_order: questionData.sort_order,
-				custom_attributes: questionData.custom_attributes,
-				voice: questionData.voice,
-				required: questionData.required,
-				available: questionData.available
-			});
-			dispatch('MAKE_ADD_QUESTION_REQUEST', {requestBody: requestBody});
-		},
 
 		'ADD_QUESTION_TO_SECTION_API': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {questionData, sectionId, pendingAnswers} = action.payload;
+
+			console.log('DANNY: ADD_QUESTION_TO_SECTION_API Called');
+			console.log('DANNY: Question Data:', questionData);
+			console.log('DANNY: Section ID:', sectionId);
+			console.log('DANNY: Pending Answers:', pendingAnswers);
 
 			// Store pending answers in state for later use in success handler
 			if (pendingAnswers && pendingAnswers.length > 0) {
@@ -16739,6 +16836,9 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const requestBody = JSON.stringify(requestBodyData);
+
+			console.log('DANNY: Request Body to Backend:', JSON.parse(requestBody));
+
 			dispatch('MAKE_ADD_QUESTION_TO_SECTION_REQUEST', {requestBody: requestBody});
 		},
 
@@ -16969,15 +17069,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question', {
-			method: 'POST',
-			dataParam: 'requestBody',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			successActionType: 'ADD_QUESTION_SUCCESS',
-			errorActionType: 'ADD_QUESTION_ERROR'
-		}),
 
 		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section', {
 			method: 'POST',
@@ -17155,6 +17246,9 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_TO_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
+			console.log('DANNY: ADD_QUESTION_TO_SECTION_SUCCESS Called');
+			console.log('DANNY: Backend Response:', action.payload);
+
 			// Handle different response formats
 			let newQuestionId = action.payload.id;
 			let isLibraryResponse = false;
@@ -17180,6 +17274,8 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if there are pending answers to add (for Single Select/Multiselect questions)
 			const pendingAnswers = state.pendingQuestionAnswers;
+			console.log('DANNY: Pending Answers from State:', pendingAnswers);
+			console.log('DANNY: New Question ID:', newQuestionId);
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				// Handle library questions that might not return a real question ID
 				if (!newQuestionId && isLibraryResponse) {

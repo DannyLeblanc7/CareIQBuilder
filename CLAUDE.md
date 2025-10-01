@@ -29,6 +29,32 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
 - **NEVER use direct `fetch()` calls** - All API calls must use ServiceNow HTTP effects (createHttpEffect)
 - Use the established HTTP effect pattern: `dispatch('MAKE_*_REQUEST', {requestBody})`
 
+### CRITICAL: Question and Answer Creation Pattern
+**ALWAYS use the 2-step API pattern for creating questions:**
+
+1. **Step 1: Create question** using `ADD_QUESTION_TO_SECTION_API`
+   - Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section`
+   - Calls: `builderAddQuestionToSection()` in CareIQ Services
+   - CareIQ Backend: `POST /builder/section/{sectionId}/questions`
+   - Does NOT include answers in this call
+
+2. **Step 2: Add answers** (automatically triggered by SUCCESS handler)
+   - SUCCESS handler receives question ID from backend
+   - Checks for `state.pendingQuestionAnswers`
+   - Dispatches `MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST` with question ID
+   - Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-answers-to-question`
+
+**DEPRECATED: DO NOT USE**
+- ❌ `ADD_QUESTION_API` action (REMOVED)
+- ❌ `MAKE_ADD_QUESTION_REQUEST` HTTP effect (REMOVED)
+- ❌ Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-question` (OLD API)
+- ❌ `builderAddQuestion()` method that sends question + answers in one call
+
+**Why This Pattern:**
+- Backend expects separate API calls for question and answers
+- Question must be created first to get the question ID
+- Answers require the question ID to be associated correctly
+
 ### Component to ServiceNow Data Flow
 **Component sends direct fields (no data wrapper):**
 ```javascript
