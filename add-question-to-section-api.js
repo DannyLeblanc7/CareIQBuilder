@@ -26,8 +26,18 @@
             }
         }
 
-        // Validate required fields
-        var requiredFields = ['sectionId', 'label', 'type', 'sort_order'];
+        // Validate required fields based on whether this is a library question or not
+        var isLibraryQuestion = requestData.library_id && requestData.library_id !== null && requestData.library_id !== '';
+        var requiredFields;
+
+        if (isLibraryQuestion) {
+            // Library questions only need sectionId, sort_order, and library_id
+            requiredFields = ['sectionId', 'sort_order', 'library_id'];
+        } else {
+            // Regular questions need full fields
+            requiredFields = ['sectionId', 'label', 'type', 'sort_order'];
+        }
+
         var missingFields = [];
 
         for (var i = 0; i < requiredFields.length; i++) {
@@ -47,8 +57,13 @@
         if (isDebugEnabled) {
             gs.info('Calling CareIQServices.addQuestionToSection with data:');
             gs.info('- sectionId: ' + requestData.sectionId);
-            gs.info('- label: ' + requestData.label);
-            gs.info('- type: ' + requestData.type);
+            gs.info('- isLibraryQuestion: ' + isLibraryQuestion);
+            if (isLibraryQuestion) {
+                gs.info('- library_id: ' + requestData.library_id);
+            } else {
+                gs.info('- label: ' + requestData.label);
+                gs.info('- type: ' + requestData.type);
+            }
             gs.info('- sort_order: ' + requestData.sort_order);
         }
 
@@ -71,8 +86,8 @@
 
         var responseBody = careiqServices.builderAddQuestionToSection(
             requestData.sectionId,
-            requestData.label,
-            requestData.type,
+            requestData.label || null,  // Null for library questions
+            requestData.type || null,   // Null for library questions
             requestData.tooltip || '',
             requestData.alternative_wording || '',
             requestData.sort_order,

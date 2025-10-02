@@ -1271,22 +1271,29 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			r.setHttpMethod('POST');
 
 			// Build request body matching the CareIQ API specification
-			var requestBody = {
-				tooltip: tooltip || '',
-				alternative_wording: alternative_wording || '',
-				sort_order: sort_order || 0,
-				custom_attributes: custom_attributes || {},
-				voice: voice || 'CaseManager',
-				required: required || false,
-				available: available || false,
-				has_quality_measures: has_quality_measures || false,
-				label: label,
-				type: type
-			};
+			var requestBody;
 
-			// Add library_id for library questions
 			if (library_id) {
-				requestBody.library_id = library_id;
+				// Library question - minimal payload (only sort_order and library_id)
+				requestBody = {
+					sort_order: sort_order || 0,
+					library_id: library_id
+				};
+				this._log('AddQuestionToSection - Using minimal payload for library question: ' + library_id, false);
+			} else {
+				// Regular question - full payload
+				requestBody = {
+					tooltip: tooltip || '',
+					alternative_wording: alternative_wording || '',
+					sort_order: sort_order || 0,
+					custom_attributes: custom_attributes || {},
+					voice: voice || 'CaseManager',
+					required: required || false,
+					available: available || false,
+					has_quality_measures: has_quality_measures || false,
+					label: label,
+					type: type
+				};
 			}
 
 			r.setRequestBody(JSON.stringify(requestBody));

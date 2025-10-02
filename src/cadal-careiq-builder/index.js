@@ -54,31 +54,52 @@ const view = (state, {updateState, dispatch}) => {
 	);
 
 	// Loading Overlay Component - reusable overlay with spinner
-	const LoadingOverlay = ({message = "Loading..."}) => (
-		<div style={{
-			position: "absolute",
-			top: 0,
-			left: 0,
-			right: 0,
-			bottom: 0,
-			backgroundColor: "rgba(255, 255, 255, 0.9)",
-			display: "flex",
-			flexDirection: "column",
-			alignItems: "center",
-			justifyContent: "center",
-			zIndex: 1000,
-			borderRadius: "4px",
-			pointerEvents: "none"  // Allow clicks to pass through to parent
-		}}>
-			<SpinnerIcon size="32" />
+	const LoadingOverlay = ({message = "Loading...", isModal = false}) => (
+		<div
+			style={{
+				position: isModal ? "fixed" : "absolute",
+				top: 0,
+				left: 0,
+				width: "100%",
+				height: "100%",
+				backgroundColor: isModal ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.9)",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				justifyContent: "center",
+				zIndex: isModal ? 999999 : 1000,
+				borderRadius: isModal ? "0" : "4px",
+				pointerEvents: "auto",
+				cursor: isModal ? "wait" : "default"
+			}}
+			onclick={(e) => {
+				if (isModal) {
+					e.stopPropagation();
+					e.preventDefault();
+				}
+			}}
+		>
 			<div style={{
-				marginTop: "12px",
-				fontSize: "14px",
-				color: "#666",
-				fontWeight: "500",
-				pointerEvents: "auto"  // But allow the overlay content itself to be interactive
+				backgroundColor: "#fff",
+				padding: "32px 48px",
+				borderRadius: "12px",
+				boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				gap: "16px",
+				minWidth: "200px"
 			}}>
-				{message}
+				<SpinnerIcon size="48" />
+				<div style={{
+					fontSize: "16px",
+					color: "#111827",
+					fontWeight: "600",
+					textAlign: "center",
+					whiteSpace: "nowrap"
+				}}>
+					{message}
+				</div>
 			</div>
 		</div>
 	);
@@ -93,8 +114,13 @@ const view = (state, {updateState, dispatch}) => {
 	
 	return (
 		<div className="careiq-builder">
+			{/* Global modal loading overlay for question moves */}
+			{state.movingQuestion && (
+				<LoadingOverlay message="Moving question..." isModal={true} />
+			)}
+
 			<h1>CareIQ Builder</h1>
-			
+
 			{/* Ticker-Style System Messages */}
 			<div className="system-window-container">
 				{/* Current message ticker with info icon toggle */}
@@ -889,17 +915,64 @@ const view = (state, {updateState, dispatch}) => {
 																	}
 																}}
 																ondragover={(e) => {
-																	if (state.draggingSection) {
-																		e.preventDefault();
-																		e.dataTransfer.dropEffect = 'move';
-																		dispatch('DRAG_SECTION_OVER', {sectionId: subsection.id});
+																	// Check if it's a section drag or question drag
+																	try {
+																		const dragData = e.dataTransfer.types.includes('text/plain');
+																		if (state.draggingSection || dragData) {
+																			e.preventDefault();
+																			e.dataTransfer.dropEffect = 'move';
+																			if (state.draggingSection) {
+																				dispatch('DRAG_SECTION_OVER', {sectionId: subsection.id});
+																			} else {
+																				// Question drag - highlight section
+																				dispatch('DRAG_QUESTION_OVER_SECTION', {sectionId: subsection.id});
+																			}
+																		}
+																	} catch (error) {
+																		// During section drag, dataTransfer.types may not be accessible
+																		if (state.draggingSection) {
+																			e.preventDefault();
+																			e.dataTransfer.dropEffect = 'move';
+																			dispatch('DRAG_SECTION_OVER', {sectionId: subsection.id});
+																		}
 																	}
 																}}
 																ondragleave={(e) => {
-																	dispatch('DRAG_SECTION_LEAVE');
+																	if (state.draggingSection) {
+																		dispatch('DRAG_SECTION_LEAVE');
+																	} else {
+																		dispatch('DRAG_QUESTION_LEAVE_SECTION');
+																	}
 																}}
 																ondrop={(e) => {
 																	e.preventDefault();
+
+																	// Check if this is a section drop or question drop
+																	try {
+																		const dragDataText = e.dataTransfer.getData('text/plain');
+																		if (dragDataText) {
+																			const dragData = JSON.parse(dragDataText);
+																			if (dragData.type === 'question') {
+																				// Question drop on section - move question to this section
+																				if (dragData.sourceSectionId !== subsection.id) {
+																					dispatch('MOVE_QUESTION_TO_SECTION', {
+																						questionId: dragData.questionId,
+																						sourceSectionId: dragData.sourceSectionId,
+																						sourceSectionLabel: dragData.sourceSectionLabel,
+																						targetSectionId: subsection.id,
+																						targetSectionLabel: subsection.label,
+																						question: dragData.question
+																					});
+																				}
+																				dispatch('DRAG_QUESTION_LEAVE_SECTION');
+																				return;
+																			}
+																		}
+																	} catch (error) {
+																		console.error('Error parsing drag data:', error);
+																	}
+
+																	// If we get here, it's a section drop
 																	if (state.draggingSection && state.draggingSection !== subsection.id) {
 																		dispatch('DROP_SECTION', {
 																			targetSectionId: subsection.id,
@@ -1186,18 +1259,38 @@ const view = (state, {updateState, dispatch}) => {
 											>
 												<div className="question-header">
 													{isEditable ? (
-														<div 
-															className="drag-handle" 
-															title="Drag to reorder"
+														<div
+															className="drag-handle"
+															title="Drag to reorder or move to another section"
 															draggable={true}
 															ondragstart={(e) => {
 																e.dataTransfer.setData('text/plain', JSON.stringify({
 																	type: 'question',
 																	questionId: question.ids.id,
-																	sourceIndex: qIndex
+																	sourceIndex: qIndex,
+																	sourceSectionId: state.selectedSection,
+																	sourceSectionLabel: state.selectedSectionLabel,
+																	question: {
+																		label: question.label,
+																		type: question.type,
+																		tooltip: question.tooltip || '',
+																		alternative_wording: question.alternative_wording || '',
+																		sort_order: question.sort_order,
+																		custom_attributes: question.custom_attributes || {},
+																		voice: question.voice || 'CaseManager',
+																		required: question.required || false,
+																		available: question.available || false,
+																		has_quality_measures: question.has_quality_measures || false,
+																		library_id: question.library_id || question.libraryQuestionId || (question.ids?.master_id_path ? question.ids.master_id_path[question.ids.master_id_path.length - 1] : null) || question.ids?.master_id || null,
+																		isLibraryQuestion: question.isLibraryQuestion || !!question.library_id || !!(question.ids?.master_id_path && question.ids.master_id_path.length > 0) || false,
+																		answers: (question.answers || []).map(answer => ({
+																			...answer,
+																			library_id: answer.library_id || answer.ids?.master_id || answer.master_id || null
+																		}))
+																	}
 																}));
 																e.dataTransfer.effectAllowed = 'move';
-																
+
 																// Add visual feedback to the parent question
 																const parentElement = e.target.closest('.question-item');
 																if (parentElement) {
@@ -8953,22 +9046,22 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SECTION_QUESTIONS_SUCCESS': (coeffects) => {
-			const {action, updateState} = coeffects;
-			// 
-			// 
-			// 
-			// 
-			
+			const {action, updateState, state} = coeffects;
+			//
+			//
+			//
+			//
+
 			// Sort questions by sort_order
 			const questions = action.payload?.questions || [];
 			const sortedQuestions = questions.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-			
+
 			// Sort answers within each question by sort_order
 			const questionsWithSortedAnswers = sortedQuestions.map(question => ({
 				...question,
 				answers: question.answers ? question.answers.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : []
 			}));
-			
+
 			// Debug: log the questions structure to understand triggered_questions format
 			questionsWithSortedAnswers.forEach((question, qIndex) => {
 				question.answers?.forEach((answer, aIndex) => {
@@ -8976,10 +9069,11 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			});
-			
+
 			// Initialize visible questions for preview mode (no relationships loaded yet)
 			const initialVisibleQuestions = calculateVisibleQuestions({}, questionsWithSortedAnswers, {});
-			updateState({
+
+			const updateStateObject = {
 				currentQuestions: {
 					...action.payload,
 					questions: questionsWithSortedAnswers
@@ -8996,7 +9090,18 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadVisible: false,
 				answerTypeaheadResults: [],
 				editingAnswerId: null
-			});
+			};
+
+			// If this was after a question move, clear modal and switch to target section
+			if (state.questionMoveRefreshInProgress) {
+				const moveContext = state.questionMoveRefreshInProgress;
+				updateStateObject.movingQuestion = false;
+				updateStateObject.questionMoveRefreshInProgress = false;
+				updateStateObject.selectedSection = moveContext.targetSectionId;
+				updateStateObject.selectedSectionLabel = moveContext.targetSectionLabel;
+			}
+
+			updateState(updateStateObject);
 		},
 
 		'SECTION_QUESTIONS_ERROR': (coeffects) => {
@@ -9018,6 +9123,149 @@ createCustomElement('cadal-careiq-builder', {
 					{
 						type: 'error',
 						message: fullErrorMessage,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+		},
+
+		// Duplicate check flow for question moves
+		'FETCH_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK': (coeffects) => {
+			const {action, state, dispatch} = coeffects;
+			const {sectionId, sectionLabel} = action.payload;
+			const requestBody = JSON.stringify({
+				gtId: state.currentAssessmentId,
+				sectionId: sectionId
+			});
+			dispatch('MAKE_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_REQUEST', {requestBody: requestBody});
+		},
+
+		'MAKE_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_REQUEST': effects.MAKE_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_REQUEST,
+
+		'SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_SUCCESS': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const pendingMove = state.pendingQuestionMoveForDuplicateCheck;
+
+			if (!pendingMove) {
+				console.warn('No pending move found in duplicate check success handler');
+				return;
+			}
+
+			const {questionId, sourceSectionId, sourceSectionLabel, targetSectionId, targetSectionLabel, question} = pendingMove;
+
+			// Check for duplicate in fetched questions
+			const targetQuestions = action.payload?.questions || [];
+			const questionLabelLower = question.label.toLowerCase().trim();
+			const duplicateInTarget = targetQuestions.find(q =>
+				q.label.toLowerCase().trim() === questionLabelLower
+			);
+
+			if (duplicateInTarget) {
+				// Duplicate found - abort move
+				updateState({
+					pendingQuestionMoveForDuplicateCheck: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Question "${question.label}" already exists in "${targetSectionLabel}". Cannot move duplicate questions to the same section.`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Stop the move operation
+			}
+
+			// No duplicate - clear pending move and continue with typeahead lookup
+			updateState({
+				pendingQuestionMoveForDuplicateCheck: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: `No duplicate found. Proceeding with move...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Continue with the move by performing typeahead lookup
+			// Check if this is a library question
+			const library_id = question.library_id ||
+							   question.libraryQuestionId ||
+							   (question.ids?.master_id_path ? question.ids.master_id_path[question.ids.master_id_path.length - 1] : null) ||
+							   question.ids?.master_id ||
+							   null;
+
+			const isLibraryQuestion = question.isLibraryQuestion ||
+									 !!question.library_id ||
+									 !!(question.ids?.master_id_path && question.ids.master_id_path.length > 0) ||
+									 false;
+
+			if (!isLibraryQuestion || !library_id) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Cannot move question: Only library questions can be moved between sections. This appears to be a custom question.`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Show loading spinner
+			updateState({
+				movingQuestion: true,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: `Moving question "${question.label}" from "${sourceSectionLabel}" to "${targetSectionLabel}"...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Store move context for later steps
+			updateState({
+				pendingQuestionMovePreLookup: {
+					questionId,
+					sourceSectionId,
+					sourceSectionLabel,
+					targetSectionId,
+					targetSectionLabel,
+					question,
+					library_id,
+					isLibraryQuestion
+				}
+			});
+
+			// Perform typeahead lookup to get exact library question
+			const typeaheadRequestBody = JSON.stringify({
+				contentType: 'question',
+				searchText: question.label
+			});
+
+			dispatch('MAKE_GENERIC_TYPEAHEAD_REQUEST', {
+				requestBody: typeaheadRequestBody,
+				meta: {contentType: 'question_move', questionLabel: question.label}
+			});
+		},
+
+		'SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_ERROR': (coeffects) => {
+			const {action, updateState, state} = coeffects;
+			console.error('Failed to fetch section questions for duplicate check:', action.payload);
+
+			updateState({
+				pendingQuestionMoveForDuplicateCheck: null,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: `Failed to check for duplicates: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
 				]
@@ -9632,9 +9880,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_PROBLEM_BUNDLE': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			console.log('SAVE_PROBLEM_BUNDLE called!');
-			console.log('problemId:', action.payload.problemId);
-			console.log('problemLabel:', action.payload.problemLabel);
 			const {problemId, problemLabel} = action.payload;
 
 			// Store problemLabel in state for success handler
@@ -9746,8 +9991,8 @@ createCustomElement('cadal-careiq-builder', {
 					return; // Stop the save process
 				}
 
-				// PRE-SAVE LIBRARY DETECTION: Check if this matches a library question for Single/Multiselect types
-				if ((question.type === 'Single Select' || question.type === 'Multiselect') && !question.isLibraryQuestion) {
+				// PRE-SAVE LIBRARY DETECTION: Check if this matches a library question for ALL types
+				if (!question.isLibraryQuestion) {
 					// Store context for library search and trigger pre-save check
 					updateState({
 						preSaveQuestionContext: {
@@ -9777,19 +10022,26 @@ createCustomElement('cadal-careiq-builder', {
 				// New question - use new 2-step process
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
+					const questionData = {
+						label: question.label,
+						type: question.type,
+						required: question.required,
+						tooltip: question.tooltip || '',
+						voice: question.voice || 'CaseManager',
+						sort_order: question.sort_order,
+						alternative_wording: '',
+						custom_attributes: {},
+						available: false,
+						has_quality_measures: false
+					};
+
+					// Add library_id for library questions
+					if (question.isLibraryQuestion && (question.libraryQuestionId || question.library_id)) {
+						questionData.library_id = question.libraryQuestionId || question.library_id;
+					}
+
 					dispatch('ADD_QUESTION_TO_SECTION_API', {
-						questionData: {
-							label: question.label,
-							type: question.type,
-							required: question.required,
-							tooltip: question.tooltip || '',
-							voice: question.voice || 'CaseManager',
-							sort_order: question.sort_order,
-							alternative_wording: '',
-							custom_attributes: {},
-							available: false,
-							has_quality_measures: false
-						},
+						questionData: questionData,
 						sectionId: state.selectedSection
 					});
 				} else if (question.type === 'Single Select' || question.type === 'Multiselect') {
@@ -9812,8 +10064,8 @@ createCustomElement('cadal-careiq-builder', {
 					};
 
 					// Add library_id for library questions
-					if (question.isLibraryQuestion && question.libraryQuestionId) {
-						questionData.library_id = question.libraryQuestionId;
+					if (question.isLibraryQuestion && (question.libraryQuestionId || question.library_id)) {
+						questionData.library_id = question.libraryQuestionId || question.library_id;
 					}
 
 					dispatch('ADD_QUESTION_TO_SECTION_API', {
@@ -10057,9 +10309,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			console.log('=== ADD_BRANCH_QUESTION_SUCCESS ===');
-			console.log('action.meta:', action.meta);
-			console.log('action.payload:', action.payload);
 
 			// Check if backend returned an error in the payload (returns 200 but with error detail)
 			// Errors contain messages like "answer do not belong", "failed", etc.
@@ -10101,20 +10350,17 @@ createCustomElement('cadal-careiq-builder', {
 				// The answerId should be in the original request that triggered this success
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
-					console.log('Got answerId from action.meta:', answerId);
 				} else {
 					// Fallback: look for the currently opened relationship panel
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
 						answerId = openPanels[0]; // Use the first open panel
-						console.log('Got answerId from fallback:', answerId);
 					}
 				}
 			} catch (e) {
 				console.error('Error extracting answerId:', e);
 			}
 
-			console.log('Final answerId:', answerId);
 
 			// Clear relationship changes and show success message
 			const successMessage = {
@@ -10138,7 +10384,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
 			if (answerId) {
-				console.log('Dispatching LOAD_ANSWER_RELATIONSHIPS with answerId:', answerId);
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
@@ -10150,9 +10395,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
-			console.log('=== ADD_BRANCH_QUESTION_ERROR ===');
-			console.log('action.payload:', action.payload);
-			console.log('action.meta:', action.meta);
 
 			const errorMessage = {
 				type: 'error',
@@ -12557,19 +12799,13 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if this is an answer duplicate check during save
 			const answerContext = action.meta?.answerContext || state.answerDuplicateCheckContext;
-			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Answer Context:', answerContext);
-			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Pending Answers to Check:', state.pendingAnswersToCheck);
-			console.log('DANNY: GENERIC_TYPEAHEAD_SUCCESS - Results:', results);
 
 			if (answerContext && state.pendingAnswersToCheck) {
-				console.log('DANNY: This is an answer duplicate check');
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
-				console.log('DANNY: Exact match found?', exactMatch);
 
 				if (exactMatch) {
 					// Found library match! Update the answer with library_id
-					console.log('DANNY: Library match found! Adding library_id to answer:', exactMatch.id);
 
 					// Find the answer in pendingAnswersToCheck and add library_id
 					const updatedAnswersToCheck = state.pendingAnswersToCheck.map(answer => {
@@ -12603,7 +12839,6 @@ createCustomElement('cadal-careiq-builder', {
 					return;
 				} else {
 					// No duplicate, check next answer
-					console.log('DANNY: No duplicate, checking next answer');
 					const nextIndex = (state.pendingAnswersCheckIndex || 0) + 1;
 					updateState({
 						pendingAnswersCheckIndex: nextIndex,
@@ -12764,7 +12999,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// Check if this is a pre-save exact match check for questions
-			if (preSaveQuestionContext && preSaveQuestionContext.isPreSaveCheck) {
+		if (preSaveQuestionContext && preSaveQuestionContext.isPreSaveCheck) {
 				// Look for exact match
 				const exactMatch = results.find(result => result.exact_match === true);
 
@@ -12811,6 +13046,21 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				return; // Exit early - this was a pre-save check, not a UI typeahead
+			}
+
+			// Check if this is a question move operation (lookup before move)
+			const pendingQuestionMovePreLookup = state.pendingQuestionMovePreLookup;
+			if (pendingQuestionMovePreLookup) {
+				// Look for exact match to get library_id
+				const exactMatch = results.find(result => result.exact_match === true);
+				const libraryId = exactMatch ? (exactMatch.id || exactMatch.master_id) : null;
+
+				// Continue with the move using the library_id
+				dispatch('CONTINUE_QUESTION_MOVE_AFTER_LOOKUP', {
+					libraryId: libraryId
+				});
+
+				return; // Exit early - this was a move lookup, not a UI typeahead
 			}
 
 			// Check if this is a pre-save exact match check for sections
@@ -12971,21 +13221,15 @@ createCustomElement('cadal-careiq-builder', {
 				// DON'T clear context - let it be cleared by blur/escape events like goals/interventions
 			} else if (answerSearchContext && answerSearchContext.contentType === 'answer') {
 				// Answer typeahead using generic endpoint with stored context pattern
-				console.log('=== ANSWER TYPEAHEAD SUCCESS ===');
-				console.log('answerSearchContext:', answerSearchContext);
-				console.log('relationshipPanelOpen:', state.relationshipPanelOpen);
-				console.log('relationshipTypeaheadLoading:', state.relationshipTypeaheadLoading);
 				// Apply same filtering logic as original ANSWER_SEARCH_SUCCESS
 				if (state.relationshipPanelOpen && state.relationshipTypeaheadLoading) {
 					// This is for relationship modal - use relationship typeahead state
-					console.log('Setting relationship typeahead results');
 					updateState({
 						relationshipTypeaheadResults: results,
 						relationshipTypeaheadLoading: false
 					});
 				} else {
 					// Regular answer typeahead (not in relationship modal)
-					console.log('Setting regular answer typeahead results');
 					updateState({
 						answerTypeaheadResults: results,
 						answerTypeaheadLoading: false,
@@ -12994,8 +13238,6 @@ createCustomElement('cadal-careiq-builder', {
 				}
 				// DON'T clear context - let it be cleared by blur/escape events like goals/interventions/questions
 			} else {
-				console.log('=== GENERIC_TYPEAHEAD_SUCCESS - NO MATCH ===');
-				console.log('answerSearchContext:', answerSearchContext);
 				// Default to relationship typeahead (orphaned responses with cleared context)
 				// NOTE: Do NOT touch answerTypeaheadLoading here - answer might still be in flight
 				updateState({
@@ -13008,14 +13250,9 @@ createCustomElement('cadal-careiq-builder', {
 		'GENERIC_TYPEAHEAD_ERROR': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			console.log('DANNY: GENERIC_TYPEAHEAD_ERROR called');
-			console.log('DANNY: Error payload:', action.payload);
-			console.log('DANNY: answerDuplicateCheckContext:', state.answerDuplicateCheckContext);
-			console.log('DANNY: pendingAnswersToCheck:', state.pendingAnswersToCheck);
 
 			// Check if this was an answer duplicate check
 			if (state.answerDuplicateCheckContext && state.pendingAnswersToCheck) {
-				console.log('DANNY: Error during answer duplicate check - aborting');
 				updateState({
 					pendingAnswersToCheck: null,
 					pendingAnswersCheckIndex: null,
@@ -13260,16 +13497,14 @@ createCustomElement('cadal-careiq-builder', {
 					library_id: answer.master_id || answer.id // CRITICAL: Use library_id field name for consistency
 				}));
 
-			// Clear pre-save context before dispatching
+			// Clear pre-save context
 			updateState({
 				preSaveLibraryContext: null
 			});
 
-				dispatch('ADD_QUESTION_TO_SECTION_API', {
-					questionData: questionData,
-					sectionId: sectionId,
-					// Include all library answers for step 2
-					pendingAnswers: processedLibraryAnswers
+				// CRITICAL: Now re-dispatch SAVE_QUESTION_IMMEDIATELY which will pick up the library flags
+				dispatch('SAVE_QUESTION_IMMEDIATELY', {
+					questionId: questionId
 				});
 
 				return; // Exit early for pre-save operations
@@ -14173,17 +14408,12 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
 
-			console.log('=== ADD_BRANCH_QUESTION ===');
-			console.log('answerId:', answerId);
-			console.log('questionId:', questionId);
-			console.log('questionLabel:', questionLabel);
 
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
 			});
 
-			console.log('requestBody:', requestBody);
 
 			dispatch('MAKE_ADD_BRANCH_QUESTION_REQUEST', {
 				requestBody: requestBody,
@@ -15802,9 +16032,211 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DRAG_SECTION_LEAVE': (coeffects) => {
 			const {updateState} = coeffects;
-			
+
 			updateState({
 				dragOverSection: null
+			});
+		},
+
+		'DRAG_QUESTION_OVER_SECTION': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {sectionId} = action.payload;
+
+			updateState({
+				dragOverSection: sectionId
+			});
+		},
+
+		'DRAG_QUESTION_LEAVE_SECTION': (coeffects) => {
+			const {updateState} = coeffects;
+
+			updateState({
+				dragOverSection: null
+			});
+		},
+
+		'MOVE_QUESTION_TO_SECTION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {
+				questionId,
+				sourceSectionId,
+				sourceSectionLabel,
+				targetSectionId,
+				targetSectionLabel,
+				question
+			} = action.payload;
+
+			// CRITICAL: Check if question already exists in target section
+			// If target section is currently selected, check currentQuestions
+			let targetSectionQuestions = [];
+			if (targetSectionId === state.selectedSection && state.currentQuestions) {
+				targetSectionQuestions = state.currentQuestions.questions || [];
+			}
+
+			const questionLabelLower = question.label.toLowerCase().trim();
+			const duplicateInTarget = targetSectionQuestions.find(q =>
+				q.label.toLowerCase().trim() === questionLabelLower
+			);
+
+			if (duplicateInTarget) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Question "${question.label}" already exists in "${targetSectionLabel}". Cannot move duplicate questions to the same section.`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Stop the move operation
+			}
+
+			// If target section is NOT currently selected, we need to fetch its questions first to check for duplicates
+			if (targetSectionId !== state.selectedSection) {
+				// Store move request and fetch target section questions first
+				updateState({
+					pendingQuestionMoveForDuplicateCheck: {
+						questionId,
+						sourceSectionId,
+						sourceSectionLabel,
+						targetSectionId,
+						targetSectionLabel,
+						question
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'loading',
+							message: `Checking "${targetSectionLabel}" for duplicates...`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Fetch target section questions to check for duplicates
+				dispatch('FETCH_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK', {
+					sectionId: targetSectionId,
+					sectionLabel: targetSectionLabel
+				});
+				return; // Wait for questions to load, then continue in success handler
+			}
+
+			// Show loading message and spinner
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: `Moving "${question.label}" to "${targetSectionLabel}"...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				movingQuestion: true,  // Show loading overlay
+				// Store move context for typeahead success handler
+				pendingQuestionMovePreLookup: {
+					questionId,
+					sourceSectionId,
+					sourceSectionLabel,
+					targetSectionId,
+					targetSectionLabel,
+					question
+				}
+			});
+
+			// Step 1: Search typeahead to get library_id if it exists
+			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
+				searchText: question.label,
+				type: 'question',
+				isQuestionMove: true  // Flag to identify this as a move operation
+			});
+		},
+
+		'CONTINUE_QUESTION_MOVE_AFTER_LOOKUP': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {libraryId} = action.payload;
+			const moveContext = state.pendingQuestionMovePreLookup;
+
+			if (!moveContext) {
+				console.error('No pending move context found');
+				return;
+			}
+
+			// DEBUG: Check if libraryId is actually set
+			if (!libraryId) {
+				console.error('CRITICAL: No libraryId found from typeahead! Question:', moveContext.question.label);
+				updateState({
+					movingQuestion: false,
+					pendingQuestionMovePreLookup: null,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Failed to find library ID for question "${moveContext.question.label}". Cannot move.`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			const {questionId, sourceSectionId, sourceSectionLabel, targetSectionId, targetSectionLabel, question} = moveContext;
+
+			// Update message
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: `Moving question "${question.label}" from "${sourceSectionLabel}" to "${targetSectionLabel}"...`,
+						timestamp: new Date().toISOString()
+					}
+				],
+				pendingQuestionMovePreLookup: null  // Clear pre-lookup context
+			});
+
+			// Get the highest sort_order in the target section
+			const targetSectionQuestions = state.sectionQuestions?.[targetSectionId] || [];
+			const maxSortOrder = targetSectionQuestions.length > 0
+				? Math.max(...targetSectionQuestions.map(q => q.sort_order || 0))
+				: 0;
+			const newSortOrder = maxSortOrder + 1;
+
+			// Prepare question data for ADD_QUESTION_TO_SECTION_API
+			const questionData = {
+				label: question.label,
+				type: question.type,
+				tooltip: question.tooltip || '',
+				alternative_wording: question.alternative_wording || '',
+				sort_order: newSortOrder,
+				custom_attributes: question.custom_attributes || {},
+				voice: question.voice || 'CaseManager',
+				required: question.required || false,
+				available: question.available || false,
+				has_quality_measures: question.has_quality_measures || false,
+				library_id: libraryId || null  // Use the library_id from typeahead lookup
+			};
+
+
+			// Store the move context for the success handler
+			updateState({
+				pendingQuestionMove: {
+					questionId,
+					sourceSectionId,
+					sourceSectionLabel,
+					targetSectionId,
+					targetSectionLabel,
+					question,
+					answers: question.answers || []
+				}
+			});
+
+			// Step 1: Add question to target section using ADD_QUESTION_TO_SECTION_API
+			// This will properly handle library questions with minimal payload
+			dispatch('ADD_QUESTION_TO_SECTION_API', {
+				questionData: questionData,
+				sectionId: targetSectionId,
+				pendingAnswers: question.answers || []
 			});
 		},
 
@@ -16360,8 +16792,6 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_ALL_CHANGES': async (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 
-			console.log('=== SAVE_ALL_CHANGES called ===');
-			console.log('Current selectedSection:', state.selectedSection);
 
 			//
 			//
@@ -16381,9 +16811,6 @@ createCustomElement('cadal-careiq-builder', {
 			const answerChanges = Object.keys(answerChangesData);
 			const relationshipChanges = Object.keys(relationshipChangesData);
 
-			console.log('questionChanges count:', questionChanges.length);
-			console.log('questionChanges IDs:', questionChanges);
-			console.log('questionChangesData:', questionChangesData);
 
 			// DEBUG: Log what we captured
 			// FIRST: Run all validations before clearing change tracking or performing saves
@@ -16412,8 +16839,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Validate for duplicate answers within questions being saved
 			// Check ALL questions that have answer changes
 			if (answerChanges.length > 0 && state.currentQuestions?.questions) {
-				console.log('DANNY: Checking for duplicate answers within questions...');
-				console.log('DANNY: answerChanges count:', answerChanges.length);
 
 				// Build set of unique question IDs that have answer changes
 				const questionIdsWithAnswerChanges = new Set();
@@ -16440,26 +16865,21 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 
-				console.log('DANNY: Questions with answer changes:', Array.from(questionIdsWithAnswerChanges));
 
 				// Check each question for duplicate answers (within same question)
 				questionIdsWithAnswerChanges.forEach(questionId => {
 					const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
 
-					console.log('DANNY: Checking question:', questionId, 'found:', !!currentQuestion);
 
 					if (currentQuestion && currentQuestion.answers && currentQuestion.answers.length > 0) {
 						const answerLabels = [];
 						const duplicatesFound = [];
 
-						console.log('DANNY: Question has', currentQuestion.answers.length, 'answers');
-						console.log('DANNY: Answer labels:', currentQuestion.answers.map(a => a.label));
 
 						currentQuestion.answers.forEach(answer => {
 							const trimmedLabel = answer.label.toLowerCase().trim();
 							if (answerLabels.includes(trimmedLabel)) {
 								// This is a duplicate within the same question
-								console.log('DANNY: DUPLICATE ANSWER FOUND:', answer.label);
 								if (!duplicatesFound.includes(answer.label)) {
 									duplicatesFound.push(answer.label);
 								}
@@ -16469,7 +16889,6 @@ createCustomElement('cadal-careiq-builder', {
 						});
 
 						if (duplicatesFound.length > 0) {
-							console.log('DANNY: Adding validation error for duplicate answers:', duplicatesFound);
 							validationErrors.push(`Question "${currentQuestion.label}" has duplicate answers: ${duplicatesFound.join(', ')}`);
 						}
 					}
@@ -16481,14 +16900,10 @@ createCustomElement('cadal-careiq-builder', {
 				const answersToCheck = [];
 
 				if (!state.answerDuplicateCheckCompleted) {
-					console.log('DANNY: Checking for answers to validate...');
-					console.log('DANNY: answerChanges:', state.answerChanges);
 
 					// Only check NEW answers (action: 'add' OR temp ID with 'update') for library matches
 					Object.keys(state.answerChanges || {}).forEach(answerId => {
 						const answerChange = state.answerChanges[answerId];
-						console.log('DANNY: Checking answerId:', answerId, 'answerChange:', answerChange);
-						console.log('DANNY: answerChange.action:', answerChange?.action);
 
 						// Check answers that are being added OR are temp answers being updated (new answers that were edited)
 						const isNewAnswer = answerChange && (answerChange.action === 'add' || (answerChange.action === 'update' && answerId.startsWith('temp_')));
@@ -16497,7 +16912,6 @@ createCustomElement('cadal-careiq-builder', {
 							const questionId = answerChange.questionId;
 							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
 
-							console.log('DANNY: Answer action is ADD, questionId:', questionId, 'currentQuestion found:', !!currentQuestion);
 
 							if (currentQuestion) {
 								answersToCheck.push({
@@ -16506,17 +16920,14 @@ createCustomElement('cadal-careiq-builder', {
 									answerLabel: answerChange.label,
 									answerId: answerId // Store answerId for later matching
 								});
-								console.log('DANNY: Added answer to check list:', answerChange.label);
 							}
 						}
 					});
 
-					console.log('DANNY: Total answers to check:', answersToCheck.length);
 				}
 
 				// If we have answers to check, dispatch check action and pause save
 				if (answersToCheck.length > 0 && !state.answerDuplicateCheckCompleted) {
-					console.log('DANNY: Setting up answer duplicate checking for', answersToCheck.length, 'answers');
 					updateState({
 						pendingAnswersToCheck: answersToCheck,
 						pendingAnswersCheckIndex: 0,
@@ -16541,13 +16952,9 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check for duplicate questions BEFORE clearing state
 			if (questionChanges.length > 0) {
-				console.log('DANNY: Checking for duplicate questions...');
-				console.log('DANNY: questionChanges:', questionChanges);
-				console.log('DANNY: Current questions in section:', state.currentQuestions?.questions?.map(q => q.label));
 
 				questionChanges.forEach(questionId => {
 					const questionData = questionChangesData[questionId];
-					console.log('DANNY: Checking question:', questionId, 'action:', questionData.action, 'label:', questionData.label);
 
 					// Check for duplicate questions - applies to 'add' and 'library_replace' actions
 					if (questionData.action === 'add' || questionData.action === 'library_replace') {
@@ -16563,18 +16970,14 @@ createCustomElement('cadal-careiq-builder', {
 						}
 
 						const currentQuestionLabel = questionData.label.toLowerCase().trim();
-						console.log('DANNY: Comparing:', currentQuestionLabel, 'against existing:', existingQuestions);
 
 						if (existingQuestions.includes(currentQuestionLabel)) {
-							console.log('DANNY: DUPLICATE FOUND!', questionData.label);
 							validationErrors.push(`Question "${questionData.label}" already exists in this section. Please use a different name.`);
 						}
 					}
 				});
 			}
 
-			console.log('DANNY: Total validation errors found:', validationErrors.length);
-			console.log('DANNY: Validation errors:', validationErrors);
 
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
 			if (validationErrors.length > 0) {
@@ -16699,7 +17102,6 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionChanges.length > 0) {
 				questionChanges.forEach(questionId => {
 					const questionData = questionChangesData[questionId];
-					console.log('Saving question:', questionId, 'with sectionId:', questionData.sectionId, 'section_id:', questionData.section_id, 'current selectedSection:', state.selectedSection);
 					// Handle new questions with ADD API
 					if (questionData.action === 'add') {
 						// CORRECT IMPLEMENTATION: 2-step process (add question to section, then add answers)
@@ -17018,13 +17420,9 @@ createCustomElement('cadal-careiq-builder', {
 			const answersToCheck = state.pendingAnswersToCheck || [];
 			const currentIndex = state.pendingAnswersCheckIndex || 0;
 
-			console.log('DANNY: CHECK_NEXT_ANSWER_FOR_DUPLICATE');
-			console.log('DANNY: Answers to check:', answersToCheck);
-			console.log('DANNY: Current index:', currentIndex);
 
 			if (currentIndex >= answersToCheck.length) {
 				// All answers checked, no duplicates found - continue with save
-				console.log('DANNY: All answers checked, resuming save');
 
 				// CRITICAL: Store answers before clearing, then clear state before resume
 				const finalAnswersToTransfer = answersToCheck;
@@ -17054,7 +17452,6 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const answerToCheck = answersToCheck[currentIndex];
-			console.log('DANNY: Checking answer:', answerToCheck);
 
 			// Store context in state for SUCCESS handler
 			updateState({
@@ -17062,7 +17459,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Call answer typeahead to check for exact match
-			console.log('DANNY: Dispatching GENERIC_TYPEAHEAD_SEARCH for answer:', answerToCheck.answerLabel);
 			dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 				searchText: answerToCheck.answerLabel,
 				type: 'answer',
@@ -17073,12 +17469,10 @@ createCustomElement('cadal-careiq-builder', {
 		'RESUME_SAVE_AFTER_ANSWER_CHECK': (coeffects) => {
 			const {state, dispatch, updateState} = coeffects;
 
-			console.log('DANNY: RESUME_SAVE_AFTER_ANSWER_CHECK called');
 
 			// Transfer library_id from answersToTransferLibraryIds to actual question answers
 			// This was stored before clearing pendingAnswersToCheck
 			const answersToCheck = state.answersToTransferLibraryIds || [];
-			console.log('DANNY: Answers with library IDs to transfer:', answersToCheck);
 
 			if (answersToCheck.length > 0 && state.currentQuestions?.questions) {
 				// Update questions with library_id for matched answers
@@ -17091,7 +17485,6 @@ createCustomElement('cadal-careiq-builder', {
 						const updatedAnswers = question.answers.map(answer => {
 							const matchedAnswer = answersForThisQuestion.find(a => a.answerLabel === answer.label);
 							if (matchedAnswer && matchedAnswer.library_id) {
-								console.log('DANNY: Adding library_id', matchedAnswer.library_id, 'to answer:', answer.label);
 								return {
 									...answer,
 									library_id: matchedAnswer.library_id,
@@ -17121,7 +17514,6 @@ createCustomElement('cadal-careiq-builder', {
 								library_id: checkedAnswer.library_id,
 								isLibraryAnswer: true
 							};
-							console.log('DANNY: Updated answerChanges with library_id for answerId:', checkedAnswer.answerId);
 						}
 					}
 				});
@@ -17200,14 +17592,39 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {questionData, sectionId, pendingAnswers} = action.payload;
 
-			console.log('DANNY: ADD_QUESTION_TO_SECTION_API Called');
-			console.log('DANNY: Question Data:', questionData);
-			console.log('DANNY: Section ID:', sectionId);
-			console.log('DANNY: Pending Answers:', pendingAnswers);
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				pendingAnswers.forEach((ans, idx) => {
-					console.log(`DANNY: Answer ${idx}:`, ans.label, 'library_id:', ans.library_id, 'isLibraryAnswer:', ans.isLibraryAnswer);
 				});
+			}
+
+			// CRITICAL: For library questions, use minimal payload (only sort_order and library_id)
+			let requestBodyData;
+			if (questionData.library_id) {
+				requestBodyData = {
+					sectionId: sectionId,
+					sort_order: questionData.sort_order,
+					library_id: questionData.library_id
+				};
+			} else {
+				// Regular question - use full payload
+				requestBodyData = {
+					sectionId: sectionId,
+					label: questionData.label,
+					type: questionData.type,
+					tooltip: questionData.tooltip || '',
+					alternative_wording: questionData.alternative_wording || '',
+					sort_order: questionData.sort_order,
+					custom_attributes: questionData.custom_attributes || {},
+					voice: questionData.voice || 'CaseManager',
+					required: questionData.required || false,
+					available: questionData.available || false,
+					has_quality_measures: questionData.has_quality_measures || false
+				};
+
+				// Add library_id for library questions
+				if (questionData.library_id) {
+					requestBodyData.library_id = questionData.library_id;
+				}
 			}
 
 			// Store question metadata for bundle creation decision
@@ -17249,29 +17666,9 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 
-			// Send fields directly - ServiceNow adds data wrapper automatically
-			const requestBodyData = {
-				sectionId: sectionId,
-				label: questionData.label,
-				type: questionData.type,
-				tooltip: questionData.tooltip || '',
-				alternative_wording: questionData.alternative_wording || '',
-				sort_order: questionData.sort_order,
-				custom_attributes: questionData.custom_attributes || {},
-				voice: questionData.voice || 'CaseManager',
-				required: questionData.required || false,
-				available: questionData.available || false,
-				has_quality_measures: questionData.has_quality_measures || false
-			};
-
-			// Add library_id for library questions
-			if (questionData.library_id) {
-				requestBodyData.library_id = questionData.library_id;
-			}
 
 			const requestBody = JSON.stringify(requestBodyData);
 
-			console.log('DANNY: Request Body to Backend:', JSON.parse(requestBody));
 
 			dispatch('MAKE_ADD_QUESTION_TO_SECTION_REQUEST', {requestBody: requestBody});
 		},
@@ -17420,8 +17817,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {questionData} = action.payload;
 			const questionId = questionData.questionId;
 
-			console.log('[UPDATE_QUESTION_API] Called for questionId:', questionId);
-			console.log('[UPDATE_QUESTION_API] lastSavedQuestionId:', state.lastSavedQuestionId);
 
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
@@ -17452,19 +17847,14 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
-			console.log('[UPDATE_QUESTION_SUCCESS] Called');
-			console.log('[UPDATE_QUESTION_SUCCESS] lastSavedQuestionId:', state.lastSavedQuestionId);
-			console.log('[UPDATE_QUESTION_SUCCESS] questionChanges before:', state.questionChanges);
 
 			// Clear questionChanges for the saved question
 			const questionId = state.lastSavedQuestionId;
 			const updatedQuestionChanges = {...state.questionChanges};
 			if (questionId && updatedQuestionChanges[questionId]) {
 				delete updatedQuestionChanges[questionId];
-				console.log('[UPDATE_QUESTION_SUCCESS] Cleared questionId:', questionId);
 			}
 
-			console.log('[UPDATE_QUESTION_SUCCESS] questionChanges after:', updatedQuestionChanges);
 
 			// Just show success message - no refresh needed
 			// CRITICAL: Force UI re-render by updating renderKey
@@ -17699,10 +18089,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'CREATE_PROBLEM_BUNDLE_SUCCESS': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			console.log('CREATE_PROBLEM_BUNDLE_SUCCESS called!');
-			console.log('Action:', action);
-			console.log('Meta:', action.meta);
-			console.log('Payload:', action.payload);
 			const problemLabel = state.currentProblemBundleLabel || 'Problem';
 
 			updateState({
@@ -17745,8 +18131,6 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_QUESTION_TO_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			console.log('DANNY: ADD_QUESTION_TO_SECTION_SUCCESS Called');
-			console.log('DANNY: Backend Response:', action.payload);
 
 			// Handle different response formats
 			let newQuestionId = action.payload.id;
@@ -17757,6 +18141,123 @@ createCustomElement('cadal-careiq-builder', {
 				isLibraryResponse = true;
 				// For library questions, we might need to generate a temporary ID or handle differently
 				// The backend should still provide some way to identify the created question
+			}
+
+			// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+			if (state.pendingQuestionMove) {
+				const moveContext = state.pendingQuestionMove;
+
+				// If this is a library question response (no new ID), it means the question
+				// and its answers are already in the library, so we can skip adding answers
+				// and proceed directly to delete from source
+				if (isLibraryResponse || !newQuestionId) {
+
+					// Show the backend detail message if available
+					const backendMessage = action.payload.detail || 'Library question added';
+
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: backendMessage,
+								timestamp: new Date().toISOString()
+							},
+							{
+								type: 'loading',
+								message: `Removing from "${moveContext.sourceSectionLabel}"...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					const deleteRequestBody = JSON.stringify({
+						region: state.careiqConfig.region,
+						version: state.careiqConfig.version,
+						accessToken: state.accessToken,
+						app: state.careiqConfig.app,
+						questionId: moveContext.questionId
+					});
+
+					dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: deleteRequestBody});
+					return;
+				}
+
+				// Store the new question ID for the delete operation
+				updateState({
+					pendingQuestionMove: {
+						...moveContext,
+						newQuestionId: newQuestionId
+					}
+				});
+
+				// If there are answers, add them to the new question
+				if (moveContext.answers && moveContext.answers.length > 0 &&
+					(moveContext.question.type === 'Single Select' || moveContext.question.type === 'Multiselect')) {
+
+					// Transform answers to match API format
+					const answersForAPI = moveContext.answers.map((answer, index) => {
+						const apiAnswer = {
+							sort_order: answer.sort_order || index,
+							label: answer.label,
+							tooltip: answer.tooltip || '',
+							alternative_wording: '',
+							secondary_input_type: answer.secondary_input_type || null,
+							mutually_exclusive: answer.mutually_exclusive || false,
+							custom_attributes: {},
+							required: false
+						};
+						// Include library_id if this is a library answer
+						if (answer.library_id) {
+							apiAnswer.library_id = answer.library_id;
+						}
+						return apiAnswer;
+					});
+
+					const requestBody = JSON.stringify({
+						questionId: newQuestionId,
+						guideline_template_id: state.currentAssessmentId,
+						answers: answersForAPI
+					});
+
+					// Update message
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'loading',
+								message: `Question added to "${moveContext.targetSectionLabel}". Adding ${answersForAPI.length} answers...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
+					return; // Handler will continue in ADD_ANSWERS_TO_QUESTION_SUCCESS
+				} else {
+					// No answers to add, proceed directly to delete
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'loading',
+								message: `Question added to "${moveContext.targetSectionLabel}". Removing from "${moveContext.sourceSectionLabel}"...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					const deleteRequestBody = JSON.stringify({
+						region: state.careiqConfig.region,
+						version: state.careiqConfig.version,
+						accessToken: state.accessToken,
+						app: state.careiqConfig.app,
+						questionId: moveContext.questionId
+					});
+
+					dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: deleteRequestBody});
+					return; // Handler will continue in DELETE_QUESTION_SUCCESS
+				}
 			}
 			// Find and update the temp question with the real ID locally
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
@@ -17778,8 +18279,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check if there are pending answers to add (for Single Select/Multiselect questions)
 			const pendingAnswers = state.pendingQuestionAnswers;
-			console.log('DANNY: Pending Answers from State:', pendingAnswers);
-			console.log('DANNY: New Question ID:', newQuestionId);
 			if (pendingAnswers && pendingAnswers.length > 0) {
 				// Handle library questions that might not return a real question ID
 				if (!newQuestionId && isLibraryResponse) {
@@ -17868,22 +18367,45 @@ createCustomElement('cadal-careiq-builder', {
 					pendingQuestionAnswers: null
 				});
 			} else {
-				// No answers to add, just update state
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					},
-					systemMessages: [
-					...(state.systemMessages || []),
-						
-						{
-							type: 'success',
-							message: 'Question added to section successfully! No refresh needed.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
+				// No answers to add
+				// Check if this is a library question (needs refresh to show properly)
+				if (isLibraryResponse && action.payload.detail) {
+					// Library question - show backend message and refresh
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: action.payload.detail,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Refresh the section to show the library question
+					if (state.selectedSection) {
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: state.selectedSection,
+							sectionLabel: state.selectedSectionLabel
+						});
+					}
+				} else {
+					// Regular question - just update state
+					updateState({
+						currentQuestions: {
+							...state.currentQuestions,
+							questions: updatedQuestions
+						},
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Question added to section successfully! No refresh needed.',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+				}
 			}
 		},
 
@@ -17894,9 +18416,11 @@ createCustomElement('cadal-careiq-builder', {
 			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to add question to section';
 
 			updateState({
+				movingQuestion: false,  // Clear loading spinner
+				pendingQuestionMove: null,  // Clear move context
 				systemMessages: [
 					...(state.systemMessages || []),
-					
+
 					{
 						type: 'error',
 						message: 'Error adding question to section: ' + errorMessage,
@@ -17908,6 +18432,36 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_ANSWERS_TO_QUESTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+			if (state.pendingQuestionMove) {
+				const moveContext = state.pendingQuestionMove;
+
+				// Update message
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'loading',
+							message: `Answers added successfully. Removing question from "${moveContext.sourceSectionLabel}"...`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Now delete the question from the source section
+				const deleteRequestBody = JSON.stringify({
+					region: state.careiqConfig.region,
+					version: state.careiqConfig.version,
+					accessToken: state.accessToken,
+					app: state.careiqConfig.app,
+					questionId: moveContext.questionId
+				});
+
+				dispatch('MAKE_DELETE_QUESTION_REQUEST', {requestBody: deleteRequestBody});
+				return; // Handler will continue in DELETE_QUESTION_SUCCESS
+			}
+
 			// The response should contain array of answer UUIDs
 			const newAnswerIds = action.payload;
 			// Handle different response types - success vs duplicate/warning
@@ -17939,11 +18493,8 @@ createCustomElement('cadal-careiq-builder', {
 			const metadata = state.pendingQuestionMetadata;
 			const questionId = state.lastCreatedQuestionId; // We'll need to track this
 
-			console.log('DANNY: Bundle Check - Metadata:', metadata);
-			console.log('DANNY: Bundle Check - Question ID:', questionId);
 
 			if (metadata && metadata.shouldCreateBundle && questionId) {
-				console.log('DANNY: Creating question bundle for question:', questionId);
 
 				// Create question bundle silently
 				const requestBody = JSON.stringify({
@@ -17968,6 +18519,8 @@ createCustomElement('cadal-careiq-builder', {
 			const errorMessage = action.payload?.detail || action.payload?.error || action.payload?.message || 'Failed to add answers to question';
 
 			updateState({
+				movingQuestion: false,  // Clear modal spinner if this was part of a move
+				pendingQuestionMove: null,  // Clear move context
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -18055,13 +18608,43 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_QUESTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const questionId = action.meta?.questionId;
 
 			// Clear loading state
 			const updatedDeletingQuestions = {...state.deletingQuestions};
 			if (questionId) {
 				delete updatedDeletingQuestions[questionId];
+			}
+
+			// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+			if (state.pendingQuestionMove) {
+				const moveContext = state.pendingQuestionMove;
+
+				// Store move context for SECTION_QUESTIONS_SUCCESS to use
+				// Don't change selected section yet - wait until refresh completes
+				updateState({
+					deletingQuestions: updatedDeletingQuestions,
+					pendingQuestionMove: null, // Clear the move context
+					questionMoveRefreshInProgress: moveContext,  // Store full context for success handler
+					// Keep movingQuestion: true during refresh
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: `Question "${moveContext.question.label}" moved successfully from "${moveContext.sourceSectionLabel}" to "${moveContext.targetSectionLabel}"!`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+
+				// Refresh target section
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: moveContext.targetSectionId,
+					sectionLabel: moveContext.targetSectionLabel
+				});
+
+				return;
 			}
 
 			// The question was already removed locally by DELETE_QUESTION handler
@@ -18091,11 +18674,13 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			console.error('Question delete error:', action.payload);
-			
+
 			const errorMessage = action.payload?.error || action.payload?.message || 'Failed to delete question';
-			
+
 			updateState({
 				deletingQuestions: updatedDeletingQuestions,
+				movingQuestion: false,  // Clear modal spinner if this was part of a move
+				pendingQuestionMove: null,  // Clear move context
 				systemMessages: [
 					...(state.systemMessages || []),
 

@@ -104,6 +104,15 @@ export const MAKE_SECTION_QUESTIONS_REQUEST = createHttpEffect('/api/x_cadal_car
 	errorActionType: 'SECTION_QUESTIONS_ERROR'
 });
 
+export const MAKE_SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_REQUEST = createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-section-questions', {
+	method: 'POST',
+	dataParam: 'requestBody',
+	headers: defaultHeaders,
+	startActionType: 'SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_START',
+	successActionType: 'SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_SUCCESS',
+	errorActionType: 'SECTION_QUESTIONS_FOR_DUPLICATE_CHECK_ERROR'
+});
+
 export const MAKE_DELETE_SECTION_REQUEST = createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-section', {
 	method: 'POST',
 	dataParam: 'requestBody',
