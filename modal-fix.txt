@@ -1,0 +1,23 @@
+MODAL STRUCTURE FIX:
+
+The PGI modal needs to be changed from a resizing modal to a fixed-size modal with scrollable content.
+
+Current structure (lines 7299-7627):
+- Modal div with padding: '24px', maxHeight: '80vh', overflow: 'auto'
+- Header div inside with marginBottom: '20px'
+- Content directly inside modal
+
+New structure needed:
+- Modal div with NO padding, height: '80vh' (not maxHeight), display: 'flex', flexDirection: 'column'
+- Header div with padding: '24px 24px 12px 24px', flexShrink: 0
+- NEW scrollable content wrapper div with flex: 1, overflow: 'auto', padding: '24px'
+- Content inside scrollable wrapper
+
+Changes required:
+1. Line 7302: Remove "padding: '24px',"
+2. Line 7304: Change "maxHeight: '80vh'," to "height: '80vh',"
+3. Line 7304: Add "width: '90vw',"
+4. After line 7306: Add "display: 'flex', flexDirection: 'column',"
+5. Line 7310-7316: Change header div style to include padding and flexShrink
+6. After line 7334 (after header closes): Add scrollable wrapper div
+7. Before line 7627 (before modal closes): Close scrollable wrapper div

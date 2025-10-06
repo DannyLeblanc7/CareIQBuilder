@@ -1,0 +1,272 @@
+									{/* Guidelines Section */}
+									{relationships.guidelines && relationships.guidelines.guidelines && relationships.guidelines.guidelines.length > 0 ? (
+										<div style={{marginBottom: '24px'}}>
+											<h4 style={{
+												fontSize: '16px',
+												fontWeight: '600',
+												color: '#1f2937',
+												marginBottom: '12px',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{
+													backgroundColor: '#dbeafe',
+													color: '#1e40af',
+													padding: '2px 8px',
+													borderRadius: '12px',
+													fontSize: '14px'
+												}}>
+													Guidelines ({relationships.guidelines.guidelines_quantity || 0})
+												</span>
+											</h4>
+											{relationships.guidelines.guidelines.map((guideline, gIndex) => (
+												<div key={gIndex} style={{
+													marginLeft: '16px',
+													padding: '12px',
+													backgroundColor: '#eff6ff',
+													borderLeft: '3px solid #3b82f6',
+													borderRadius: '4px',
+													marginBottom: '8px'
+												}}>
+													{guideline.name || guideline.label}
+												</div>
+											))}
+										</div>
+									) : null}
+
+									{/* Problems Section */}
+									{relationships.problems && relationships.problems.problems && relationships.problems.problems.length > 0 ? (
+										<div style={{marginBottom: '24px'}}>
+											<h4 style={{
+												fontSize: '16px',
+												fontWeight: '600',
+												color: '#1f2937',
+												marginBottom: '12px',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{
+													backgroundColor: '#fef3c7',
+													color: '#92400e',
+													padding: '2px 8px',
+													borderRadius: '12px',
+													fontSize: '14px'
+												}}>
+													Problems ({relationships.problems.problems_quantity || 0})
+												</span>
+											</h4>
+											{relationships.problems.problems.map((problem, pIndex) => {
+												const isExpanded = state.expandedProblems && state.expandedProblems[problem.id];
+												const goals = state.problemGoals && state.problemGoals[problem.id];
+												const goalsLoading = state.goalsLoading && state.goalsLoading[problem.id];
+												const goalCount = goals ? goals.length : (problem.goals_quantity || 0);
+
+												return (
+													<div key={pIndex} style={{
+														marginLeft: '16px',
+														marginBottom: '16px',
+														padding: '12px',
+														backgroundColor: '#fffbeb',
+														borderLeft: '3px solid #f59e0b',
+														borderRadius: '4px'
+													}}>
+														<div style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}
+															onclick={() => {
+																if (isExpanded) {
+																	updateState({
+																		expandedProblems: {
+																			...state.expandedProblems,
+																			[problem.id]: false
+																		}
+																	});
+																} else {
+																	updateState({
+																		expandedProblems: {
+																			...state.expandedProblems,
+																			[problem.id]: true
+																		}
+																	});
+																	if (!goals) {
+																		dispatch('LOAD_PROBLEM_GOALS', {
+																			problemId: problem.id,
+																			guidelineTemplateId: state.currentAssessmentId
+																		});
+																	}
+																}
+															}}
+														>
+															<span style={{fontSize: '12px', color: '#92400e'}}>
+																{isExpanded ? '▼' : '▶'}
+															</span>
+															<div style={{fontWeight: '500', flex: 1}}>
+																{problem.label || problem.name}
+															</div>
+															{goalCount > 0 && (
+																<span style={{
+																	fontSize: '12px',
+																	color: '#059669',
+																	backgroundColor: '#f0fdf4',
+																	padding: '2px 6px',
+																	borderRadius: '8px',
+																	fontWeight: '500'
+																}}>
+																	{goalCount} goal{goalCount !== 1 ? 's' : ''}
+																</span>
+															)}
+														</div>
+
+														{isExpanded && (
+															<div style={{marginLeft: '16px', marginTop: '12px'}}>
+																{goalsLoading ? (
+																	<div style={{padding: '8px', color: '#6b7280', fontSize: '13px'}}>
+																		⏳ Loading goals...
+																	</div>
+																) : goals && goals.length > 0 ? (
+																	goals.map((goal, gIndex) => {
+																		const isGoalExpanded = state.expandedGoals && state.expandedGoals[goal.id];
+																		const interventions = state.goalInterventions && state.goalInterventions[goal.id];
+																		const interventionsLoading = state.interventionsLoading && state.interventionsLoading[goal.id];
+																		const interventionCount = interventions ? interventions.length : (goal.interventions_quantity || 0);
+
+																		return (
+																			<div key={gIndex} style={{
+																				marginBottom: '12px',
+																				padding: '10px',
+																				backgroundColor: '#f0fdf4',
+																				borderLeft: '3px solid #10b981',
+																				borderRadius: '4px'
+																			}}>
+																				<div style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}
+																					onclick={() => {
+																						if (isGoalExpanded) {
+																							updateState({
+																								expandedGoals: {
+																									...state.expandedGoals,
+																									[goal.id]: false
+																								}
+																							});
+																						} else {
+																							updateState({
+																								expandedGoals: {
+																									...state.expandedGoals,
+																									[goal.id]: true
+																								}
+																							});
+																							if (!interventions) {
+																								dispatch('LOAD_GOAL_INTERVENTIONS', {
+																									goalId: goal.id,
+																									guidelineTemplateId: state.currentAssessmentId
+																								});
+																							}
+																						}
+																					}}
+																				>
+																					<span style={{fontSize: '11px', color: '#059669'}}>
+																						{isGoalExpanded ? '▼' : '▶'}
+																					</span>
+																					<div style={{fontWeight: '500', fontSize: '14px', flex: 1}}>
+																						{goal.label || goal.name}
+																					</div>
+																					{interventionCount > 0 && (
+																						<span style={{
+																							fontSize: '11px',
+																							color: '#3b82f6',
+																							backgroundColor: '#eff6ff',
+																							padding: '2px 6px',
+																							borderRadius: '8px',
+																							fontWeight: '500'
+																						}}>
+																							{interventionCount} intervention{interventionCount !== 1 ? 's' : ''}
+																						</span>
+																					)}
+																				</div>
+
+																				{isGoalExpanded && (
+																					<div style={{marginLeft: '16px', marginTop: '8px'}}>
+																						{interventionsLoading ? (
+																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px'}}>
+																								⏳ Loading interventions...
+																							</div>
+																						) : interventions && interventions.length > 0 ? (
+																							interventions.map((intervention, iIndex) => (
+																								<div key={iIndex} style={{
+																									padding: '8px',
+																									backgroundColor: '#eff6ff',
+																									borderLeft: '2px solid #3b82f6',
+																									borderRadius: '4px',
+																									marginBottom: '6px',
+																									fontSize: '13px'
+																								}}>
+																									{intervention.label || intervention.name}
+																								</div>
+																							))
+																						) : (
+																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px', fontStyle: 'italic'}}>
+																								No interventions found
+																							</div>
+																						)}
+																					</div>
+																				)}
+																			</div>
+																		);
+																	})
+																) : (
+																	<div style={{padding: '8px', color: '#6b7280', fontSize: '13px', fontStyle: 'italic'}}>
+																		No goals found
+																	</div>
+																)}
+															</div>
+														)}
+													</div>
+												);
+											})}
+										</div>
+									) : null}
+
+									{/* Barriers Section */}
+									{relationships.barriers && relationships.barriers.barriers && relationships.barriers.barriers.length > 0 ? (
+										<div style={{marginBottom: '24px'}}>
+											<h4 style={{
+												fontSize: '16px',
+												fontWeight: '600',
+												color: '#1f2937',
+												marginBottom: '12px',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{
+													backgroundColor: '#fee2e2',
+													color: '#991b1b',
+													padding: '2px 8px',
+													borderRadius: '12px',
+													fontSize: '14px'
+												}}>
+													Barriers ({relationships.barriers.barriers_quantity || 0})
+												</span>
+											</h4>
+											{relationships.barriers.barriers.map((barrier, bIndex) => (
+												<div key={bIndex} style={{
+													marginLeft: '16px',
+													padding: '12px',
+													backgroundColor: '#fef2f2',
+													borderLeft: '3px solid #ef4444',
+													borderRadius: '4px',
+													marginBottom: '8px'
+												}}>
+													{barrier.label || barrier.name}
+												</div>
+											))}
+										</div>
+									) : null}
+
+									{/* No PGI Message */}
+									{(!relationships.guidelines || !relationships.guidelines.guidelines || relationships.guidelines.guidelines.length === 0) &&
+									 (!relationships.problems || !relationships.problems.problems || relationships.problems.problems.length === 0) &&
+									 (!relationships.barriers || !relationships.barriers.barriers || relationships.barriers.barriers.length === 0) && (
+										<div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
+											No Guidelines, Problems, Goals, Interventions, or Barriers associated with this answer.
+										</div>
+									)}
