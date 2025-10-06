@@ -4158,7 +4158,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Guideline Name */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Guideline - Name *
+									Guideline Name <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -4177,7 +4177,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Use Case Category */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Use Case Category
+									Use Case Category <span style={{color: 'red'}}>*</span>
 								</label>
 								<select
 									value={state.newAssessmentForm.useCaseCategory}
@@ -4206,10 +4206,10 @@ const view = (state, {updateState, dispatch}) => {
 								</select>
 							</div>
 
-							{/* Type */}
+							{/* Usage (formerly Type) */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Type
+									Usage <span style={{color: 'red'}}>*</span>
 								</label>
 								<select
 									value={state.newAssessmentForm.type}
@@ -4231,7 +4231,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Content Source */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Content Source
+									Content Source <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -4250,7 +4250,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Code/Policy Number */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Code/Policy Number
+									Code/Policy Number <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -7609,6 +7609,92 @@ const view = (state, {updateState, dispatch}) => {
 				);
 			})()}
 
+			{/* Confirmation Dialog for Unsaved Changes */}
+			{state.confirmationDialogOpen && (
+				<div style={{
+					position: 'fixed',
+					top: 0,
+					left: 0,
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0, 0, 0, 0.5)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: 10000
+				}}
+				onclick={(e) => {
+					if (e.target === e.currentTarget) {
+						dispatch('CANCEL_DIALOG_ACTION');
+					}
+				}}
+				>
+					<div style={{
+						backgroundColor: 'white',
+						borderRadius: '8px',
+						padding: '24px',
+						maxWidth: '500px',
+						width: '90%',
+						boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+					}}
+					onclick={(e) => e.stopPropagation()}
+					>
+						<h3 style={{
+							margin: '0 0 16px 0',
+							fontSize: '18px',
+							fontWeight: '600',
+							color: '#dc2626'
+						}}>
+							⚠️ Unsaved Changes
+						</h3>
+						<p style={{
+							margin: '0 0 24px 0',
+							fontSize: '14px',
+							color: '#4b5563',
+							lineHeight: '1.5'
+						}}>
+							{state.confirmationDialogMessage}
+						</p>
+						<div style={{
+							display: 'flex',
+							gap: '12px',
+							justifyContent: 'flex-end'
+						}}>
+							<button
+								onclick={() => dispatch('CANCEL_DIALOG_ACTION')}
+								style={{
+									padding: '8px 16px',
+									backgroundColor: '#f3f4f6',
+									color: '#374151',
+									border: 'none',
+									borderRadius: '4px',
+									fontSize: '14px',
+									fontWeight: '500',
+									cursor: 'pointer'
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								onclick={() => dispatch('CONFIRM_DIALOG_ACTION')}
+								style={{
+									padding: '8px 16px',
+									backgroundColor: '#dc2626',
+									color: 'white',
+									border: 'none',
+									borderRadius: '4px',
+									fontSize: '14px',
+									fontWeight: '500',
+									cursor: 'pointer'
+								}}
+							>
+								Continue
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Scoring Models Side Panel */}
 			{state.scoringPanelOpen && (
 				<div className={`scoring-panel-overlay ${state.scoringPanelOpen ? 'open' : ''}`}>
@@ -7969,7 +8055,12 @@ createCustomElement('cadal-careiq-builder', {
 		deletingBarriers: {},                     // Track which barriers are being deleted {barrierId: true}
 		addingBranchQuestion: false,              // Track if a branch question is being added
 		addingGuideline: false,                   // Track if a guideline is being added
-		addingBarrier: false                      // Track if a barrier is being added
+		addingBarrier: false,                     // Track if a barrier is being added
+
+		// Unsaved changes confirmation dialog
+		confirmationDialogOpen: false,            // Is confirmation dialog visible
+		confirmationDialogMessage: '',            // Message to display
+		confirmationDialogPendingAction: null     // Action to execute if user confirms
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -9221,7 +9312,32 @@ createCustomElement('cadal-careiq-builder', {
 
 		'OPEN_ASSESSMENT_BUILDER': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
-			const {assessmentId, assessmentTitle} = action.payload;
+			const {assessmentId, assessmentTitle, skipUnsavedCheck} = action.payload;
+
+			// Check for unsaved changes when switching assessments (unless confirming)
+			if (!skipUnsavedCheck && state.builderView) {
+				const hasUnsavedChanges =
+					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
+					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
+					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'OPEN_ASSESSMENT_BUILDER',
+							payload: {
+								assessmentId: assessmentId,
+								assessmentTitle: assessmentTitle,
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			// Switch to builder view and start loading assessment details
 			updateState({
 				builderView: true,
@@ -9230,7 +9346,7 @@ createCustomElement('cadal-careiq-builder', {
 				selectedSection: null,
 				currentAssessmentId: assessmentId // Store the assessment ID for later use
 			});
-			
+
 			// Fetch full assessment details
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: assessmentId,
@@ -9478,7 +9594,31 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CLOSE_ASSESSMENT_BUILDER': (coeffects) => {
-			const {updateState} = coeffects;
+			const {action, state, dispatch, updateState} = coeffects;
+			const {skipUnsavedCheck} = action.payload || {};
+
+			// Check for unsaved changes (unless confirming)
+			if (!skipUnsavedCheck) {
+				const hasUnsavedChanges =
+					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
+					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
+					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'CLOSE_ASSESSMENT_BUILDER',
+							payload: {
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			updateState({
 				builderView: false,
 				currentAssessment: null,
@@ -9492,7 +9632,32 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SELECT_SECTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
-			const {sectionId, sectionLabel} = action.payload;
+			const {sectionId, sectionLabel, skipUnsavedCheck} = action.payload;
+
+			// Check for unsaved changes (unless we're confirming the action)
+			if (!skipUnsavedCheck) {
+				const hasUnsavedChanges =
+					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
+					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
+					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'SELECT_SECTION',
+							payload: {
+								sectionId: sectionId,
+								sectionLabel: sectionLabel,
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			// Update selected section and start loading questions
 			updateState({
 				selectedSection: sectionId,
@@ -9500,7 +9665,7 @@ createCustomElement('cadal-careiq-builder', {
 				questionsLoading: true,
 				currentQuestions: null
 			});
-			
+
 			// Fetch questions for the selected section
 			dispatch('FETCH_SECTION_QUESTIONS', {
 				sectionId: sectionId,
@@ -20016,6 +20181,43 @@ createCustomElement('cadal-careiq-builder', {
 				expandedGoals: {},
 				problemGoals: {},
 				goalInterventions: {}
+			});
+		},
+
+		// Confirmation Dialog Action Handlers
+		'SHOW_CONFIRMATION_DIALOG': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {message, pendingAction} = action.payload;
+			updateState({
+				confirmationDialogOpen: true,
+				confirmationDialogMessage: message,
+				confirmationDialogPendingAction: pendingAction
+			});
+		},
+
+		'CONFIRM_DIALOG_ACTION': (coeffects) => {
+			const {state, updateState, dispatch} = coeffects;
+			const pendingAction = state.confirmationDialogPendingAction;
+
+			// Close dialog
+			updateState({
+				confirmationDialogOpen: false,
+				confirmationDialogMessage: '',
+				confirmationDialogPendingAction: null
+			});
+
+			// Execute the pending action if it exists
+			if (pendingAction) {
+				dispatch(pendingAction.type, pendingAction.payload);
+			}
+		},
+
+		'CANCEL_DIALOG_ACTION': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				confirmationDialogOpen: false,
+				confirmationDialogMessage: '',
+				confirmationDialogPendingAction: null
 			});
 		},
 
