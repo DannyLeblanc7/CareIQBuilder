@@ -10474,7 +10474,11 @@ createCustomElement('cadal-careiq-builder', {
 					state.currentQuestions.questions.forEach(existingQuestion => {
 						// Don't compare with itself
 						if (existingQuestion.ids.id !== questionId) {
-							existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+							// Only check against questions that are NOT temp questions
+							// (i.e., questions that already existed in the section before)
+							if (!existingQuestion.ids.id.startsWith('temp_')) {
+								existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+							}
 						}
 					});
 				}
@@ -17403,21 +17407,39 @@ createCustomElement('cadal-careiq-builder', {
 
 				if (!state.answerDuplicateCheckCompleted) {
 
-					// Only check NEW answers (action: 'add' OR temp ID with 'update') for library matches
+					// Check ALL answers from questions with temp IDs (new questions)
+					if (state.currentQuestions && state.currentQuestions.questions) {
+						state.currentQuestions.questions.forEach(question => {
+							// For new questions (temp IDs), check all their answers
+							if (question.ids.id.startsWith('temp_') && question.answers && question.answers.length > 0) {
+								question.answers.forEach(answer => {
+									// Only check if this answer doesn't already have a library_id
+									if (!answer.library_id && !answer.isLibraryAnswer) {
+										answersToCheck.push({
+											questionId: question.ids.id,
+											questionLabel: question.label,
+											answerLabel: answer.label,
+											answerId: answer.ids.id // Store answerId for later matching
+										});
+									}
+								});
+							}
+						});
+					}
+
+					// Also check answers from answerChanges (for existing questions)
 					Object.keys(state.answerChanges || {}).forEach(answerId => {
 						const answerChange = state.answerChanges[answerId];
 
 						// Check answers that are being added OR are temp answers being updated (new answers that were edited)
 						const isNewAnswer = answerChange && (answerChange.action === 'add' || (answerChange.action === 'update' && answerId.startsWith('temp_')));
 
-						if (isNewAnswer) {
-							const questionId = answerChange.questionId;
-							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+						if (isNewAnswer && answerChange.question_id && !answerChange.question_id.startsWith('temp_')) {
+							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === answerChange.question_id);
 
-
-							if (currentQuestion) {
+							if (currentQuestion && !answersToCheck.some(a => a.answerId === answerId)) {
 								answersToCheck.push({
-									questionId: questionId,
+									questionId: answerChange.question_id,
 									questionLabel: currentQuestion.label,
 									answerLabel: answerChange.label,
 									answerId: answerId // Store answerId for later matching
