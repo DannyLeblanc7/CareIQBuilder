@@ -2,66 +2,81 @@
     try {
         // Check if debug logging is enabled
         var isDebugEnabled = gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
-        
+
         // Stash request data at the start to avoid consumption issues
         var requestData = request.body.data;
-        
+
         // Log the request for debugging
         if (isDebugEnabled) {
-            gs.info('=== CareIQ Use Case Categories - Making Dynamic Call ===');
+            gs.info('=== CareIQ Use Case Categories API ===');
             gs.info('Request method: ' + request.httpMethod);
             gs.info('Received requestData: ' + JSON.stringify(requestData));
-            gs.info('Region: ' + requestData.region + ', Version: ' + requestData.version + ', UseCase: ' + requestData.useCase);
         }
 
-        // Validate required fields
-        var requiredFields = ['region', 'version', 'accessToken', 'useCase', 'app'];
-        var missingFields = [];
-        
-        for (var i = 0; i < requiredFields.length; i++) {
-            if (!requestData[requiredFields[i]]) {
-                missingFields.push(requiredFields[i]);
-            }
-        }
-        
-        if (missingFields.length > 0) {
-            gs.error('CareIQ Use Case Categories: Missing required fields: ' + missingFields.join(', '));
+        // Validate required field
+        if (!requestData.useCase) {
+            gs.error('CareIQ Use Case Categories: Missing required field: useCase');
             response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
-            response.getStreamWriter().writeString('{"error": "Missing required fields: ' + missingFields.join(', ') + '"}');
+            response.getStreamWriter().writeString('{"error": "Missing required field: useCase"}');
             return;
         }
 
-        // Build dynamic URL using app, region and version from client
-        var categoriesUrl = 'https://' + requestData.app + '.' + requestData.region + '.careiq.cadalysapp.com/api/' + requestData.version + '/builder/use-case-category?use_case=' + encodeURIComponent(requestData.useCase);
-
         if (isDebugEnabled) {
-            gs.info('Making external request to: ' + categoriesUrl);
+            gs.info('Calling CareIQServices.getUseCaseCategories with useCase: ' + requestData.useCase);
         }
 
-        var restMessage = new sn_ws.RESTMessageV2();
-        restMessage.setEndpoint(categoriesUrl);
-        restMessage.setHttpMethod('GET');
-        restMessage.setRequestHeader('Content-Type', 'application/json');
-        restMessage.setRequestHeader('Authorization', 'Bearer ' + requestData.accessToken);
-
-        var httpResponse = restMessage.execute();
-        var responseBody = httpResponse.getBody();
-        var statusCode = httpResponse.getStatusCode();
+        // Create Script Include instance and call the method
+        var careiqServices = new x_1628056_careiq.CareIQServices();
 
         if (isDebugEnabled) {
-            gs.info('CareIQ API response status: ' + statusCode);
-            gs.info('CareIQ API response body: ' + responseBody);
+            gs.info('CareIQServices instance created successfully');
         }
 
-        if (statusCode === 200) {
-            // Forward the actual CareIQ response
-            response.setStatus(200);
+        // Check if the method exists
+        if (typeof careiqServices.getUseCaseCategories !== 'function') {
+            gs.error('CareIQ Use Case Categories: getUseCaseCategories method not found in CareIQServices');
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "getUseCaseCategories method not found in CareIQServices"}');
+            return;
+        }
+
+        var responseBody = careiqServices.getUseCaseCategories(requestData.useCase);
+
+        if (isDebugEnabled) {
+            gs.info('CareIQServices response received: ' + responseBody);
+        }
+
+        // Parse response to check for errors
+        var parsedResponse;
+        try {
+            parsedResponse = JSON.parse(responseBody);
+        } catch (parseError) {
+            gs.error('CareIQ Use Case Categories: Invalid JSON response from CareIQ Services');
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services"}');
+            return;
+        }
+
+        if (parsedResponse && parsedResponse.error) {
+            // Return error from CareIQ Services
+            if (isDebugEnabled) {
+                gs.info('Error response from CareIQ Services: ' + responseBody);
+            }
+            response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         } else {
-            // Return error from CareIQ
-            response.setStatus(statusCode);
+            // Successful response
+            if (isDebugEnabled) {
+                gs.info('=== USE CASE CATEGORIES SUCCESS ===');
+                gs.info('Response: ' + responseBody);
+                gs.info('====================================');
+            }
+
+            response.setStatus(200);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         }
@@ -77,7 +92,7 @@
             // If even toString fails, use generic message
             errorMsg = 'Server error occurred';
         }
-        
+
         gs.error('CareIQ Use Case Categories Error: ' + errorMsg);
         response.setStatus(500);
         response.setHeader('Content-Type', 'application/json');

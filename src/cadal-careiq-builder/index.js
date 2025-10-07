@@ -254,7 +254,7 @@ const view = (state, {updateState, dispatch}) => {
 									fontStyle: 'italic',
 									flex: 1
 								}}>
-									Initializing CareIQ Builder...
+									Ready
 								</span>
 							);
 						}
@@ -358,7 +358,7 @@ const view = (state, {updateState, dispatch}) => {
 				)}
 			</div>
 			
-			{state.careiqConfig && state.accessToken && !state.builderView && (
+			{state.useCaseCategories && state.useCaseCategories.length > 0 && !state.builderView && (
 				<div className="assessments-section">
 					<div className="assessments-header">
 						<h2>Assessments</h2>
@@ -8065,6 +8065,7 @@ createCustomElement('cadal-careiq-builder', {
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
 			const {dispatch} = coeffects;
+			console.log('Component bootstrapped, dispatching LOAD_CAREIQ_CONFIG');
 			dispatch('LOAD_CAREIQ_CONFIG');
 			dispatch('CHECK_MOBILE_VIEW');
 			
@@ -8098,172 +8099,10 @@ createCustomElement('cadal-careiq-builder', {
 		// Configuration Actions (config loading, token exchange, use case categories)
 		...configActions,
 
-		
-		'CAREIQ_CONFIG_FETCH_SUCCESS': (coeffects) => {
-			const {action, updateState, dispatch} = coeffects;
-			// Map the results to our config object
-			const props = {};
-			if (action.payload.result) {
-				action.payload.result.forEach(prop => {
-					const key = prop.name.replace('x_1628056_careiq.careiq.platform.', '');
-					props[key] = prop.value;
-				});
-			}
-			// Check which required properties are missing
-			const required = ['apikey', 'app', 'id', 'otoken', 'region', 'version'];
-			const missing = required.filter(key => !props[key] || props[key].trim() === '');
-			
-			if (missing.length > 0) {
-				updateState({
-					loading: false,
-					error: `Missing system properties: ${missing.map(p => 'x_1628056_careiq.careiq.platform.' + p).join(', ')}`
-				});
-			} else {
-				updateState({
-					error: null,
-					careiqConfig: props
-				});
-				// Automatically exchange token after config success
-				dispatch('EXCHANGE_TOKEN', {config: props});
-			}
-		},
-		
-		'CAREIQ_CONFIG_FETCH_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('HTTP Effect Error:', action.payload);
-			const errorMessage = 'Failed to fetch system properties: ' + (action.payload?.message || 'Unknown error');
-			updateState({
-				loading: false,
-				error: errorMessage,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: errorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
-		'EXCHANGE_TOKEN': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {config} = action.payload;
-			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				apikey: config.apikey,
-				otoken: config.otoken,
-				client_id: config.id
-			});
-			// Dispatch the HTTP effect with the request body data
-			dispatch('MAKE_TOKEN_REQUEST', {requestBody: requestBody});
-		},
-
-		'MAKE_TOKEN_REQUEST': effects.MAKE_TOKEN_REQUEST,
-
-		'TOKEN_EXCHANGE_SUCCESS': (coeffects) => {
-			const {action, updateState, dispatch, state} = coeffects;
-			// Use either access_token (real) or mock_access_token (debug)
-			const token = action.payload.access_token || action.payload.mock_access_token;
-			updateState({
-				loading: false,
-				accessToken: token
-			});
-
-			// Automatically fetch use case categories after token success
-			dispatch('FETCH_USE_CASE_CATEGORIES', {
-				config: state.careiqConfig,
-				accessToken: token
-			});
-
-			// Automatically fetch assessments after token success
-			dispatch('FETCH_ASSESSMENTS', {
-				offset: 0,
-				limit: 200,
-				latestVersionOnly: true
-			});
-		},
-
-		'TOKEN_EXCHANGE_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('Token Exchange Error - Full Response:', action.payload);
-			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
-			const errorMessage = 'Failed to exchange token: ' + (action.payload?.message || 'Unknown error');
-			updateState({
-				error: errorMessage,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: errorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
-
-		'FETCH_USE_CASE_CATEGORIES': (coeffects) => {
-			const {action, dispatch, updateState} = coeffects;
-			const {config, accessToken} = action.payload;
-			updateState({categoriesLoading: true});
-			
-			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				useCase: 'CM'
-			});
-			dispatch('MAKE_USE_CASE_CATEGORIES_REQUEST', {requestBody: requestBody});
-		},
 
 		'MAKE_USE_CASE_CATEGORIES_REQUEST': effects.MAKE_USE_CASE_CATEGORIES_REQUEST,
 
-		'USE_CASE_CATEGORIES_FETCH_START': (coeffects) => {
-			const {updateState} = coeffects;
-			updateState({categoriesLoading: true});
-		},
-
-		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
-			const {action, updateState} = coeffects;
-			// Check if response has use_case_categories
-			const categories = action.payload?.use_case_categories;
-
-			updateState({
-				useCaseCategories: categories || [],
-				categoriesLoading: false
-			});
-		},
-
-		'USE_CASE_CATEGORIES_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('USE_CASE_CATEGORIES_ERROR - Full Response:', action.payload);
-			console.error('Error type:', typeof action.payload);
-			console.error('Error keys:', Object.keys(action.payload || {}));
-			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
-
-			const errorMessage = action.payload?.message ||
-							   action.payload?.error ||
-							   action.payload?.statusText ||
-							   'Unknown error';
-
-			const fullErrorMessage = 'Failed to fetch use case categories: ' + errorMessage;
-
-			updateState({
-				error: fullErrorMessage,
-				categoriesLoading: false,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: fullErrorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
 		'MAKE_ASSESSMENTS_REQUEST': effects.MAKE_ASSESSMENTS_REQUEST,
 
@@ -8274,11 +8113,13 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
+			console.log('ASSESSMENTS_SUCCESS called with payload:', action.payload);
 
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
 			const offset = action.payload?.offset || 0;
 			const limit = action.payload?.limit || 10;
+			console.log('Assessments found:', assessments.length);
 			// Check if this is a version fetch request
 			const isVersionFetch = state.currentRequest?.isVersionFetch;
 			const targetAssessmentId = state.currentRequest?.targetAssessmentId;
@@ -8316,7 +8157,15 @@ createCustomElement('cadal-careiq-builder', {
 						apiLimit: limit,
 						displayPage: 0,
 						totalPages: Math.ceil(sortedAssessments.length / state.assessmentsPagination.displayPageSize)
-					}
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: `Loaded ${assessments.length} assessments`,
+							timestamp: new Date().toISOString()
+						}
+					]
 				});
 			}
 		},
@@ -8362,9 +8211,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'FETCH_ASSESSMENTS': (coeffects) => {
-			const {action, dispatch, updateState} = coeffects;
+			const {action, dispatch, updateState, state} = coeffects;
 			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
-			updateState({assessmentsLoading: true});
+			console.log('FETCH_ASSESSMENTS called with:', action.payload);
+			updateState({
+				assessmentsLoading: true,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: 'Loading assessments...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 
 			const requestBody = JSON.stringify({
 				useCase: 'CM',
@@ -8374,6 +8234,7 @@ createCustomElement('cadal-careiq-builder', {
 				latestVersionOnly: latestVersionOnly !== false,
 				searchValue: searchValue || ''
 			});
+			console.log('Dispatching MAKE_ASSESSMENTS_REQUEST with body:', requestBody);
 			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
 		},
 
