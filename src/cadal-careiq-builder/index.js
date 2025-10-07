@@ -10809,7 +10809,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_ANSWER_RELATIONSHIPS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_ANSWER_RELATIONSHIPS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/answer-relationships', {
+		'MAKE_ANSWER_RELATIONSHIPS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/answer-relationships', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10876,7 +10876,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-branch-question', {
+		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-branch-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10887,7 +10887,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-guideline-relationship', {
+		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-guideline-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11094,7 +11094,7 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 		},
-		'MAKE_DELETE_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-branch-question', {
+		'MAKE_DELETE_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-branch-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11105,7 +11105,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-guideline-relationship', {
+		'MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-guideline-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11116,7 +11116,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-barrier-relationship', {
+		'MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-barrier-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11126,7 +11126,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_BARRIER_RELATIONSHIP_ERROR'
 		}),
 
-		'MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-barrier-relationship', {
+		'MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-barrier-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11137,7 +11137,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-problem-relationship', {
+		'MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-problem-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11147,7 +11147,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_PROBLEM_RELATIONSHIP_ERROR'
 		}),
 
-		'MAKE_SAVE_PROBLEM_EDITS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-problem-edits', {
+		'MAKE_SAVE_PROBLEM_EDITS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/save-problem-edits', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11157,7 +11157,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'SAVE_PROBLEM_EDITS_ERROR'
 		}),
 
-		'MAKE_GET_PROBLEM_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-details', {
+		'MAKE_GET_PROBLEM_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-problem-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11167,7 +11167,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_PROBLEM_DETAILS_ERROR'
 		}),
 
-		'MAKE_GET_GOAL_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-details', {
+		'MAKE_GET_GOAL_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-goal-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11177,7 +11177,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_GOAL_DETAILS_ERROR'
 		}),
 
-		'MAKE_UPDATE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-goal', {
+		'MAKE_UPDATE_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11188,7 +11188,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_GET_INTERVENTION_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-intervention-details', {
+		'MAKE_GET_INTERVENTION_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-intervention-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11198,7 +11198,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_INTERVENTION_DETAILS_ERROR'
 		}),
 
-		'MAKE_UPDATE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-intervention', {
+		'MAKE_UPDATE_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11209,7 +11209,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-problem-relationship', {
+		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-problem-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11220,7 +11220,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-goal', {
+		'MAKE_DELETE_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11231,7 +11231,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-intervention', {
+		'MAKE_DELETE_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11242,7 +11242,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-goals', {
+		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-problem-goals', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11253,7 +11253,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-goal', {
+		'MAKE_ADD_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11265,7 +11265,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		// Intervention API endpoints (following goals pattern)
-		'MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-interventions', {
+		'MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-goal-interventions', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11276,7 +11276,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11935,7 +11935,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_CREATE_SCORING_MODEL_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_CREATE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-scoring-model', {
+		'MAKE_CREATE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -12036,7 +12036,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_GET_SCORING_MODELS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_GET_SCORING_MODELS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-scoring-models', {
+		'MAKE_GET_SCORING_MODELS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-scoring-models', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -12134,7 +12134,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_DELETE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-scoring-model', {
+		'MAKE_DELETE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -12145,7 +12145,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_SAVE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-scoring-model', {
+		'MAKE_SAVE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/save-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -12975,7 +12975,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -13435,7 +13435,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_GENERIC_TYPEAHEAD_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+		'MAKE_GENERIC_TYPEAHEAD_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/generic-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -14027,7 +14027,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
+'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/guideline-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -14039,7 +14039,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 
-		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-library-question', {
+		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-library-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -14051,7 +14051,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 
-		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/library-answer-details', {
+		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/library-answer-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -16600,7 +16600,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_DELETE_SECTION_REQUEST', {requestBody: requestBody, sectionId: sectionId});
 		},
 
-		'MAKE_DELETE_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-section', {
+		'MAKE_DELETE_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18219,7 +18219,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-section', {
+		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18230,7 +18230,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'sectionId'
 		}),
 
-		'MAKE_ADD_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-section', {
+		'MAKE_ADD_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18375,7 +18375,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_UPDATE_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_UPDATE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-answer', {
+		'MAKE_UPDATE_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18486,7 +18486,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_UPDATE_QUESTION_REQUEST', {requestBody: requestBody, questionId: questionId});
 		},
 
-		'MAKE_UPDATE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-question', {
+		'MAKE_UPDATE_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			metaParam: 'questionId',
@@ -18547,7 +18547,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 
-		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section', {
+		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-question-to-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18557,7 +18557,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_QUESTION_TO_SECTION_ERROR'
 		}),
 
-		'MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answers-to-question', {
+		'MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-answers-to-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18567,7 +18567,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_ANSWERS_TO_QUESTION_ERROR'
 		}),
 
-		'MAKE_CREATE_QUESTION_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-question-bundle', {
+		'MAKE_CREATE_QUESTION_BUNDLE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-question-bundle', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18577,7 +18577,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'CREATE_QUESTION_BUNDLE_ERROR'
 		}),
 
-		'MAKE_CREATE_PROBLEM_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-problem-bundle', {
+		'MAKE_CREATE_PROBLEM_BUNDLE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-problem-bundle', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19186,7 +19186,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answer', {
+		'MAKE_ADD_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19196,7 +19196,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_ANSWER_ERROR'
 		}),
 
-		'MAKE_DELETE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-answer', {
+		'MAKE_DELETE_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19249,7 +19249,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_DELETE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-question', {
+		'MAKE_DELETE_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19784,7 +19784,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-		'SECTION_TYPEAHEAD_SEARCH': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+		'SECTION_TYPEAHEAD_SEARCH': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/generic-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
