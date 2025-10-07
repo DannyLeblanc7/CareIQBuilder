@@ -10442,6 +10442,38 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Check for duplicate answers within this question
+			if (question.answers && question.answers.length > 1) {
+				const answerLabels = [];
+				const duplicates = [];
+
+				question.answers.forEach(answer => {
+					const trimmedLabel = answer.label.toLowerCase().trim();
+					if (answerLabels.includes(trimmedLabel)) {
+						// Found a duplicate
+						if (!duplicates.includes(answer.label)) {
+							duplicates.push(answer.label);
+						}
+					} else {
+						answerLabels.push(trimmedLabel);
+					}
+				});
+
+				if (duplicates.length > 0) {
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'error',
+								message: `Duplicate answer(s) found: "${duplicates.join('", "')}". Each answer must be unique within the question.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
+			}
+
 			// Check if there are answer changes for this question - if so, use SAVE_ALL_CHANGES
 			const questionAnswerChanges = Object.keys(state.answerChanges || {}).filter(answerId => {
 				const answerData = state.answerChanges[answerId];
@@ -10749,7 +10781,8 @@ createCustomElement('cadal-careiq-builder', {
 				'Content-Type': 'application/json'
 			},
 			successActionType: 'ADD_GUIDELINE_RELATIONSHIP_SUCCESS',
-			errorActionType: 'ADD_GUIDELINE_RELATIONSHIP_ERROR'
+			errorActionType: 'ADD_GUIDELINE_RELATIONSHIP_ERROR',
+			metaParam: 'meta'
 		}),
 
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
@@ -10773,15 +10806,18 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// Show success message - don't clear relationshipChanges until refresh completes
+			const successMessage = {
+				type: 'success',
+				message: `Guideline relationship saved successfully! Auto-refreshing now...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Guideline relationship saved successfully! Auto-refreshing now...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Immediate auto-refresh since backend has already committed
@@ -12357,15 +12393,18 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Show system message about deletion
+			const deletingMessage = {
+				type: 'info',
+				message: 'Deleting problem relationship from backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Deleting problem relationship from backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), deletingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					deletingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -14886,12 +14925,25 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
 
-
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
 			});
 
+			// Show system message about auto-save
+			const savingMessage = {
+				type: 'info',
+				message: 'Saving triggered question relationship to backend...',
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
+			});
 
 			dispatch('MAKE_ADD_BRANCH_QUESTION_REQUEST', {
 				requestBody: requestBody,
@@ -14921,15 +14973,18 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Show system message about auto-save
+			const savingMessage = {
+				type: 'info',
+				message: 'Saving guideline relationship to backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Saving guideline relationship to backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -17434,12 +17489,15 @@ createCustomElement('cadal-careiq-builder', {
 						// Check answers that are being added OR are temp answers being updated (new answers that were edited)
 						const isNewAnswer = answerChange && (answerChange.action === 'add' || (answerChange.action === 'update' && answerId.startsWith('temp_')));
 
-						if (isNewAnswer && answerChange.question_id && !answerChange.question_id.startsWith('temp_')) {
-							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === answerChange.question_id);
+						// Support both question_id and questionId field names
+						const questionIdForAnswer = answerChange.question_id || answerChange.questionId;
+
+						if (isNewAnswer && questionIdForAnswer && !questionIdForAnswer.startsWith('temp_')) {
+							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionIdForAnswer);
 
 							if (currentQuestion && !answersToCheck.some(a => a.answerId === answerId)) {
 								answersToCheck.push({
-									questionId: answerChange.question_id,
+									questionId: questionIdForAnswer,
 									questionLabel: currentQuestion.label,
 									answerLabel: answerChange.label,
 									answerId: answerId // Store answerId for later matching
