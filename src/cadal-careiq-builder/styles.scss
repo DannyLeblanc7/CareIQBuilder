@@ -4800,6 +4800,12 @@
 
     .scoring-model-type-select {
       cursor: pointer;
+
+      &:disabled {
+        background-color: #f5f5f5;
+        cursor: not-allowed;
+        color: #6b7280;
+      }
     }
   }
 

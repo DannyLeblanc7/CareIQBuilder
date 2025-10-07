@@ -1879,6 +1879,7 @@ const view = (state, {updateState, dispatch}) => {
 																						</label>
 																						<input
 																							type="number"
+																							min="0"
 																							className="answer-score-input"
 																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
 																							placeholder="0"
@@ -2774,6 +2775,7 @@ const view = (state, {updateState, dispatch}) => {
 																						</label>
 																						<input
 																							type="number"
+																							min="0"
 																							className="answer-score-input"
 																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
 																							placeholder="0"
@@ -7737,12 +7739,12 @@ const view = (state, {updateState, dispatch}) => {
 											</div>
 											<div className="form-group">
 												<label>Scoring Type:</label>
-												<select
+												<input
+													type="text"
 													className="scoring-model-type-select"
-													value="sum"
-												>
-													<option value="sum">Sum</option>
-												</select>
+													value="Sum"
+													disabled
+												/>
 											</div>
 											<div className="form-buttons">
 												<button
@@ -11779,40 +11781,6 @@ createCustomElement('cadal-careiq-builder', {
 				creatingScoringModel: true
 			});
 
-			// Get current config for the request
-			if (!state.careiqConfig) {
-				updateState({
-					creatingScoringModel: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Configuration not loaded. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					creatingScoringModel: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
 				guideline_template_id: guidelineTemplateId,
@@ -11952,37 +11920,6 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_SCORING_MODEL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {modelId, modelLabel} = coeffects.action.payload;
-			// Get current config for the request
-			if (!state.careiqConfig) {
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Configuration not loaded. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
