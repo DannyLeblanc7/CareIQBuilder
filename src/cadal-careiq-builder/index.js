@@ -552,7 +552,7 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 			
-			{state.careiqConfig && state.accessToken && state.builderView && (
+			{state.useCaseCategories && state.useCaseCategories.length > 0 && state.builderView && (
 				<div className="builder-section">
 					<div className="builder-header">
 						<div className="builder-title">
@@ -8065,7 +8065,6 @@ createCustomElement('cadal-careiq-builder', {
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
 			const {dispatch} = coeffects;
-			console.log('Component bootstrapped, dispatching LOAD_CAREIQ_CONFIG');
 			dispatch('LOAD_CAREIQ_CONFIG');
 			dispatch('CHECK_MOBILE_VIEW');
 			
@@ -8113,13 +8112,10 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
-			console.log('ASSESSMENTS_SUCCESS called with payload:', action.payload);
-
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
 			const offset = action.payload?.offset || 0;
 			const limit = action.payload?.limit || 10;
-			console.log('Assessments found:', assessments.length);
 			// Check if this is a version fetch request
 			const isVersionFetch = state.currentRequest?.isVersionFetch;
 			const targetAssessmentId = state.currentRequest?.targetAssessmentId;
@@ -8213,7 +8209,6 @@ createCustomElement('cadal-careiq-builder', {
 		'FETCH_ASSESSMENTS': (coeffects) => {
 			const {action, dispatch, updateState, state} = coeffects;
 			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
-			console.log('FETCH_ASSESSMENTS called with:', action.payload);
 			updateState({
 				assessmentsLoading: true,
 				systemMessages: [
@@ -8234,7 +8229,6 @@ createCustomElement('cadal-careiq-builder', {
 				latestVersionOnly: latestVersionOnly !== false,
 				searchValue: searchValue || ''
 			});
-			console.log('Dispatching MAKE_ASSESSMENTS_REQUEST with body:', requestBody);
 			dispatch('MAKE_ASSESSMENTS_REQUEST', {requestBody: requestBody});
 		},
 
@@ -8350,10 +8344,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Build request body - ServiceNow wraps in data automatically
 			// CRITICAL: Send fields directly, ServiceNow HTTP framework adds data wrapper
 			const payload = {
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
 				title: assessmentData.guidelineName, // Map guidelineName to title
 				use_case: 'CM', // Fixed value as per your example
 				content_source: 'Organization', // Fixed value as per your example
@@ -9355,7 +9345,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			// 
+			//
 			
 			// Debug section sort_order values
 			if (action.payload?.sections) {
@@ -11785,10 +11775,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: guidelineTemplateId,
 				label: label,
 				scoring_type: scoringType
@@ -11868,30 +11854,8 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					scoringModelsLoading: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: guidelineTemplateId
 			});
 			dispatch('MAKE_GET_SCORING_MODELS_REQUEST', {requestBody: requestBody});
@@ -11982,10 +11946,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: state.currentAssessmentId,
 				model_id: modelId
 			});
@@ -16325,9 +16285,39 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Existing section - use UPDATE API
+				// Find the section to get its current sort_order
+				let existingSection = null;
+
+				// First check if it's a parent section
+				for (const section of state.currentAssessment.sections) {
+					if (section.id === sectionId) {
+						existingSection = section;
+						break;
+					}
+				}
+
+				// If not found as parent section, check subsections
+				if (!existingSection) {
+					for (const section of state.currentAssessment.sections) {
+						if (section.subsections) {
+							const foundSubsection = section.subsections.find(sub => sub.id === sectionId);
+							if (foundSubsection) {
+								existingSection = foundSubsection;
+								break;
+							}
+						}
+					}
+				}
+
+				if (!existingSection) {
+					console.error('Could not find section data for existing section:', sectionId);
+					return;
+				}
+
 				const sectionData = {
 					sectionId: sectionId,
-					label: sectionLabel
+					label: sectionLabel,
+					sort_order: existingSection.sort_order // Include sort_order to preserve it
 				};
 
 				if (libraryId) {
@@ -16402,16 +16392,8 @@ createCustomElement('cadal-careiq-builder', {
 				addingSection: true
 			});
 
-			// Get config and access token like other APIs
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
 			// Send fields directly - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
 				gt_id: state.currentAssessmentId,
 				parent_section_id: sectionData.parent_section_id, // Use the correct parent_section_id from sectionData
 				label: sectionData.label,
@@ -16437,8 +16419,11 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				sectionId: sectionData.sectionId,
 				label: sectionData.label,
-				library_id: sectionData.library_id,
-				sort_order: sectionData.sort_order
+				tooltip: sectionData.tooltip || '',
+				alternative_wording: sectionData.alternative_wording || '',
+				required: sectionData.required || false,
+				custom_attributes: sectionData.custom_attributes || {},
+				sort_order: sectionData.sort_order || 0
 			});
 			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionData.sectionId});
 		},
@@ -16482,10 +16467,17 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedDeletingSections[sectionId];
 			}
 
+			// Clear section changes for the deleted section
+			const updatedSectionChanges = {...state.sectionChanges};
+			if (sectionId) {
+				delete updatedSectionChanges[sectionId];
+			}
+
 			// The section was already removed locally by DELETE_SECTION handler
 			// Just confirm the backend operation succeeded
 			updateState({
 				deletingSections: updatedDeletingSections,
+				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -17223,10 +17215,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				scoring_model_id: selectedModel.id,
 				guideline_template_id: state.currentAssessmentId,
 				label: selectedModel.label,
@@ -19258,7 +19246,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const sectionId = action.meta?.sectionId;
 
 			// Clear loading state
@@ -19267,10 +19255,17 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedUpdatingSections[sectionId];
 			}
 
+			// Clear section changes for the updated section since it's now saved
+			const updatedSectionChanges = {...state.sectionChanges};
+			if (sectionId) {
+				delete updatedSectionChanges[sectionId];
+			}
+
 			// The section was already updated locally by SAVE_SECTION_IMMEDIATELY or reordering
 			// Just confirm the backend operation succeeded
 			updateState({
 				updatingSections: updatedUpdatingSections,
+				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -19356,6 +19351,12 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Update any child sections in sectionChanges that reference this temp parent ID
 			const updatedSectionChanges = {...state.sectionChanges};
+
+			// Remove the temp section that was just saved from sectionChanges
+			if (oldTempSectionId) {
+				delete updatedSectionChanges[oldTempSectionId];
+			}
+
 			let childSectionsUpdated = 0;
 			Object.keys(updatedSectionChanges).forEach(sectionId => {
 				const sectionData = updatedSectionChanges[sectionId];

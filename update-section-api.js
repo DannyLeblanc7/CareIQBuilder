@@ -8,13 +8,13 @@
         
         // Log the request for debugging
         if (isDebugEnabled) {
-            gs.info('=== CareIQ Update Section - Making Dynamic Call ===');
+            gs.info('=== CareIQ Update Section (Simplified) - Using Script Include ===');
             gs.info('Request method: ' + request.httpMethod);
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
-        // Validate required fields
-        var requiredFields = ['region', 'version', 'accessToken', 'app', 'sectionId', 'label'];
+        // Validate required fields 
+        var requiredFields = ['sectionId', 'label'];
         var missingFields = [];
         
         for (var i = 0; i < requiredFields.length; i++) {
@@ -31,53 +31,62 @@
             return;
         }
 
-        // Build dynamic URL using app, region, version and sectionId from client
-        var updateSectionUrl = 'https://' + requestData.app + '.' + requestData.region + '.careiq.cadalysapp.com/api/' + requestData.version + 
-                              '/builder/section/' + encodeURIComponent(requestData.sectionId);
-
         if (isDebugEnabled) {
-            gs.info('Making external request to: ' + updateSectionUrl);
+            gs.info('Calling CareIQServices.builderUpdateSection with sectionData: ' + JSON.stringify(requestData));
+            gs.info('sectionData type: ' + typeof requestData);
+            gs.info('sectionData keys: ' + Object.keys(requestData).join(', '));
         }
 
-        var restMessage = new sn_ws.RESTMessageV2();
-        restMessage.setEndpoint(updateSectionUrl);
-        restMessage.setHttpMethod('PATCH');
-        restMessage.setRequestHeader('Content-Type', 'application/json');
-        restMessage.setRequestHeader('Authorization', 'Bearer ' + requestData.accessToken);
+        // Create Script Include instance and call the method
+        var careiqServices = new x_1628056_careiq.CareIQServices();
+
+        if (isDebugEnabled) {
+            gs.info('CareIQServices instance created successfully');
+        }
+
+        // Check if the method exists
+        if (typeof careiqServices.builderUpdateSection !== 'function') {
+            gs.error('CareIQ Update Section: builderUpdateSection method not found in CareIQServices');
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "builderUpdateSection method not found in CareIQServices"}');
+            return;
+        }
+
+        var responseBody = careiqServices.builderUpdateSection(requestData);
         
-        // Build request body for the CareIQ API
-        var requestBody = {
-            label: requestData.label,
-            tooltip: requestData.tooltip || '',
-            alternative_wording: requestData.alternative_wording || '',
-            required: requestData.required || false,
-            custom_attributes: requestData.custom_attributes || {},
-            sort_order: requestData.sort_order || 0
-        };
+        if (isDebugEnabled) {
+            gs.info('CareIQServices response received: ' + responseBody);
+            gs.info('Response type: ' + typeof responseBody);
+        }
+
+        // Handle PATCH response (204 No Content has empty body)
+        if (!responseBody || responseBody.trim() === '') {
+            // Empty response indicates successful PATCH (204)
+            response.setStatus(200);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"success": true, "message": "Section updated successfully"}');
+            return;
+        }
         
-        restMessage.setRequestBody(JSON.stringify(requestBody));
-
-        if (isDebugEnabled) {
-            gs.info('Request body: ' + JSON.stringify(requestBody));
+        var parsedResponse;
+        try {
+            parsedResponse = JSON.parse(responseBody);
+        } catch (parseError) {
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services"}');
+            return;
         }
-
-        var httpResponse = restMessage.execute();
-        var responseBody = httpResponse.getBody();
-        var statusCode = httpResponse.getStatusCode();
-
-        if (isDebugEnabled) {
-            gs.info('CareIQ API response status: ' + statusCode);
-            gs.info('CareIQ API response body: ' + responseBody);
-        }
-
-        if (statusCode === 200 || statusCode === 204) {
-            // Forward the actual CareIQ response
-            response.setStatus(statusCode);
+        
+        if (parsedResponse && parsedResponse.error) {
+            // Return error from CareIQ Services
+            response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         } else {
-            // Return error from CareIQ
-            response.setStatus(statusCode);
+            // Return success response
+            response.setStatus(200);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         }

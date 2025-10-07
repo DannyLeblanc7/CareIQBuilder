@@ -2,19 +2,19 @@
     try {
         // Check if debug logging is enabled
         var isDebugEnabled = gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
-        
+
         // Stash request data at the start to avoid consumption issues
         var requestData = request.body.data;
-        
+
         // Log the request for debugging
         if (isDebugEnabled) {
-            gs.info('=== CareIQ Add Section - Making Dynamic Call ===');
+            gs.info('=== CareIQ Add Section API ===');
             gs.info('Request method: ' + request.httpMethod);
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
         // Validate required fields - parent_section_id can be null for parent sections
-        var requiredFields = ['region', 'version', 'accessToken', 'app', 'sort_order', 'gt_id', 'label'];
+        var requiredFields = ['sort_order', 'gt_id', 'label'];
         var missingFields = [];
 
         for (var i = 0; i < requiredFields.length; i++) {
@@ -27,7 +27,7 @@
         if (requestData['parent_section_id'] === undefined) {
             missingFields.push('parent_section_id');
         }
-        
+
         if (missingFields.length > 0) {
             gs.error('CareIQ Add Section: Missing required fields: ' + missingFields.join(', '));
             response.setStatus(400);
@@ -36,52 +36,74 @@
             return;
         }
 
-        // Build dynamic URL using app, region, version from client
-        var addSectionUrl = 'https://' + requestData.app + '.' + requestData.region + '.careiq.cadalysapp.com/api/' + requestData.version + 
-                           '/builder/section';
-
         if (isDebugEnabled) {
-            gs.info('Making external request to: ' + addSectionUrl);
+            gs.info('Calling CareIQServices.builderAddSection');
         }
 
-        var restMessage = new sn_ws.RESTMessageV2();
-        restMessage.setEndpoint(addSectionUrl);
-        restMessage.setHttpMethod('POST');
-        restMessage.setRequestHeader('Content-Type', 'application/json');
-        restMessage.setRequestHeader('Authorization', 'Bearer ' + requestData.accessToken);
-        
-        // Build request body for the CareIQ API
-        var requestBody = {
+        // Create Script Include instance and call the method
+        var careiqServices = new x_1628056_careiq.CareIQServices();
+
+        if (isDebugEnabled) {
+            gs.info('CareIQServices instance created successfully');
+        }
+
+        // Check if the method exists
+        if (typeof careiqServices.builderAddSection !== 'function') {
+            gs.error('CareIQ Add Section: builderAddSection method not found in CareIQServices');
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "builderAddSection method not found in CareIQServices"}');
+            return;
+        }
+
+        // Build section data object for the Script Include
+        var sectionData = {
             sort_order: requestData.sort_order,
             gt_id: requestData.gt_id,
             label: requestData.label,
             parent_section_id: requestData.parent_section_id,
             library_id: requestData.library_id || null
         };
-        
-        restMessage.setRequestBody(JSON.stringify(requestBody));
 
         if (isDebugEnabled) {
-            gs.info('Request body: ' + JSON.stringify(requestBody));
+            gs.info('Section data: ' + JSON.stringify(sectionData));
         }
 
-        var httpResponse = restMessage.execute();
-        var responseBody = httpResponse.getBody();
-        var statusCode = httpResponse.getStatusCode();
+        var responseBody = careiqServices.builderAddSection(sectionData);
 
         if (isDebugEnabled) {
-            gs.info('CareIQ API response status: ' + statusCode);
-            gs.info('CareIQ API response body: ' + responseBody);
+            gs.info('CareIQServices response received: ' + responseBody);
         }
 
-        if (statusCode === 200 || statusCode === 201) {
-            // Forward the actual CareIQ response
-            response.setStatus(statusCode);
+        // Parse response to check for errors
+        var parsedResponse;
+        try {
+            parsedResponse = JSON.parse(responseBody);
+        } catch (parseError) {
+            gs.error('CareIQ Add Section: Invalid JSON response from CareIQ Services');
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services"}');
+            return;
+        }
+
+        if (parsedResponse && parsedResponse.error) {
+            // Return error from CareIQ Services
+            if (isDebugEnabled) {
+                gs.info('Error response from CareIQ Services: ' + responseBody);
+            }
+            response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         } else {
-            // Return error from CareIQ
-            response.setStatus(statusCode);
+            // Successful response
+            if (isDebugEnabled) {
+                gs.info('=== ADD SECTION SUCCESS ===');
+                gs.info('Response: ' + responseBody);
+                gs.info('===========================');
+            }
+
+            response.setStatus(200);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         }
@@ -96,9 +118,9 @@
         } catch (innerE) {
             errorMsg = 'Server error occurred while adding section';
         }
-        
+
         gs.error('CareIQ Add Section Script Error: ' + errorMsg);
-        
+
         response.setStatus(500);
         response.setHeader('Content-Type', 'application/json');
         response.getStreamWriter().writeString('{"error": "' + errorMsg + '"}');
