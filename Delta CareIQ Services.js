@@ -1336,3 +1336,48 @@ createProblemBundle: function(contentId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// BUILDER - EVIDENCE OPERATIONS
+
+getEvidence: function(contentType, contentId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the evidence endpoint: /careflow/{contentType}/{contentId}/evidence
+        // contentType can be: question, answer, problem, goal, intervention
+        var endpoint = this._buildEndpoint('/careflow/' + encodeURIComponent(contentType) + '/' + encodeURIComponent(contentId) + '/evidence');
+        var r = this._createRESTMessage('GET Evidence', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetEvidence');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetEvidence - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
+getQualityMeasures: function(guidelineTemplateId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the quality measures endpoint: /careflow/guideline-template/{guidelineTemplateId}/quality-measures
+        var endpoint = this._buildEndpoint('/careflow/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/quality-measures');
+        var r = this._createRESTMessage('GET Quality Measures', endpoint);
+        r.setHttpMethod('GET');
+
+        var response = this._executeRequestWithRetry(r, 'GetQualityMeasures');
+        return response.getBody();
+    } catch (e) {
+        this._logError('GetQualityMeasures - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
