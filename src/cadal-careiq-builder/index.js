@@ -10075,7 +10075,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			const newQuestion = {
 				ids: { id: newQuestionId },
-				label: 'New Question',
+				label: '',
 				type: 'Single Select',
 				required: false,
 				hidden: false,
@@ -10084,7 +10084,7 @@ createCustomElement('cadal-careiq-builder', {
 				answers: [
 					{
 						ids: { id: 'temp_answer_' + Date.now() + '_1' },
-						label: 'Option 1',
+						label: '',
 						sort_order: 1,
 						secondary_input_type: null,
 						mutually_exclusive: false,
@@ -10092,8 +10092,8 @@ createCustomElement('cadal-careiq-builder', {
 						triggered_questions: []
 					}
 				],
-				// Don't mark as unsaved initially - only when user edits it
-				isUnsaved: false
+				// Mark as unsaved so save/cancel buttons appear immediately
+				isUnsaved: true
 			};
 
 			const updatedQuestions = [...state.currentQuestions.questions, newQuestion];
@@ -10108,7 +10108,7 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[newQuestionId]: {
 						action: 'add',
-						label: 'New Question',
+						label: '',
 						type: 'Single Select',
 						tooltip: '',
 						required: false,
@@ -10118,7 +10118,7 @@ createCustomElement('cadal-careiq-builder', {
 						guideline_template_id: state.currentAssessmentId,
 						answers: [
 							{
-								label: 'Option 1',
+								label: '',
 								sort_order: 1,
 								tooltip: '',
 								secondary_input_type: null,
@@ -10157,7 +10157,7 @@ createCustomElement('cadal-careiq-builder', {
 						updatedQuestion.answers = [
 							{
 								ids: { id: 'temp_answer_' + Date.now() + '_1' },
-								label: 'Option 1',
+								label: '',
 								sort_order: 1,
 								secondary_input_type: null,
 								mutually_exclusive: false,
@@ -10303,7 +10303,7 @@ createCustomElement('cadal-careiq-builder', {
 
 					const newAnswer = {
 						ids: { id: newAnswerId },
-						label: `Option ${nextSortOrder}`,
+						label: '',
 						sort_order: nextSortOrder,
 						secondary_input_type: null,
 						mutually_exclusive: false,
@@ -10326,7 +10326,7 @@ createCustomElement('cadal-careiq-builder', {
 				[newAnswerId]: {
 					action: 'add',
 					questionId: questionId,
-					label: `Option ${updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1}`,
+					label: '',
 					sort_order: updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1,
 					tooltip: '',
 					alternative_wording: '',
