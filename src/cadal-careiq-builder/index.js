@@ -3583,6 +3583,7 @@ const view = (state, {updateState, dispatch}) => {
 													{question.type === 'Text' && (
 														<div className="text-input-container">
 															<input
+																key={`text-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
 																type="text"
 																className="text-input"
 																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
@@ -3596,11 +3597,12 @@ const view = (state, {updateState, dispatch}) => {
 															/>
 														</div>
 													)}
-													
+
 													{/* Date Questions */}
 													{question.type === 'Date' && (
 														<div className="date-input-container">
 															<input
+																key={`date-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
 																type="date"
 																className="date-input"
 																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
@@ -3613,11 +3615,12 @@ const view = (state, {updateState, dispatch}) => {
 															/>
 														</div>
 													)}
-													
+
 													{/* Numeric Questions */}
 													{question.type === 'Numeric' && (
 														<div className="numeric-input-container">
 															<input
+																key={`numeric-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
 																type="number"
 																className="numeric-input"
 																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
