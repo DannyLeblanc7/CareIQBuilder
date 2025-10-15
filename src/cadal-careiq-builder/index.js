@@ -1252,9 +1252,15 @@ const view = (state, {updateState, dispatch}) => {
 												//
 											return (
 											<div key={question.ids.id} style={{position: "relative"}}>
-												{/* Loading overlay for question delete only (not update) */}
+												{/* Loading overlays for question operations */}
 												{state.deletingQuestions[question.ids.id] && (
 													<LoadingOverlay message="Deleting question..." />
+												)}
+												{state.savingQuestions && state.savingQuestions[question.ids.id] && (
+													<LoadingOverlay message="Saving question..." />
+												)}
+												{state.cancelingQuestions && state.cancelingQuestions[question.ids.id] && (
+													<LoadingOverlay message="Canceling changes..." />
 												)}
 												<div
 													className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`}
@@ -8123,6 +8129,8 @@ createCustomElement('cadal-careiq-builder', {
 		deletingQuestions: {},                    // Track which questions are being deleted {questionId: true}
 		updatingQuestions: {},                    // Track which questions are being updated {questionId: true}
 		addingQuestion: false,                    // Track if a question is being added
+		savingQuestions: {},                      // Track which questions are being saved {questionId: true}
+		cancelingQuestions: {},                   // Track which questions are being canceled {questionId: true}
 
 		// Answer operation loading states
 		deletingAnswers: {},                      // Track which answers are being deleted {answerId: true}
@@ -9684,7 +9692,9 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadLoading: false,
 				answerTypeaheadVisible: false,
 				answerTypeaheadResults: [],
-				editingAnswerId: null
+				editingAnswerId: null,
+				// Clear question operation loading states
+				cancelingQuestions: {}
 			};
 
 			// If this was after a question move, clear modal, switch to target section, and show success message
@@ -10516,19 +10526,31 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
 
-			// Store questionId so SUCCESS handler can clear it
+			// Store questionId and set saving state for spinner
 			updateState({
-				lastSavedQuestionId: questionId
+				lastSavedQuestionId: questionId,
+				savingQuestions: {
+					...state.savingQuestions,
+					[questionId]: true
+				}
 			});
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
+				// Clear saving state on error
+				const updatedSavingQuestions = {...state.savingQuestions};
+				delete updatedSavingQuestions[questionId];
+				updateState({ savingQuestions: updatedSavingQuestions });
 				return;
 			}
 
 			// Validate question label is not blank
 			if (!question.label || question.label.trim() === '') {
+				// Clear saving state on validation error
+				const updatedSavingQuestions = {...state.savingQuestions};
+				delete updatedSavingQuestions[questionId];
 				updateState({
+					savingQuestions: updatedSavingQuestions,
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
@@ -10559,7 +10581,11 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				if (duplicates.length > 0) {
+					// Clear saving state on validation error
+					const updatedSavingQuestions = {...state.savingQuestions};
+					delete updatedSavingQuestions[questionId];
 					updateState({
+						savingQuestions: updatedSavingQuestions,
 						systemMessages: [
 							...(state.systemMessages || []),
 							{
@@ -18471,12 +18497,18 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedQuestionChanges[questionId];
 			}
 
+			// Clear saving state
+			const updatedSavingQuestions = {...state.savingQuestions};
+			if (questionId) {
+				delete updatedSavingQuestions[questionId];
+			}
 
 			// Just show success message - no refresh needed
 			// CRITICAL: Force UI re-render by updating renderKey
 			updateState({
 				questionChanges: updatedQuestionChanges,
 				lastSavedQuestionId: null,
+				savingQuestions: updatedSavingQuestions,
 				renderKey: Date.now(), // Force re-render
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -18496,7 +18528,15 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('Update question failed:', errorMessage);
 
+			// Clear saving state on error
+			const questionId = state.lastSavedQuestionId;
+			const updatedSavingQuestions = {...state.savingQuestions};
+			if (questionId) {
+				delete updatedSavingQuestions[questionId];
+			}
+
 			updateState({
+				savingQuestions: updatedSavingQuestions,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -18984,7 +19024,8 @@ createCustomElement('cadal-careiq-builder', {
 					],
 					// CRITICAL: Clear all question save tracking to prevent re-saving
 					pendingQuestionAnswers: null,
-					lastSavedQuestionId: null
+					lastSavedQuestionId: null,
+					savingQuestions: {}  // Clear all saving states
 				});
 			} else {
 				// No answers to add
@@ -19026,7 +19067,8 @@ createCustomElement('cadal-careiq-builder', {
 						],
 						// CRITICAL: Clear all question save tracking to prevent re-saving
 						lastSavedQuestionId: null,
-						pendingQuestionAnswers: null
+						pendingQuestionAnswers: null,
+						savingQuestions: {}  // Clear all saving states
 					});
 				}
 			}
@@ -19672,6 +19714,14 @@ createCustomElement('cadal-careiq-builder', {
 			// For now, let's reload the section to get the original data
 
 			if (confirm('Are you sure you want to cancel all changes to this question? This will reload the current data from the server.')) {
+				// Set canceling state for spinner
+				updateState({
+					cancelingQuestions: {
+						...state.cancelingQuestions,
+						[questionId]: true
+					}
+				});
+
 				// Clear any question-specific change tracking
 				const updatedQuestionChanges = {...state.questionChanges};
 				const updatedAnswerChanges = {...state.answerChanges};
