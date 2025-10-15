@@ -10279,59 +10279,60 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'REORDER_ANSWERS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {questionId, sourceIndex, targetIndex} = action.payload;
 			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
 				return;
 			}
-			
+
 			const questions = [...state.currentQuestions.questions];
 			const questionIndex = questions.findIndex(q => q.ids.id === questionId);
-			
+
 			if (questionIndex === -1 || !questions[questionIndex].answers) {
 				return;
 			}
-			
+
 			const answers = [...questions[questionIndex].answers];
 			const [movedAnswer] = answers.splice(sourceIndex, 1);
 			answers.splice(targetIndex, 0, movedAnswer);
-			
+
 			// Update sort_order for all answers
 			const updatedAnswers = answers.map((answer, index) => ({
 				...answer,
 				sort_order: index + 1
 			}));
-			
+
+			// Mark question as unsaved (this will show save/cancel buttons)
 			questions[questionIndex] = {
 				...questions[questionIndex],
-				answers: updatedAnswers
+				answers: updatedAnswers,
+				isUnsaved: true
 			};
+
+			// Track answer reordering in questionChanges
+			// Store the new sort orders for all affected answers
+			const answerSortOrders = {};
+			updatedAnswers.forEach(answer => {
+				// Only track real answers (not temp ones)
+				if (!answer.ids.id.startsWith('temp_')) {
+					answerSortOrders[answer.ids.id] = answer.sort_order;
+				}
+			});
 
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: questions
-				}
-			});
-
-			// Auto-save only the affected answers with individual UPDATE_ANSWER_API calls
-			updatedAnswers.forEach(answer => {
-				// Only update real answers (not temp ones)
-				if (!answer.ids.id.startsWith('temp_')) {
-					dispatch('UPDATE_ANSWER_API', {
-						answerData: {
-							answerId: answer.ids.id,
-							sort_order: answer.sort_order,
-							// Include other required fields
-							label: answer.label,
-							tooltip: answer.tooltip || '',
-							alternative_wording: answer.alternative_wording || 'string',
-							required: answer.required || false,
-							custom_attributes: answer.custom_attributes || {},
-							secondary_input_type: answer.secondary_input_type,
-							mutually_exclusive: answer.mutually_exclusive || false
-						}
-					});
+				},
+				// Track answer reorder changes for this question
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...(state.questionChanges?.[questionId] || {}),
+						action: state.questionChanges?.[questionId]?.action || 'update',
+						questionId: questionId,
+						answerSortOrders: answerSortOrders // Store all answer sort orders
+					}
 				}
 			});
 		},
@@ -11031,6 +11032,35 @@ createCustomElement('cadal-careiq-builder', {
 				// CRITICAL: Clear change tracking using EXACT pattern from CANCEL_QUESTION_CHANGES
 				const updatedQuestionChanges = {...state.questionChanges};
 				const updatedAnswerChanges = {...state.answerChanges};
+
+				// Check if there are answer reordering changes for this question
+				const questionChange = state.questionChanges?.[questionId];
+				const hasAnswerReordering = questionChange?.answerSortOrders;
+
+				// If we have answer reordering, send UPDATE_ANSWER_API calls for each answer
+				if (hasAnswerReordering) {
+					const answerSortOrders = questionChange.answerSortOrders;
+					Object.keys(answerSortOrders).forEach(answerId => {
+						const answer = question.answers?.find(a => a.ids.id === answerId);
+						if (answer) {
+							dispatch('UPDATE_ANSWER_API', {
+								answerData: {
+									answerId: answerId,
+									sort_order: answerSortOrders[answerId],
+									// Include other required fields
+									label: answer.label,
+									tooltip: answer.tooltip || '',
+									alternative_wording: answer.alternative_wording || 'string',
+									required: answer.required || false,
+									custom_attributes: answer.custom_attributes || {},
+									secondary_input_type: answer.secondary_input_type,
+									mutually_exclusive: answer.mutually_exclusive || false
+								},
+								skipReload: true // Don't trigger reload for batch answer reordering
+							});
+						}
+					});
+				}
 
 				// Remove changes related to this question
 				delete updatedQuestionChanges[questionId];
@@ -18657,8 +18687,16 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'UPDATE_ANSWER_API': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {answerData} = action.payload;
+			const {action, dispatch, updateState} = coeffects;
+			const {answerData, skipReload} = action.payload;
+
+			// Store skipReload flag in state for success handler to check
+			if (skipReload) {
+				updateState({
+					skipAnswerUpdateReload: true
+				});
+			}
+
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerData.answerId,
@@ -18686,10 +18724,29 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			// Check if we should skip reload (e.g., during batch answer reordering)
+			if (state.skipAnswerUpdateReload) {
+				// Clear the flag and show success message without reload
+				updateState({
+					skipAnswerUpdateReload: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Answer updated successfully!',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Exit early, no reload
+			}
+
+			// Normal flow: reload data after answer update
 			// Store the current section to re-select after refresh
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
-			
+
 			// Add success message
 			updateState({
 				systemMessages: [
@@ -18702,12 +18759,12 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-			
+
 			// Set pending reselection data
 			updateState({
 				pendingReselectionSection: currentSection
 			});
-			
+
 			// Trigger data refresh with proper reselection
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: state.currentAssessmentId,
