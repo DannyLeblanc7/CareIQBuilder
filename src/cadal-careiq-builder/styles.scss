@@ -3194,7 +3194,7 @@
 
 // Modal Styles
 .modal-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -3203,7 +3203,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 99998;
+  z-index: 1000000;
 }
 
 .modal-content {
@@ -3213,6 +3213,8 @@
   min-width: 400px;
   max-width: 90vw;
   max-height: 90vh;
+  position: relative;
+  z-index: 1000001;
   overflow: hidden;
 }
 

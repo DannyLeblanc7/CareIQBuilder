@@ -4123,7 +4123,7 @@ const view = (state, {updateState, dispatch}) => {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					zIndex: '9999'
+					zIndex: '1000000'
 				}}>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
@@ -4131,7 +4131,9 @@ const view = (state, {updateState, dispatch}) => {
 						borderRadius: '8px',
 						width: '500px',
 						maxWidth: '90vw',
-						boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+						boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+						position: 'relative',
+						zIndex: '1000001'
 					}}>
 						<h3 className="modal-title">
 							Edit {state.modalType === 'question' ? 'Question' : state.modalType === 'answer' ? 'Answer' : 'Section'}
