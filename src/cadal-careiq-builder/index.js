@@ -104,6 +104,19 @@ const view = (state, {updateState, dispatch}) => {
 		</div>
 	);
 
+	// Helper function to check if there are any unsaved changes
+	// Only counts questions/answers that have been EDITED (isUnsaved: true)
+	// NOT just newly added questions that haven't been touched yet
+	const hasAnyUnsavedChanges = (state) => {
+		// Check if any question has isUnsaved flag set
+		const hasUnsavedQuestions = state.currentQuestions?.questions?.some(q => q.isUnsaved === true) || false;
+
+		// Check if any answer changes exist (answer changes always mean editing)
+		const hasUnsavedAnswers = (state.answerChanges && Object.keys(state.answerChanges).length > 0) || false;
+
+		return hasUnsavedQuestions || hasUnsavedAnswers;
+	};
+
 	// Auto-scroll system message box to bottom after render
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
@@ -1205,9 +1218,26 @@ const view = (state, {updateState, dispatch}) => {
 										Select a section to view questions
 									</div>
 								)}
-								
+
 								{state.currentQuestions && state.currentQuestions.questions && !state.questionsLoading && (
 									<div className="questions-list">
+										{hasAnyUnsavedChanges(state) && (
+											<div style={{
+												padding: '12px 16px',
+												backgroundColor: '#fef3c7',
+												border: '1px solid #fbbf24',
+												borderRadius: '6px',
+												marginBottom: '16px',
+												fontSize: '14px',
+												color: '#92400e',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{ fontSize: '16px' }}>⚠️</span>
+												<span>You have unsaved changes. Save or cancel current changes to edit other questions.</span>
+											</div>
+										)}
 										{state.currentQuestions.questions
 											.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 											.filter(question => {
@@ -1325,8 +1355,9 @@ const view = (state, {updateState, dispatch}) => {
 																overflow: 'visible',
 																alignItems: 'center'
 															} : {}}>
-																<select 
+																<select
 																	className="voice-select"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	style={state.isMobileView ? {
 																		flexShrink: '0'
 																	} : {}}
@@ -1376,6 +1407,7 @@ const view = (state, {updateState, dispatch}) => {
 																		className="question-label-input"
 																		value={question.label}
 																		placeholder="Enter question text..."
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		oninput={(e) => {
 																			const newValue = e.target.value;
 																			// Update the question label locally
@@ -1458,11 +1490,18 @@ const view = (state, {updateState, dispatch}) => {
 																)}
 															</div>
 																<div className="tooltip-edit-icon">
-																	<span 
+																	<span
 																		className={`tooltip-icon ${question.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
 																		title={question.tooltip || 'Click to add tooltip'}
+																		style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																			opacity: 0.5,
+																			cursor: 'not-allowed'
+																		} : {}}
 																		ondblclick={(e) => {
 																			e.stopPropagation();
+																			if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																				return; // Blocked when other questions have changes
+																			}
 																			dispatch('EDIT_QUESTION_TOOLTIP', {
 																				questionId: question.ids.id,
 																				currentTooltip: question.tooltip || ''
@@ -1481,9 +1520,10 @@ const view = (state, {updateState, dispatch}) => {
 																overflow: 'visible'
 															} : {}}>
 																<label className="checkbox-control">
-																	<input 
-																		type="checkbox" 
+																	<input
+																		type="checkbox"
 																		checked={question.required}
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		onchange={(e) => {
 																			dispatch('UPDATE_QUESTION_REQUIRED', {
 																				questionId: question.ids.id,
@@ -1499,9 +1539,13 @@ const view = (state, {updateState, dispatch}) => {
 																	/>
 																	Required
 																</label>
-																<select className="question-type-select" style={state.isMobileView ? {
-																	flexShrink: '0'
-																} : {}} onchange={(e) => {
+																<select
+																	className="question-type-select"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																	style={state.isMobileView ? {
+																		flexShrink: '0'
+																	} : {}}
+																	onchange={(e) => {
 																	dispatch('UPDATE_QUESTION_TYPE', {
 																		questionId: question.ids.id,
 																		newType: e.target.value
@@ -1520,7 +1564,14 @@ const view = (state, {updateState, dispatch}) => {
 																<span
 																	className="custom-attributes-icon"
 																	title={question.custom_attributes ? `Custom Attributes: ${Object.keys(question.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																	style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																		opacity: 0.5,
+																		cursor: 'not-allowed'
+																	} : {}}
 																	ondblclick={() => {
+																		if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																			return; // Blocked when other questions have changes
+																		}
 																		dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																			itemType: 'question',
 																			itemId: question.ids.id,
@@ -1591,6 +1642,7 @@ const view = (state, {updateState, dispatch}) => {
 																<button
 																	className="delete-question-btn"
 																	title="Delete Question"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	style={state.isMobileView ? {
 																		flexShrink: '0',
 																		minWidth: '40px',
@@ -1608,6 +1660,7 @@ const view = (state, {updateState, dispatch}) => {
 																	<button
 																		className="save-bundle-btn"
 																		title="Save Question Bundle to Library"
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		style={state.isMobileView ? {
 																			flexShrink: '0',
 																			minWidth: '40px',
@@ -1788,6 +1841,7 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -1920,8 +1974,15 @@ const view = (state, {updateState, dispatch}) => {
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
 																						title={answer.tooltip || 'Click to add tooltip'}
+																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																							opacity: 0.5,
+																							cursor: 'not-allowed'
+																						} : {}}
 																						ondblclick={(e) => {
 																							e.stopPropagation();
+																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																								return; // Blocked when other questions have changes
+																							}
 																							dispatch('EDIT_ANSWER_TOOLTIP', {
 																								answerId: answer.ids.id,
 																								currentTooltip: answer.tooltip || ''
@@ -1947,7 +2008,14 @@ const view = (state, {updateState, dispatch}) => {
 																				<span
 																					className="custom-attributes-icon"
 																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																						opacity: 0.5,
+																						cursor: 'not-allowed'
+																					} : {}}
 																					ondblclick={() => {
+																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																							return; // Blocked when other questions have changes
+																						}
 																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																							itemType: 'answer',
 																							itemId: answer.ids.id,
@@ -1964,11 +2032,12 @@ const view = (state, {updateState, dispatch}) => {
 																					width: '100%',
 																					overflow: 'visible'
 																				} : {}}>
-																					<select 
+																					<select
 																						className="secondary-input-select"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
-																						} : {}} 
+																						} : {}}
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -1981,9 +2050,10 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button 
-																						className="delete-answer-btn" 
+																					<button
+																						className="delete-answer-btn"
 																						title="Delete Answer"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2559,8 +2629,9 @@ const view = (state, {updateState, dispatch}) => {
 																</div>
 															))}
 															{isEditable ? (
-																<button 
+																<button
 																	className="add-answer-btn"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	onclick={() => dispatch('ADD_ANSWER', {
 																		questionId: question.ids.id
 																	})}
@@ -2684,6 +2755,7 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -2816,8 +2888,15 @@ const view = (state, {updateState, dispatch}) => {
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
 																						title={answer.tooltip || 'Click to add tooltip'}
+																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																							opacity: 0.5,
+																							cursor: 'not-allowed'
+																						} : {}}
 																						ondblclick={(e) => {
 																							e.stopPropagation();
+																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																								return; // Blocked when other questions have changes
+																							}
 																							dispatch('EDIT_ANSWER_TOOLTIP', {
 																								answerId: answer.ids.id,
 																								currentTooltip: answer.tooltip || ''
@@ -2843,7 +2922,14 @@ const view = (state, {updateState, dispatch}) => {
 																				<span
 																					className="custom-attributes-icon"
 																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																						opacity: 0.5,
+																						cursor: 'not-allowed'
+																					} : {}}
 																					ondblclick={() => {
+																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																							return; // Blocked when other questions have changes
+																						}
 																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																							itemType: 'answer',
 																							itemId: answer.ids.id,
@@ -2879,11 +2965,12 @@ const view = (state, {updateState, dispatch}) => {
 																						/>
 																						Exclusive
 																					</label>
-																					<select 
+																					<select
 																						className="secondary-input-select"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
-																						} : {}} 
+																						} : {}}
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -2896,9 +2983,10 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button 
-																						className="delete-answer-btn" 
+																					<button
+																						className="delete-answer-btn"
 																						title="Delete Answer"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -3472,8 +3560,9 @@ const view = (state, {updateState, dispatch}) => {
 																</div>
 															))}
 															{isEditable ? (
-																<button 
+																<button
 																	className="add-answer-btn"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	onclick={() => dispatch('ADD_ANSWER', {
 																		questionId: question.ids.id
 																	})}
@@ -3487,9 +3576,10 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Text Questions */}
 													{question.type === 'Text' && (
 														<div className="text-input-container">
-															<input 
-																type="text" 
+															<input
+																type="text"
 																className="text-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																placeholder="Enter your answer..."
 																onmousedown={(e) => {
 																	e.stopPropagation();
@@ -3504,9 +3594,10 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Date Questions */}
 													{question.type === 'Date' && (
 														<div className="date-input-container">
-															<input 
-																type="date" 
+															<input
+																type="date"
 																className="date-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																onmousedown={(e) => {
 																	e.stopPropagation();
 																}}
@@ -3520,9 +3611,10 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Numeric Questions */}
 													{question.type === 'Numeric' && (
 														<div className="numeric-input-container">
-															<input 
-																type="number" 
+															<input
+																type="number"
 																className="numeric-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																placeholder="Enter number..."
 																onmousedown={(e) => {
 																	e.stopPropagation();
@@ -3543,6 +3635,7 @@ const view = (state, {updateState, dispatch}) => {
 										{state.builderMode && state.currentAssessment?.status === 'draft' && (
 											<button
 												className="add-question-btn"
+												disabled={hasAnyUnsavedChanges(state)}
 												onclick={() => dispatch('ADD_QUESTION', {
 													sectionId: state.selectedSection
 												})}
@@ -9489,10 +9582,12 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Check for unsaved changes (unless we're confirming the action)
 			if (!skipUnsavedCheck) {
-				const hasUnsavedChanges =
-					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
-					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
-					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+				// Use consistent logic with hasAnyUnsavedChanges helper
+				const hasUnsavedQuestions = state.currentQuestions?.questions?.some(q => q.isUnsaved === true) || false;
+				const hasUnsavedAnswers = (state.answerChanges && Object.keys(state.answerChanges).length > 0) || false;
+				const hasUnsavedSections = (state.sectionChanges && Object.keys(state.sectionChanges).length > 0) || false;
+
+				const hasUnsavedChanges = hasUnsavedQuestions || hasUnsavedAnswers || hasUnsavedSections;
 
 				if (hasUnsavedChanges) {
 					// Show confirmation dialog
@@ -9995,8 +10090,8 @@ createCustomElement('cadal-careiq-builder', {
 						triggered_questions: []
 					}
 				],
-				// Mark as unsaved
-				isUnsaved: true
+				// Don't mark as unsaved initially - only when user edits it
+				isUnsaved: false
 			};
 
 			const updatedQuestions = [...state.currentQuestions.questions, newQuestion];
@@ -18779,12 +18874,15 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			}
 			// Find and update the temp question with the real ID locally
+			// Match using lastSavedQuestionId to find the exact question that was just saved
+			const savedQuestionId = state.lastSavedQuestionId;
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				// If this is the temp question being saved, replace with real data
-				if (question.isUnsaved && question.ids.id.startsWith('temp_')) {
+				// Check by ID match (not isUnsaved flag, which may be false for new questions)
+				if (savedQuestionId && question.ids.id === savedQuestionId && question.ids.id.startsWith('temp_')) {
 					return {
 						...question,
-						ids: { id: newQuestionId || question.ids.id }, // Keep temp ID if no real ID provided
+						ids: { id: newQuestionId || question.ids.id }, // Replace temp ID with real ID
 						isUnsaved: false // Remove the unsaved flag
 					};
 				}
@@ -18875,15 +18973,16 @@ createCustomElement('cadal-careiq-builder', {
 					},
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'success',
 							message: 'Question added to section successfully! Adding answers...',
 							timestamp: new Date().toISOString()
 						}
 					],
-					// Clear pending answers since we're using them now
-					pendingQuestionAnswers: null
+					// CRITICAL: Clear all question save tracking to prevent re-saving
+					pendingQuestionAnswers: null,
+					lastSavedQuestionId: null
 				});
 			} else {
 				// No answers to add
@@ -18909,7 +19008,7 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					// Regular question - just update state
+					// Regular question - just update state and CLEAR tracking
 					updateState({
 						currentQuestions: {
 							...state.currentQuestions,
@@ -18922,7 +19021,10 @@ createCustomElement('cadal-careiq-builder', {
 								message: 'Question added to section successfully! No refresh needed.',
 								timestamp: new Date().toISOString()
 							}
-						]
+						],
+						// CRITICAL: Clear all question save tracking to prevent re-saving
+						lastSavedQuestionId: null,
+						pendingQuestionAnswers: null
 					});
 				}
 			}
@@ -18937,6 +19039,9 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				movingQuestion: false,  // Clear loading spinner
 				pendingQuestionMove: null,  // Clear move context
+				// CRITICAL: Clear all question save tracking on error to prevent issues
+				lastSavedQuestionId: null,
+				pendingQuestionAnswers: null,
 				systemMessages: [
 					...(state.systemMessages || []),
 
