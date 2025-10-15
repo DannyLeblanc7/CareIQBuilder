@@ -16352,13 +16352,13 @@ createCustomElement('cadal-careiq-builder', {
 		'CHECK_SECTION_DUPLICATE': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
+
 			// Check for blank section name
 			if (!sectionLabel || sectionLabel.trim() === '') {
 				updateState({
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'error',
 							message: 'Section name cannot be blank. Please enter a section name.',
@@ -16368,38 +16368,78 @@ createCustomElement('cadal-careiq-builder', {
 				});
 				return;
 			}
-			
-			// Check if this section name already exists in the current assessment
-			const existingSections = [];
-			if (state.currentAssessment?.sections) {
-				state.currentAssessment.sections.forEach(section => {
-					if (section.subsections) {
-						section.subsections.forEach(subsection => {
-							// Don't compare with itself
-							if (subsection.id !== sectionId) {
-								existingSections.push(subsection.label.toLowerCase().trim());
-							}
-						});
-					}
-				});
-			}
-			
+
 			const currentSectionName = sectionLabel.toLowerCase().trim();
-			if (existingSections.includes(currentSectionName)) {
-				updateState({
-					systemMessages: [
-					...(state.systemMessages || []),
-						
-						{
-							type: 'error',
-							message: `Section "${sectionLabel}" already exists in this assessment. Please use a different name.`,
-							timestamp: new Date().toISOString()
+
+			// Determine if the section being saved is a parent or child, and find its parent if it's a child
+			let isParentSection = false;
+			let parentSectionId = null;
+
+			if (state.currentAssessment?.sections) {
+				// Check if sectionId is a parent section
+				const parentSection = state.currentAssessment.sections.find(s => s.id === sectionId);
+				if (parentSection) {
+					isParentSection = true;
+				} else {
+					// It's a child section - find which parent it belongs to
+					for (const section of state.currentAssessment.sections) {
+						if (section.subsections) {
+							const childSection = section.subsections.find(sub => sub.id === sectionId);
+							if (childSection) {
+								parentSectionId = section.id;
+								break;
+							}
 						}
-					]
-				});
-				return;
+					}
+				}
 			}
-			
+
+			// Apply validation rules based on whether it's a parent or child section
+			if (isParentSection) {
+				// RULE: Parent sections must have unique names across all parents
+				const duplicateParent = state.currentAssessment.sections.find(section =>
+					section.id !== sectionId && section.label.toLowerCase().trim() === currentSectionName
+				);
+
+				if (duplicateParent) {
+					updateState({
+						systemMessages: [
+						...(state.systemMessages || []),
+
+							{
+								type: 'error',
+								message: `Parent section "${sectionLabel}" already exists. Parent sections must have unique names.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
+			} else {
+				// RULE: Child sections must have unique names only within the same parent
+				const parentSection = state.currentAssessment.sections.find(s => s.id === parentSectionId);
+				if (parentSection && parentSection.subsections) {
+					const duplicateSibling = parentSection.subsections.find(subsection =>
+						subsection.id !== sectionId && subsection.label.toLowerCase().trim() === currentSectionName
+					);
+
+					if (duplicateSibling) {
+						updateState({
+							systemMessages: [
+							...(state.systemMessages || []),
+
+								{
+									type: 'error',
+									message: `Child section "${sectionLabel}" already exists under "${parentSection.label}". Child sections must have unique names within the same parent.`,
+									timestamp: new Date().toISOString()
+								}
+							]
+						});
+						return;
+					}
+				}
+			}
+
 			// No duplicate found, now check for library matches before saving
 			dispatch('CHECK_SECTION_LIBRARY_MATCH', {
 				sectionId,
