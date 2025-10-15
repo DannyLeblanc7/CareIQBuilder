@@ -1498,12 +1498,12 @@ const view = (state, {updateState, dispatch}) => {
 																<div className="tooltip-edit-icon">
 																	<span
 																		className={`tooltip-icon ${question.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																		title={question.tooltip || 'Click to add tooltip'}
+																		title="Click to edit tooltip"
 																		style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																			opacity: 0.5,
 																			cursor: 'not-allowed'
 																		} : {}}
-																		ondblclick={(e) => {
+																		onclick={(e) => {
 																			e.stopPropagation();
 																			if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																				return; // Blocked when other questions have changes
@@ -1569,12 +1569,12 @@ const view = (state, {updateState, dispatch}) => {
 																</select>
 																<span
 																	className="custom-attributes-icon"
-																	title={question.custom_attributes ? `Custom Attributes: ${Object.keys(question.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																	title="Click to add, remove or change custom attributes"
 																	style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																		opacity: 0.5,
 																		cursor: 'not-allowed'
 																	} : {}}
-																	ondblclick={() => {
+																	onclick={() => {
 																		if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																			return; // Blocked when other questions have changes
 																		}
@@ -1665,7 +1665,7 @@ const view = (state, {updateState, dispatch}) => {
 																{(question.type === 'Single Select' || question.type === 'Multiselect') && (
 																	<button
 																		className="save-bundle-btn"
-																		title="Save Question Bundle to Library"
+																		title="Click to save the question bundle"
 																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		style={state.isMobileView ? {
 																			flexShrink: '0',
@@ -1979,12 +1979,12 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																						title={answer.tooltip || 'Click to add tooltip'}
+																						title="Click to edit tooltip"
 																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																							opacity: 0.5,
 																							cursor: 'not-allowed'
 																						} : {}}
-																						ondblclick={(e) => {
+																						onclick={(e) => {
 																							e.stopPropagation();
 																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																								return; // Blocked when other questions have changes
@@ -2013,12 +2013,12 @@ const view = (state, {updateState, dispatch}) => {
 																				)}
 																				<span
 																					className="custom-attributes-icon"
-																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					title="Click to add, remove or change custom attributes"
 																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																						opacity: 0.5,
 																						cursor: 'not-allowed'
 																					} : {}}
-																					ondblclick={() => {
+																					onclick={() => {
 																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																							return; // Blocked when other questions have changes
 																						}
@@ -2893,12 +2893,12 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																						title={answer.tooltip || 'Click to add tooltip'}
+																						title="Click to edit tooltip"
 																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																							opacity: 0.5,
 																							cursor: 'not-allowed'
 																						} : {}}
-																						ondblclick={(e) => {
+																						onclick={(e) => {
 																							e.stopPropagation();
 																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																								return; // Blocked when other questions have changes
@@ -2927,12 +2927,12 @@ const view = (state, {updateState, dispatch}) => {
 																				)}
 																				<span
 																					className="custom-attributes-icon"
-																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
+																					title="Click to add, remove or change custom attributes"
 																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
 																						opacity: 0.5,
 																						cursor: 'not-allowed'
 																					} : {}}
-																					ondblclick={() => {
+																					onclick={() => {
 																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
 																							return; // Blocked when other questions have changes
 																						}
