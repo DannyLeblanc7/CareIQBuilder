@@ -64,14 +64,18 @@ export const calculateVisibleQuestions = (selectedAnswers, currentQuestions, ans
 			visibleQuestions.push(question.ids.id); // Use correct UUID path
 		}
 	});
+
 	// Add questions that should be shown based on triggered_questions relationships
+	// CRITICAL: Check BOTH the answer's triggered_questions array AND the answerRelationships
+	// This ensures we don't miss triggers from either source
 	Object.keys(selectedAnswers).forEach(questionId => {
 		const selectedAnswerIds = selectedAnswers[questionId];
 		selectedAnswerIds.forEach(answerId => {
 			// Find the answer in the questions using correct UUID paths
 			const question = currentQuestions.find(q => q.ids.id === questionId);
 			const answer = question?.answers?.find(a => a.ids.id === answerId);
-			// First check if the answer has triggered_questions in the section data
+
+			// Check if the answer has triggered_questions in the section data
 			if (answer?.triggered_questions && Array.isArray(answer.triggered_questions)) {
 				answer.triggered_questions.forEach(triggeredQuestionId => {
 					if (!visibleQuestions.includes(triggeredQuestionId)) {
@@ -79,16 +83,18 @@ export const calculateVisibleQuestions = (selectedAnswers, currentQuestions, ans
 					}
 				});
 			}
-			// Otherwise, check if we have relationship data for this answer
-			else if (answerRelationships[answerId] && answerRelationships[answerId].questions?.questions?.length > 0) {
+
+			// ALSO check if we have relationship data for this answer
+			// Use 'if' instead of 'else if' to check BOTH sources
+			if (answerRelationships[answerId] && answerRelationships[answerId].questions?.questions?.length > 0) {
 				answerRelationships[answerId].questions.questions.forEach(triggeredQuestion => {
 					if (!visibleQuestions.includes(triggeredQuestion.id)) {
 						visibleQuestions.push(triggeredQuestion.id);
 					}
 				});
-			} else {
 			}
 		});
 	});
+
 	return visibleQuestions;
 };

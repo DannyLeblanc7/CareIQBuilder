@@ -1428,7 +1428,7 @@ const view = (state, {updateState, dispatch}) => {
 																				newLabel: newValue
 																			});
 																			// Trigger typeahead search if length >= 3
-																			if (newValue.length >= 3) {
+																			if (newValue.length >= 2) {
 																				dispatch('QUESTION_TYPEAHEAD_INPUT_CHANGE', {
 																					searchText: newValue,
 																					questionId: question.ids.id
@@ -1493,7 +1493,7 @@ const view = (state, {updateState, dispatch}) => {
 																					<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																				</div>
 																			))
-																		) : state.questionTypeaheadQuery.length >= 3 && !state.questionTypeaheadLoading ? (
+																		) : state.questionTypeaheadQuery.length >= 2 && !state.questionTypeaheadLoading ? (
 																			<div className="typeahead-item no-results">
 																				No matching questions found for "{state.questionTypeaheadQuery}"
 																			</div>
@@ -1853,7 +1853,7 @@ const view = (state, {updateState, dispatch}) => {
 																								newLabel: newValue
 																							});
 																							// Trigger typeahead search if length >= 3
-																							if (newValue.length >= 3) {
+																							if (newValue.length >= 2) {
 																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
 																									searchText: newValue,
 																									answerId: answer.ids.id
@@ -1910,7 +1910,7 @@ const view = (state, {updateState, dispatch}) => {
 																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																									</div>
 																								))
-																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 2 && !state.answerTypeaheadLoading ? (
 																								<div className="typeahead-item no-results">
 																									No matching answers found for "{state.answerTypeaheadQuery}"
 																								</div>
@@ -2758,7 +2758,7 @@ const view = (state, {updateState, dispatch}) => {
 																								newLabel: newValue
 																							});
 																							// Trigger typeahead search if length >= 3
-																							if (newValue.length >= 3) {
+																							if (newValue.length >= 2) {
 																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
 																									searchText: newValue,
 																									answerId: answer.ids.id
@@ -2815,7 +2815,7 @@ const view = (state, {updateState, dispatch}) => {
 																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																									</div>
 																								))
-																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 2 && !state.answerTypeaheadLoading ? (
 																								<div className="typeahead-item no-results">
 																									No matching answers found for "{state.answerTypeaheadQuery}"
 																								</div>
@@ -5415,7 +5415,7 @@ const view = (state, {updateState, dispatch}) => {
 												</div>
 											)}
 
-											{state.relationshipTypeaheadText && state.relationshipTypeaheadText.length >= 3 &&
+											{state.relationshipTypeaheadText && state.relationshipTypeaheadText.length >= 2 &&
 											 state.relationshipTypeaheadResults.length === 0 &&
 											 !state.selectedQuestion && (
 												<div className="typeahead-dropdown">
@@ -6565,7 +6565,7 @@ const view = (state, {updateState, dispatch}) => {
 																																});
 
 																																// Trigger search if 3+ characters
-																																if (value.length >= 3) {
+																																if (value.length >= 2) {
 																																	dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																																		searchText: value,
 																																		type: 'intervention',
@@ -6834,7 +6834,7 @@ const view = (state, {updateState, dispatch}) => {
 																							});
 
 																							// Trigger search if 3+ characters
-																							if (value.length >= 3) {
+																							if (value.length >= 2) {
 																								dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																									searchText: value,
 																									type: 'goal',
@@ -7058,7 +7058,7 @@ const view = (state, {updateState, dispatch}) => {
 															const value = e.target.value;
 															updateState({relationshipTypeaheadText: value});
 
-															if (value.length >= 3) {
+															if (value.length >= 2) {
 																// Use generic typeahead for problems
 																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																	searchText: value,
@@ -7253,7 +7253,7 @@ const view = (state, {updateState, dispatch}) => {
 															const value = e.target.value;
 															updateState({relationshipTypeaheadText: value});
 
-															if (value.length >= 3) {
+															if (value.length >= 2) {
 																// Use generic typeahead for barriers
 																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																	searchText: value,
@@ -12497,7 +12497,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			// Filter questions from current section based on input text
-			if (text.length >= 3 && state.currentQuestions?.questions) {
+			if (text.length >= 2 && state.currentQuestions?.questions) {
 				// Find the current answer to check its existing triggered questions
 				let currentAnswer = null;
 				for (const question of state.currentQuestions.questions) {
@@ -12571,7 +12571,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Only search after 3 characters
-			if (text && text.length >= 3) {
+			if (text && text.length >= 2) {
 				dispatch('SEARCH_GUIDELINES', {
 					searchText: text,
 					answerId: answerId
@@ -13549,7 +13549,7 @@ createCustomElement('cadal-careiq-builder', {
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, type, problemId, goalId, isPreSaveCheck} = action.payload;
-			if (!searchText || (searchText.length < 3 && !isPreSaveCheck)) {
+			if (!searchText || (searchText.length < 2 && !isPreSaveCheck)) {
 				if (type === 'goal' && problemId) {
 					// Clear goal typeahead results for specific problem
 					updateState({
@@ -14899,7 +14899,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				// Only search after 3 characters
-				if (text && text.length >= 3) {
+				if (text && text.length >= 2) {
 					// Get current section questions
 					const allQuestions = state.currentQuestions?.questions || [];
 					// Find the current question (the one this answer belongs to)
@@ -14941,7 +14941,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				// Only search after 3 characters
-				if (text && text.length >= 3) {
+				if (text && text.length >= 2) {
 					dispatch('SEARCH_QUESTIONS', {
 						searchText: text,
 						sectionId: sectionId
@@ -15021,7 +15021,7 @@ createCustomElement('cadal-careiq-builder', {
 		'RELATIONSHIP_QUESTION_SEARCH': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {searchText, answerId} = action.payload;
-			if (searchText.length >= 3) {
+			if (searchText.length >= 2) {
 				// Start loading state
 				updateState({
 					relationshipTypeaheadLoading: true
@@ -20158,7 +20158,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 			
 			// Update query and hide dropdown if search is too short
-			if (searchText.length < 3) {
+			if (searchText.length < 2) {
 				updateState({
 					sectionTypeaheadQuery: searchText,
 					sectionTypeaheadVisible: false,
@@ -20322,7 +20322,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadDebounceTimeout: timeout,
 				answerTypeaheadQuery: searchText,
 				editingAnswerId: answerId,
-				answerTypeaheadVisible: searchText.length >= 3
+				answerTypeaheadVisible: searchText.length >= 2
 			});
 		},
 
