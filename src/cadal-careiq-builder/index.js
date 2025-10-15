@@ -1265,6 +1265,12 @@ const view = (state, {updateState, dispatch}) => {
 												<div
 													className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`}
 													draggable={false}
+													style={question.isUnsaved ? {
+														backgroundColor: '#e3f2fd',
+														borderLeft: '5px solid #2196F3',
+														boxShadow: '0 4px 12px rgba(33, 150, 243, 0.25)',
+														transition: 'all 0.3s ease'
+													} : {}}
 													onclick={() => {
 													}}
 												ondragend={isEditable ? (e) => {
@@ -1353,6 +1359,22 @@ const view = (state, {updateState, dispatch}) => {
 															overflow: 'visible'
 														} : {}}>
 															<div className="question-number">{qIndex + 1}.</div>
+															{question.isUnsaved && (
+																<span style={{
+																	backgroundColor: '#2196F3',
+																	color: 'white',
+																	padding: '3px 10px',
+																	borderRadius: '4px',
+																	fontSize: '11px',
+																	fontWeight: 'bold',
+																	marginLeft: '8px',
+																	marginRight: '8px',
+																	letterSpacing: '0.5px',
+																	boxShadow: '0 2px 4px rgba(33, 150, 243, 0.3)'
+																}}>
+																	EDITING
+																</span>
+															)}
 															<div className="question-single-line" style={state.isMobileView ? {
 																display: 'flex',
 																flexWrap: 'wrap',
@@ -4564,6 +4586,25 @@ const view = (state, {updateState, dispatch}) => {
 						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
 							Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
 						</h3>
+
+						{/* Validation Error Message */}
+						{state.customAttributesValidationError && (
+							<div style={{
+								backgroundColor: '#fee',
+								border: '1px solid #fcc',
+								borderRadius: '4px',
+								padding: '12px',
+								marginBottom: '15px',
+								color: '#c00',
+								fontSize: '14px',
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px'
+							}}>
+								<span style={{fontSize: '18px'}}>⚠️</span>
+								<span>{state.customAttributesValidationError}</span>
+							</div>
+						)}
 
 						<div className="custom-attributes-editor">
 							{state.customAttributesData && state.customAttributesData.length > 0 ? (
@@ -17246,7 +17287,8 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesData: Object.keys(currentAttributes || {}).map(key => ({
 					key: key,
 					value: currentAttributes[key]
-				}))
+				})),
+				customAttributesValidationError: null  // Clear any previous errors
 			});
 		},
 
@@ -17256,7 +17298,8 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesModalOpen: false,
 				customAttributesItemType: null,
 				customAttributesItemId: null,
-				customAttributesData: []
+				customAttributesData: [],
+				customAttributesValidationError: null  // Clear validation error
 			});
 		},
 
@@ -17297,6 +17340,24 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_CUSTOM_ATTRIBUTES': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
+
+			// Validate: check for blank keys or values
+			const hasBlankFields = state.customAttributesData.some(item =>
+				item.key.trim() === '' || item.value.trim() === ''
+			);
+
+			if (hasBlankFields) {
+				// Show validation error
+				updateState({
+					customAttributesValidationError: 'All custom attribute keys and values must be filled in. Remove empty rows or fill them out.'
+				});
+				return; // Stop save process
+			}
+
+			// Clear validation error
+			updateState({
+				customAttributesValidationError: null
+			});
 
 			// Convert array back to object format
 			const customAttributes = {};
@@ -17399,6 +17460,18 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
+
+			// Add system message for successful save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Custom attributes saved successfully!',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 
 			dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL');
 		},
