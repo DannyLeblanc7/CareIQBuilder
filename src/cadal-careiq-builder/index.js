@@ -7948,6 +7948,169 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
+			{/* Confirmation Dialog Modal */}
+			{state.confirmationDialogOpen && (
+				<div className="modal-overlay" style={{
+					position: 'fixed',
+					top: '0',
+					left: '0',
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0,0,0,0.6)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: '1000100'
+				}}>
+					<div className="confirmation-dialog" style={{
+						backgroundColor: 'white',
+						padding: '24px',
+						borderRadius: '12px',
+						width: '420px',
+						maxWidth: '90vw',
+						boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+						position: 'relative',
+						zIndex: '1000101',
+						animation: 'fadeIn 0.2s ease-out'
+					}}>
+						<div style={{
+							display: 'flex',
+							alignItems: 'flex-start',
+							marginBottom: '20px'
+						}}>
+							<span style={{
+								fontSize: '32px',
+								marginRight: '12px',
+								lineHeight: '1'
+							}}>⚠️</span>
+							<div style={{flex: 1}}>
+								<h3 style={{
+									margin: '0 0 8px 0',
+									fontSize: '18px',
+									fontWeight: '600',
+									color: '#1f2937'
+								}}>Confirm Action</h3>
+								<p style={{
+									margin: '0',
+									fontSize: '14px',
+									color: '#6b7280',
+									lineHeight: '1.5'
+								}}>
+									{state.confirmationDialogMessage}
+								</p>
+							</div>
+						</div>
+						<div style={{
+							display: 'flex',
+							gap: '12px',
+							justifyContent: 'flex-end'
+						}}>
+							<button
+								style={{
+									backgroundColor: '#6b7280',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '6px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: '500',
+									transition: 'background-color 0.2s'
+								}}
+								onclick={() => {
+									dispatch('CANCEL_DIALOG_ACTION');
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								style={{
+									backgroundColor: '#dc3545',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '6px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: '500',
+									transition: 'background-color 0.2s'
+								}}
+								onclick={() => {
+									dispatch('CONFIRM_DIALOG_ACTION');
+								}}
+							>
+								Continue
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Toast Notifications */}
+			{state.toastNotifications && state.toastNotifications.length > 0 && (
+				<div className="toast-container" style={{
+					position: 'fixed',
+					top: '20px',
+					right: '20px',
+					zIndex: '1000200',
+					display: 'flex',
+					flexDirection: 'column',
+					gap: '12px',
+					maxWidth: '400px'
+				}}>
+					{state.toastNotifications.map((toast) => (
+						<div
+							key={toast.id}
+							className="toast-notification"
+							style={{
+								backgroundColor: 'white',
+								padding: '16px',
+								borderRadius: '8px',
+								boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+								display: 'flex',
+								alignItems: 'flex-start',
+								gap: '12px',
+								minWidth: '300px',
+								animation: 'slideInRight 0.3s ease-out',
+								borderLeft: `4px solid ${
+									toast.type === 'success' ? '#28a745' :
+									toast.type === 'error' ? '#dc3545' :
+									toast.type === 'warning' ? '#ffc107' : '#17a2b8'
+								}`
+							}}
+						>
+							<span style={{
+								fontSize: '20px',
+								lineHeight: '1'
+							}}>
+								{toast.type === 'success' ? '✅' :
+								 toast.type === 'error' ? '❌' :
+								 toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+							</span>
+							<div style={{flex: 1, fontSize: '14px', color: '#374151'}}>
+								{toast.message}
+							</div>
+							<button
+								style={{
+									background: 'none',
+									border: 'none',
+									cursor: 'pointer',
+									fontSize: '18px',
+									color: '#9ca3af',
+									padding: '0',
+									lineHeight: '1'
+								}}
+								onclick={() => {
+									dispatch('DISMISS_TOAST', {toastId: toast.id});
+								}}
+							>
+								✗
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+
 			<div className="version-display">v{packageJson.version}</div>
 		</div>
 	);
@@ -8168,7 +8331,10 @@ createCustomElement('cadal-careiq-builder', {
 		// Unsaved changes confirmation dialog
 		confirmationDialogOpen: false,            // Is confirmation dialog visible
 		confirmationDialogMessage: '',            // Message to display
-		confirmationDialogPendingAction: null     // Action to execute if user confirms
+		confirmationDialogPendingAction: null,    // Action to execute if user confirms
+
+		// Toast notifications
+		toastNotifications: []                    // Array of {id, type, message, timestamp}
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -10430,37 +10596,42 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const questionLabel = questionToDelete.label || 'Untitled Question';
-			// Show confirmation alert like sections
-			if (confirm(`Are you sure you want to delete question "${questionLabel}"?`)) {
-				// Remove question from local state immediately (optimistic update)
-				const updatedQuestions = state.currentQuestions.questions.filter(question =>
-					question.ids.id !== questionId
-				);
 
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					}
-				});
-
-				// Auto-delete from backend immediately (only if not temp ID)
-				if (!questionId.startsWith('temp_')) {
-					dispatch('DELETE_QUESTION_API', { questionId });
-				} else {
-					// Show immediate success message for temp questions
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'success',
-								message: 'Question removed successfully! No backend call needed.',
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: `Are you sure you want to delete question "${questionLabel}"?`,
+				pendingAction: {
+					type: 'CONFIRM_DELETE_QUESTION',
+					payload: { questionId }
 				}
+			});
+		},
+
+		'CONFIRM_DELETE_QUESTION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			// Remove question from local state immediately (optimistic update)
+			const updatedQuestions = state.currentQuestions.questions.filter(question =>
+				question.ids.id !== questionId
+			);
+
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				}
+			});
+
+			// Auto-delete from backend immediately (only if not temp ID)
+			if (!questionId.startsWith('temp_')) {
+				dispatch('DELETE_QUESTION_API', { questionId });
+			} else {
+				// Show toast for temp questions
+				dispatch('SHOW_TOAST', {
+					type: 'success',
+					message: 'Question removed successfully!'
+				});
 			}
 		},
 
@@ -16453,55 +16624,61 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_SECTION': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, dispatch} = coeffects;
 			const {sectionId, sectionName} = action.payload;
-			if (confirm(`Are you sure you want to delete section "${sectionName}"?`)) {
-				let updatedSections;
-				let isParentSection = false;
 
-				// Check if this is a parent section (top level)
-				const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
-
-				if (parentSectionToDelete) {
-					// This is a parent section - remove it completely from the sections array
-					isParentSection = true;
-					updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
-				} else {
-					// This is a child section - remove it from parent sections' subsections
-					updatedSections = state.currentAssessment.sections.map(section => ({
-						...section,
-						subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
-					}));
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: `Are you sure you want to delete section "${sectionName}"?`,
+				pendingAction: {
+					type: 'CONFIRM_DELETE_SECTION',
+					payload: { sectionId }
 				}
+			});
+		},
 
-				updateState({
-					currentAssessment: {
-						...state.currentAssessment,
-						sections: updatedSections
-					},
-					selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
-					selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
+		'CONFIRM_DELETE_SECTION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {sectionId} = action.payload;
+
+			let updatedSections;
+			let isParentSection = false;
+
+			// Check if this is a parent section (top level)
+			const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
+
+			if (parentSectionToDelete) {
+				// This is a parent section - remove it completely from the sections array
+				isParentSection = true;
+				updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
+			} else {
+				// This is a child section - remove it from parent sections' subsections
+				updatedSections = state.currentAssessment.sections.map(section => ({
+					...section,
+					subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
+				}));
+			}
+
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
+				selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
+				selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
+			});
+
+			// Auto-delete from backend immediately (only if not temp ID)
+			if (!sectionId.startsWith('temp_')) {
+				dispatch('DELETE_SECTION_API', {
+					sectionId: sectionId
 				});
-
-				// Auto-delete from backend immediately (only if not temp ID)
-				if (!sectionId.startsWith('temp_')) {
-					dispatch('DELETE_SECTION_API', {
-						sectionId: sectionId
-					});
-				} else {
-					// Show immediate success message for temp sections
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'success',
-								message: 'Section removed successfully!',
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
-				}
+			} else {
+				// Show toast for temp sections
+				dispatch('SHOW_TOAST', {
+					type: 'success',
+					message: 'Section removed successfully!'
+				});
 			}
 		},
 
@@ -19655,116 +19832,126 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CANCEL_ALL_CHANGES': (coeffects) => {
-			const {updateState, state, dispatch} = coeffects;
-			if (confirm('Are you sure you want to cancel all unsaved changes? This action cannot be undone.')) {
-				// Restore original assessment data
-				if (state.originalAssessmentData) {
-					updateState({
-						currentAssessment: JSON.parse(JSON.stringify(state.originalAssessmentData)),
-						sectionChanges: {},
-						questionChanges: {},
-						answerChanges: {},
-						// Clear any editing states
-						editingSectionId: null,
-						editingSectionName: null
-					});
-					
-					// Reload the current section questions if one is selected
-					if (state.selectedSection) {
-						dispatch('FETCH_SECTION_QUESTIONS', {
-							sectionId: state.selectedSection,
-							sectionLabel: state.selectedSectionLabel
-						});
-					}
-				} else {
-					// Fallback: just clear the changes tracking
-					updateState({
-						sectionChanges: {},
-						questionChanges: {},
-						answerChanges: {},
-						relationshipChanges: {},
-						editingSectionId: null,
-						editingSectionName: null
-					});
+			const {dispatch} = coeffects;
+
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to cancel all unsaved changes? This action cannot be undone.',
+				pendingAction: {
+					type: 'CONFIRM_CANCEL_ALL_CHANGES',
+					payload: {}
 				}
-				
-				// Show warning message
-				updateState({
-					systemMessages: [
-					...(state.systemMessages || []),
-						...state.systemMessages,
-						{
-							type: 'warning',
-							message: 'All unsaved changes have been canceled.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-			}
+			});
 		},
 
-		'CANCEL_QUESTION_CHANGES': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
-			const {questionId} = action.payload;
+		'CONFIRM_CANCEL_ALL_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
 
-			if (!state.currentQuestions?.questions) {
-				return;
-			}
-
-			// Find the original question data to restore from
-			// Option 1: If we have a server backup, use it
-			// Option 2: Reload the section to get fresh data
-			// For now, let's reload the section to get the original data
-
-			if (confirm('Are you sure you want to cancel all changes to this question? This will reload the current data from the server.')) {
-				// Set canceling state for spinner
+			// Restore original assessment data
+			if (state.originalAssessmentData) {
 				updateState({
-					cancelingQuestions: {
-						...state.cancelingQuestions,
-						[questionId]: true
-					}
+					currentAssessment: JSON.parse(JSON.stringify(state.originalAssessmentData)),
+					sectionChanges: {},
+					questionChanges: {},
+					answerChanges: {},
+					// Clear any editing states
+					editingSectionId: null,
+					editingSectionName: null
 				});
 
-				// Clear any question-specific change tracking
-				const updatedQuestionChanges = {...state.questionChanges};
-				const updatedAnswerChanges = {...state.answerChanges};
-
-				// Remove changes related to this question
-				delete updatedQuestionChanges[questionId];
-
-				// Remove answer changes related to this question
-				Object.keys(updatedAnswerChanges).forEach(answerId => {
-					const answerChange = updatedAnswerChanges[answerId];
-					// Check if this answer change belongs to the question being canceled
-					const belongsToQuestion = state.currentQuestions.questions
-						.find(q => q.ids.id === questionId)
-						?.answers?.some(a => a.ids.id === answerId);
-
-					if (belongsToQuestion || answerChange.question_id === questionId) {
-						delete updatedAnswerChanges[answerId];
-					}
-				});
-
-				updateState({
-					questionChanges: updatedQuestionChanges,
-					answerChanges: updatedAnswerChanges,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'warning',
-							message: 'Question changes cancelled. Refreshing section data from server...',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-
-				// Reload section to get fresh data from server
+				// Reload the current section questions if one is selected
 				if (state.selectedSection) {
 					dispatch('FETCH_SECTION_QUESTIONS', {
 						sectionId: state.selectedSection,
 						sectionLabel: state.selectedSectionLabel
 					});
 				}
+			} else {
+				// Fallback: just clear the changes tracking
+				updateState({
+					sectionChanges: {},
+					questionChanges: {},
+					answerChanges: {},
+					relationshipChanges: {},
+					editingSectionId: null,
+					editingSectionName: null
+				});
+			}
+
+			// Show toast message
+			dispatch('SHOW_TOAST', {
+				type: 'warning',
+				message: 'All unsaved changes have been canceled.'
+			});
+		},
+
+		'CANCEL_QUESTION_CHANGES': (coeffects) => {
+			const {action, dispatch, state} = coeffects;
+			const {questionId} = action.payload;
+
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to cancel all changes to this question? This will reload the current data from the server.',
+				pendingAction: {
+					type: 'CONFIRM_CANCEL_QUESTION_CHANGES',
+					payload: { questionId }
+				}
+			});
+		},
+
+		'CONFIRM_CANCEL_QUESTION_CHANGES': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			// Set canceling state for spinner
+			updateState({
+				cancelingQuestions: {
+					...state.cancelingQuestions,
+					[questionId]: true
+				}
+			});
+
+			// Clear any question-specific change tracking
+			const updatedQuestionChanges = {...state.questionChanges};
+			const updatedAnswerChanges = {...state.answerChanges};
+
+			// Remove changes related to this question
+			delete updatedQuestionChanges[questionId];
+
+			// Remove answer changes related to this question
+			Object.keys(updatedAnswerChanges).forEach(answerId => {
+				const answerChange = updatedAnswerChanges[answerId];
+				// Check if this answer change belongs to the question being canceled
+				const belongsToQuestion = state.currentQuestions.questions
+					.find(q => q.ids.id === questionId)
+					?.answers?.some(a => a.ids.id === answerId);
+
+				if (belongsToQuestion || answerChange.question_id === questionId) {
+					delete updatedAnswerChanges[answerId];
+				}
+			});
+
+			updateState({
+				questionChanges: updatedQuestionChanges,
+				answerChanges: updatedAnswerChanges
+			});
+
+			// Show toast
+			dispatch('SHOW_TOAST', {
+				type: 'warning',
+				message: 'Question changes cancelled. Refreshing section data from server...'
+			});
+
+			// Reload section to get fresh data from server
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
 			}
 		},
 
@@ -20257,6 +20444,51 @@ createCustomElement('cadal-careiq-builder', {
 				confirmationDialogOpen: false,
 				confirmationDialogMessage: '',
 				confirmationDialogPendingAction: null
+			});
+		},
+
+		// Toast Notification Handlers
+		'SHOW_TOAST': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {type, message, duration = 5000} = action.payload;
+
+			// Create unique toast ID
+			const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(7);
+
+			// Add toast to array
+			const newToast = {
+				id: toastId,
+				type: type || 'info',
+				message: message,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				toastNotifications: [...(state.toastNotifications || []), newToast]
+			});
+
+			// Auto-dismiss after duration (unless it's an error)
+			if (type !== 'error') {
+				setTimeout(() => {
+					// Dispatch dismiss action
+					const currentState = state;
+					if (currentState.toastNotifications) {
+						const filteredToasts = currentState.toastNotifications.filter(t => t.id !== toastId);
+						updateState({
+							toastNotifications: filteredToasts
+						});
+					}
+				}, duration);
+			}
+		},
+
+		'DISMISS_TOAST': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {toastId} = action.payload;
+
+			const filteredToasts = (state.toastNotifications || []).filter(t => t.id !== toastId);
+			updateState({
+				toastNotifications: filteredToasts
 			});
 		},
 
