@@ -104,6 +104,19 @@ const view = (state, {updateState, dispatch}) => {
 		</div>
 	);
 
+	// Helper function to check if there are any unsaved changes
+	// Only counts questions/answers that have been EDITED (isUnsaved: true)
+	// NOT just newly added questions that haven't been touched yet
+	const hasAnyUnsavedChanges = (state) => {
+		// Check if any question has isUnsaved flag set
+		const hasUnsavedQuestions = state.currentQuestions?.questions?.some(q => q.isUnsaved === true) || false;
+
+		// Check if any answer changes exist (answer changes always mean editing)
+		const hasUnsavedAnswers = (state.answerChanges && Object.keys(state.answerChanges).length > 0) || false;
+
+		return hasUnsavedQuestions || hasUnsavedAnswers;
+	};
+
 	// Auto-scroll system message box to bottom after render
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
@@ -254,7 +267,7 @@ const view = (state, {updateState, dispatch}) => {
 									fontStyle: 'italic',
 									flex: 1
 								}}>
-									Initializing CareIQ Builder...
+									Ready
 								</span>
 							);
 						}
@@ -358,7 +371,7 @@ const view = (state, {updateState, dispatch}) => {
 				)}
 			</div>
 			
-			{state.careiqConfig && state.accessToken && !state.builderView && (
+			{state.useCaseCategories && state.useCaseCategories.length > 0 && !state.builderView && (
 				<div className="assessments-section">
 					<div className="assessments-header">
 						<h2>Assessments</h2>
@@ -552,7 +565,7 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 			
-			{state.careiqConfig && state.accessToken && state.builderView && (
+			{state.useCaseCategories && state.useCaseCategories.length > 0 && state.builderView && (
 				<div className="builder-section">
 					<div className="builder-header">
 						<div className="builder-title">
@@ -1205,9 +1218,26 @@ const view = (state, {updateState, dispatch}) => {
 										Select a section to view questions
 									</div>
 								)}
-								
+
 								{state.currentQuestions && state.currentQuestions.questions && !state.questionsLoading && (
 									<div className="questions-list">
+										{hasAnyUnsavedChanges(state) && (
+											<div style={{
+												padding: '12px 16px',
+												backgroundColor: '#fef3c7',
+												border: '1px solid #fbbf24',
+												borderRadius: '6px',
+												marginBottom: '16px',
+												fontSize: '14px',
+												color: '#92400e',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{ fontSize: '16px' }}>⚠️</span>
+												<span>You have unsaved changes. Save or cancel current changes to edit other questions.</span>
+											</div>
+										)}
 										{state.currentQuestions.questions
 											.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 											.filter(question => {
@@ -1222,13 +1252,25 @@ const view = (state, {updateState, dispatch}) => {
 												//
 											return (
 											<div key={question.ids.id} style={{position: "relative"}}>
-												{/* Loading overlay for question delete only (not update) */}
+												{/* Loading overlays for question operations */}
 												{state.deletingQuestions[question.ids.id] && (
 													<LoadingOverlay message="Deleting question..." />
+												)}
+												{state.savingQuestions && state.savingQuestions[question.ids.id] && (
+													<LoadingOverlay message="Saving question..." />
+												)}
+												{state.cancelingQuestions && state.cancelingQuestions[question.ids.id] && (
+													<LoadingOverlay message="Canceling changes..." />
 												)}
 												<div
 													className={`question-item ${isEditable ? 'editable' : 'preview'} ${isEditable ? 'draggable-question' : ''}`}
 													draggable={false}
+													style={question.isUnsaved ? {
+														backgroundColor: '#e3f2fd',
+														borderLeft: '5px solid #2196F3',
+														boxShadow: '0 4px 12px rgba(33, 150, 243, 0.25)',
+														transition: 'all 0.3s ease'
+													} : {}}
 													onclick={() => {
 													}}
 												ondragend={isEditable ? (e) => {
@@ -1317,6 +1359,22 @@ const view = (state, {updateState, dispatch}) => {
 															overflow: 'visible'
 														} : {}}>
 															<div className="question-number">{qIndex + 1}.</div>
+															{question.isUnsaved && (
+																<span style={{
+																	backgroundColor: '#2196F3',
+																	color: 'white',
+																	padding: '3px 10px',
+																	borderRadius: '4px',
+																	fontSize: '11px',
+																	fontWeight: 'bold',
+																	marginLeft: '8px',
+																	marginRight: '8px',
+																	letterSpacing: '0.5px',
+																	boxShadow: '0 2px 4px rgba(33, 150, 243, 0.3)'
+																}}>
+																	EDITING
+																</span>
+															)}
 															<div className="question-single-line" style={state.isMobileView ? {
 																display: 'flex',
 																flexWrap: 'wrap',
@@ -1325,8 +1383,9 @@ const view = (state, {updateState, dispatch}) => {
 																overflow: 'visible',
 																alignItems: 'center'
 															} : {}}>
-																<select 
+																<select
 																	className="voice-select"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	style={state.isMobileView ? {
 																		flexShrink: '0'
 																	} : {}}
@@ -1347,35 +1406,20 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
 																	<option value="Patient" selected={question.voice === 'Patient'}>Patient</option>
 																</select>
-																<span 
-																	className="edit-icon"
-																	title="Edit question text"
-																	style={{
-																		cursor: 'pointer',
-																		marginRight: '8px',
-																		padding: '2px 4px',
-																		backgroundColor: '#f0f0f0',
-																		borderRadius: '3px',
-																		fontSize: '12px',
-																		display: 'inline-block',
-																		border: '1px solid #ccc'
-																	}}
-																	onclick={() => {
-																		dispatch('OPEN_EDIT_MODAL', {
-																			type: 'question',
-																			itemId: question.ids.id,
-																			text: question.label
-																		});
-																	}}
-																>
-																	🔍
-																</span>
 																<div className="typeahead-container">
 																	<input
 																		type="text"
 																		className="question-label-input"
 																		value={question.label}
 																		placeholder="Enter question text..."
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																		ondblclick={() => {
+																			dispatch('OPEN_EDIT_MODAL', {
+																				type: 'question',
+																				itemId: question.ids.id,
+																				text: question.label
+																			});
+																		}}
 																		oninput={(e) => {
 																			const newValue = e.target.value;
 																			// Update the question label locally
@@ -1458,11 +1502,18 @@ const view = (state, {updateState, dispatch}) => {
 																)}
 															</div>
 																<div className="tooltip-edit-icon">
-																	<span 
+																	<span
 																		className={`tooltip-icon ${question.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																		title={question.tooltip || 'Click to add tooltip'}
-																		ondblclick={(e) => {
+																		title="Click to edit tooltip"
+																		style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																			opacity: 0.5,
+																			cursor: 'not-allowed'
+																		} : {}}
+																		onclick={(e) => {
 																			e.stopPropagation();
+																			if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																				return; // Blocked when other questions have changes
+																			}
 																			dispatch('EDIT_QUESTION_TOOLTIP', {
 																				questionId: question.ids.id,
 																				currentTooltip: question.tooltip || ''
@@ -1481,9 +1532,10 @@ const view = (state, {updateState, dispatch}) => {
 																overflow: 'visible'
 															} : {}}>
 																<label className="checkbox-control">
-																	<input 
-																		type="checkbox" 
+																	<input
+																		type="checkbox"
 																		checked={question.required}
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		onchange={(e) => {
 																			dispatch('UPDATE_QUESTION_REQUIRED', {
 																				questionId: question.ids.id,
@@ -1499,9 +1551,13 @@ const view = (state, {updateState, dispatch}) => {
 																	/>
 																	Required
 																</label>
-																<select className="question-type-select" style={state.isMobileView ? {
-																	flexShrink: '0'
-																} : {}} onchange={(e) => {
+																<select
+																	className="question-type-select"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																	style={state.isMobileView ? {
+																		flexShrink: '0'
+																	} : {}}
+																	onchange={(e) => {
 																	dispatch('UPDATE_QUESTION_TYPE', {
 																		questionId: question.ids.id,
 																		newType: e.target.value
@@ -1519,8 +1575,15 @@ const view = (state, {updateState, dispatch}) => {
 																</select>
 																<span
 																	className="custom-attributes-icon"
-																	title={question.custom_attributes ? `Custom Attributes: ${Object.keys(question.custom_attributes).length} keys` : "Custom Attributes (none)"}
-																	ondblclick={() => {
+																	title="Click to add, remove or change custom attributes"
+																	style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																		opacity: 0.5,
+																		cursor: 'not-allowed'
+																	} : {}}
+																	onclick={() => {
+																		if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																			return; // Blocked when other questions have changes
+																		}
 																		dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																			itemType: 'question',
 																			itemId: question.ids.id,
@@ -1591,6 +1654,7 @@ const view = (state, {updateState, dispatch}) => {
 																<button
 																	className="delete-question-btn"
 																	title="Delete Question"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	style={state.isMobileView ? {
 																		flexShrink: '0',
 																		minWidth: '40px',
@@ -1607,7 +1671,8 @@ const view = (state, {updateState, dispatch}) => {
 																{(question.type === 'Single Select' || question.type === 'Multiselect') && (
 																	<button
 																		className="save-bundle-btn"
-																		title="Save Question Bundle to Library"
+																		title="Click to save the question bundle"
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																		style={state.isMobileView ? {
 																			flexShrink: '0',
 																			minWidth: '40px',
@@ -1788,6 +1853,7 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -1879,6 +1945,7 @@ const view = (state, {updateState, dispatch}) => {
 																						</label>
 																						<input
 																							type="number"
+																							min="0"
 																							className="answer-score-input"
 																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
 																							placeholder="0"
@@ -1918,9 +1985,16 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																						title={answer.tooltip || 'Click to add tooltip'}
-																						ondblclick={(e) => {
+																						title="Click to edit tooltip"
+																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																							opacity: 0.5,
+																							cursor: 'not-allowed'
+																						} : {}}
+																						onclick={(e) => {
 																							e.stopPropagation();
+																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																								return; // Blocked when other questions have changes
+																							}
 																							dispatch('EDIT_ANSWER_TOOLTIP', {
 																								answerId: answer.ids.id,
 																								currentTooltip: answer.tooltip || ''
@@ -1945,8 +2019,15 @@ const view = (state, {updateState, dispatch}) => {
 																				)}
 																				<span
 																					className="custom-attributes-icon"
-																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
-																					ondblclick={() => {
+																					title="Click to add, remove or change custom attributes"
+																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																						opacity: 0.5,
+																						cursor: 'not-allowed'
+																					} : {}}
+																					onclick={() => {
+																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																							return; // Blocked when other questions have changes
+																						}
 																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																							itemType: 'answer',
 																							itemId: answer.ids.id,
@@ -1963,11 +2044,12 @@ const view = (state, {updateState, dispatch}) => {
 																					width: '100%',
 																					overflow: 'visible'
 																				} : {}}>
-																					<select 
+																					<select
 																						className="secondary-input-select"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
-																						} : {}} 
+																						} : {}}
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -1980,9 +2062,10 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button 
-																						className="delete-answer-btn" 
+																					<button
+																						className="delete-answer-btn"
 																						title="Delete Answer"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2558,8 +2641,9 @@ const view = (state, {updateState, dispatch}) => {
 																</div>
 															))}
 															{isEditable ? (
-																<button 
+																<button
 																	className="add-answer-btn"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	onclick={() => dispatch('ADD_ANSWER', {
 																		questionId: question.ids.id
 																	})}
@@ -2683,6 +2767,7 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -2774,6 +2859,7 @@ const view = (state, {updateState, dispatch}) => {
 																						</label>
 																						<input
 																							type="number"
+																							min="0"
 																							className="answer-score-input"
 																							value={answer.scoring?.[state.selectedScoringModel?.id] || ''}
 																							placeholder="0"
@@ -2813,9 +2899,16 @@ const view = (state, {updateState, dispatch}) => {
 																				<div className="answer-tooltip-icon">
 																					<span
 																						className={`tooltip-icon ${answer.tooltip ? 'has-tooltip' : 'no-tooltip'}`}
-																						title={answer.tooltip || 'Click to add tooltip'}
-																						ondblclick={(e) => {
+																						title="Click to edit tooltip"
+																						style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																							opacity: 0.5,
+																							cursor: 'not-allowed'
+																						} : {}}
+																						onclick={(e) => {
 																							e.stopPropagation();
+																							if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																								return; // Blocked when other questions have changes
+																							}
 																							dispatch('EDIT_ANSWER_TOOLTIP', {
 																								answerId: answer.ids.id,
 																								currentTooltip: answer.tooltip || ''
@@ -2840,8 +2933,15 @@ const view = (state, {updateState, dispatch}) => {
 																				)}
 																				<span
 																					className="custom-attributes-icon"
-																					title={answer.custom_attributes ? `Custom Attributes: ${Object.keys(answer.custom_attributes).length} keys` : "Custom Attributes (none)"}
-																					ondblclick={() => {
+																					title="Click to add, remove or change custom attributes"
+																					style={hasAnyUnsavedChanges(state) && !question.isUnsaved ? {
+																						opacity: 0.5,
+																						cursor: 'not-allowed'
+																					} : {}}
+																					onclick={() => {
+																						if (hasAnyUnsavedChanges(state) && !question.isUnsaved) {
+																							return; // Blocked when other questions have changes
+																						}
 																						dispatch('OPEN_CUSTOM_ATTRIBUTES_MODAL', {
 																							itemType: 'answer',
 																							itemId: answer.ids.id,
@@ -2877,11 +2977,12 @@ const view = (state, {updateState, dispatch}) => {
 																						/>
 																						Exclusive
 																					</label>
-																					<select 
+																					<select
 																						className="secondary-input-select"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
-																						} : {}} 
+																						} : {}}
 																						onchange={(e) => {
 																							dispatch('UPDATE_ANSWER_SECONDARY_INPUT', {
 																								answerId: answer.ids.id,
@@ -2894,9 +2995,10 @@ const view = (state, {updateState, dispatch}) => {
 																						<option value="date" selected={answer.secondary_input_type === 'date'}>Date input</option>
 																						<option value="numeric" selected={answer.secondary_input_type === 'numeric'}>Numeric input</option>
 																					</select>
-																					<button 
-																						className="delete-answer-btn" 
+																					<button
+																						className="delete-answer-btn"
 																						title="Delete Answer"
+																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -3470,8 +3572,9 @@ const view = (state, {updateState, dispatch}) => {
 																</div>
 															))}
 															{isEditable ? (
-																<button 
+																<button
 																	className="add-answer-btn"
+																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																	onclick={() => dispatch('ADD_ANSWER', {
 																		questionId: question.ids.id
 																	})}
@@ -3485,9 +3588,11 @@ const view = (state, {updateState, dispatch}) => {
 													{/* Text Questions */}
 													{question.type === 'Text' && (
 														<div className="text-input-container">
-															<input 
-																type="text" 
+															<input
+																key={`text-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
+																type="text"
 																className="text-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																placeholder="Enter your answer..."
 																onmousedown={(e) => {
 																	e.stopPropagation();
@@ -3498,13 +3603,15 @@ const view = (state, {updateState, dispatch}) => {
 															/>
 														</div>
 													)}
-													
+
 													{/* Date Questions */}
 													{question.type === 'Date' && (
 														<div className="date-input-container">
-															<input 
-																type="date" 
+															<input
+																key={`date-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
+																type="date"
 																className="date-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																onmousedown={(e) => {
 																	e.stopPropagation();
 																}}
@@ -3514,13 +3621,15 @@ const view = (state, {updateState, dispatch}) => {
 															/>
 														</div>
 													)}
-													
+
 													{/* Numeric Questions */}
 													{question.type === 'Numeric' && (
 														<div className="numeric-input-container">
-															<input 
-																type="number" 
+															<input
+																key={`numeric-${question.ids.id}-${state.builderMode ? 'edit' : 'preview'}`}
+																type="number"
 																className="numeric-input"
+																disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
 																placeholder="Enter number..."
 																onmousedown={(e) => {
 																	e.stopPropagation();
@@ -3541,6 +3650,7 @@ const view = (state, {updateState, dispatch}) => {
 										{state.builderMode && state.currentAssessment?.status === 'draft' && (
 											<button
 												className="add-question-btn"
+												disabled={hasAnyUnsavedChanges(state)}
 												onclick={() => dispatch('ADD_QUESTION', {
 													sectionId: state.selectedSection
 												})}
@@ -3683,7 +3793,27 @@ const view = (state, {updateState, dispatch}) => {
 						</div>
 						<div className="panel-body">
 							<div className="form-columns">
+								{/* LEFT COLUMN */}
 								<div className="form-column">
+									{/* Version Title */}
+									<div className="form-group">
+										<label>Version Title:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.versionName || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'versionName',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.versionName}</div>
+										)}
+									</div>
+
+									{/* Use Case */}
 									<div className="form-group">
 										<label>Use Case:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3700,22 +3830,8 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.useCase}</div>
 										)}
 									</div>
-									<div className="form-group">
-										<label>Version Name:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
-											<input
-												type="text"
-												className="form-input"
-												value={state.assessmentDetailsPanel.versionName || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'versionName',
-													value: e.target.value
-												})}
-											/>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.versionName}</div>
-										)}
-									</div>
+
+									{/* Use Case Category */}
 									<div className="form-group">
 										<label>Use Case Category:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3742,22 +3858,8 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.useCaseCategoryName}</div>
 										)}
 									</div>
-									<div className="form-group">
-										<label>Usage:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
-											<input
-												type="text"
-												className="form-input"
-												value={state.assessmentDetailsPanel.usage || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'usage',
-													value: e.target.value
-												})}
-											/>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.usage}</div>
-										)}
-									</div>
+
+									{/* Content Source */}
 									<div className="form-group">
 										<label>Content Source:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3774,24 +3876,8 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.contentSource}</div>
 										)}
 									</div>
-									<div className="form-group">
-										<label>Code/Policy Number:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
-											<input
-												type="text"
-												className="form-input"
-												value={state.assessmentDetailsPanel.policyNumber || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'policyNumber',
-													value: e.target.value
-												})}
-											/>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.policyNumber}</div>
-										)}
-									</div>
-								</div>
-								<div className="form-column">
+
+									{/* Effective Date */}
 									<div className="form-group">
 										<label>Effective Date:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3808,22 +3894,8 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.effectiveDate}</div>
 										)}
 									</div>
-									<div className="form-group">
-										<label>End Date:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
-											<input
-												type="date"
-												className="form-input"
-												value={state.assessmentDetailsPanel.endDate || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'endDate',
-													value: e.target.value
-												})}
-											/>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.endDate}</div>
-										)}
-									</div>
+
+									{/* Review Date */}
 									<div className="form-group">
 										<label>Review Date:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3840,6 +3912,114 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.reviewDate}</div>
 										)}
 									</div>
+
+									{/* Allow MCG Content - NO LABEL HEADER */}
+									<div className="form-group">
+										{state.assessmentDetailsPanel.isEditable ? (
+											<div className="checkbox-group">
+												<input
+													type="checkbox"
+													id="allowMcgContent"
+													checked={state.assessmentDetailsPanel.allowMcgContent || false}
+													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+														field: 'allowMcgContent',
+														value: e.target.checked
+													})}
+												/>
+												<label htmlFor="allowMcgContent">Allow MCG content</label>
+											</div>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.allowMcgContent ? 'Allowed' : 'Not Allowed'}</div>
+										)}
+									</div>
+								</div>
+
+								{/* RIGHT COLUMN */}
+								<div className="form-column">
+									{/* Title (Display Only) */}
+									<div className="form-group">
+										<label>Title:</label>
+										<div className="readonly-field">{state.assessmentDetailsPanel.title || ''}</div>
+									</div>
+
+									{/* Usage */}
+									<div className="form-group">
+										<label>Usage:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.usage || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'usage',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.usage}</div>
+										)}
+									</div>
+
+									{/* Code/Policy Number */}
+									<div className="form-group">
+										<label>Code/Policy Number:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="text"
+												className="form-input"
+												value={state.assessmentDetailsPanel.policyNumber || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'policyNumber',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.policyNumber}</div>
+										)}
+									</div>
+
+									{/* Response Logging - DROPDOWN */}
+									<div className="form-group">
+										<label>Response Logging:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<select
+												className="form-input"
+												value={state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}
+												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'responseLogging',
+													value: e.target.value
+												})}
+											>
+												<option value="Use Org Default">Use Org Default</option>
+												<option value="Disabled">Disabled</option>
+												<option value="Autosave, Draft and Submit">Autosave, Draft and Submit</option>
+												<option value="Save as Draft and Submit">Save as Draft and Submit</option>
+												<option value="Submit Only">Submit Only</option>
+											</select>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}</div>
+										)}
+									</div>
+
+									{/* End Date */}
+									<div className="form-group">
+										<label>End Date:</label>
+										{state.assessmentDetailsPanel.isEditable ? (
+											<input
+												type="date"
+												className="form-input"
+												value={state.assessmentDetailsPanel.endDate || ''}
+												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'endDate',
+													value: e.target.value
+												})}
+											/>
+										) : (
+											<div className="readonly-field">{state.assessmentDetailsPanel.endDate}</div>
+										)}
+									</div>
+
+									{/* Next Review Date */}
 									<div className="form-group">
 										<label>Next Review Date:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
@@ -3856,42 +4036,24 @@ const view = (state, {updateState, dispatch}) => {
 											<div className="readonly-field">{state.assessmentDetailsPanel.nextReviewDate}</div>
 										)}
 									</div>
+
+									{/* Enable "Select All PGI Elements" - NO LABEL HEADER */}
 									<div className="form-group">
-										<label>Response Logging:</label>
 										{state.assessmentDetailsPanel.isEditable ? (
 											<div className="checkbox-group">
 												<input
 													type="checkbox"
-													id="responseLogging"
-													checked={state.assessmentDetailsPanel.responseLogging || false}
+													id="enableSelectAllPgi"
+													checked={state.assessmentDetailsPanel.enableSelectAllPgi || false}
 													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-														field: 'responseLogging',
+														field: 'enableSelectAllPgi',
 														value: e.target.checked
 													})}
 												/>
-												<label htmlFor="responseLogging">Enable response logging</label>
+												<label htmlFor="enableSelectAllPgi">Enable "Select All PGI Elements"</label>
 											</div>
 										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.responseLogging ? 'Enabled' : 'Disabled'}</div>
-										)}
-									</div>
-									<div className="form-group">
-										<label>Allow MCG Content:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
-											<div className="checkbox-group">
-												<input
-													type="checkbox"
-													id="allowMcgContent"
-													checked={state.assessmentDetailsPanel.allowMcgContent || false}
-													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-														field: 'allowMcgContent',
-														value: e.target.checked
-													})}
-												/>
-												<label htmlFor="allowMcgContent">Allow MCG content</label>
-											</div>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.allowMcgContent ? 'Allowed' : 'Not Allowed'}</div>
+											<div className="readonly-field">{state.assessmentDetailsPanel.enableSelectAllPgi ? 'Enabled' : 'Disabled'}</div>
 										)}
 									</div>
 								</div>
@@ -4028,7 +4190,7 @@ const view = (state, {updateState, dispatch}) => {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					zIndex: '9999'
+					zIndex: '1000000'
 				}}>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
@@ -4036,7 +4198,9 @@ const view = (state, {updateState, dispatch}) => {
 						borderRadius: '8px',
 						width: '500px',
 						maxWidth: '90vw',
-						boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+						boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+						position: 'relative',
+						zIndex: '1000001'
 					}}>
 						<h3 className="modal-title">
 							Edit {state.modalType === 'question' ? 'Question' : state.modalType === 'answer' ? 'Answer' : 'Section'}
@@ -4158,7 +4322,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Guideline Name */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Guideline - Name *
+									Guideline Name <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -4177,7 +4341,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Use Case Category */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Use Case Category
+									Use Case Category <span style={{color: 'red'}}>*</span>
 								</label>
 								<select
 									value={state.newAssessmentForm.useCaseCategory}
@@ -4206,10 +4370,10 @@ const view = (state, {updateState, dispatch}) => {
 								</select>
 							</div>
 
-							{/* Type */}
+							{/* Usage (formerly Type) */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Type
+									Usage <span style={{color: 'red'}}>*</span>
 								</label>
 								<select
 									value={state.newAssessmentForm.type}
@@ -4231,7 +4395,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Content Source */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Content Source
+									Content Source <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -4250,7 +4414,7 @@ const view = (state, {updateState, dispatch}) => {
 							{/* Code/Policy Number */}
 							<div className="form-field">
 								<label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
-									Code/Policy Number
+									Code/Policy Number <span style={{color: 'red'}}>*</span>
 								</label>
 								<input
 									type="text"
@@ -4458,6 +4622,25 @@ const view = (state, {updateState, dispatch}) => {
 						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
 							Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
 						</h3>
+
+						{/* Validation Error Message */}
+						{state.customAttributesValidationError && (
+							<div style={{
+								backgroundColor: '#fee',
+								border: '1px solid #fcc',
+								borderRadius: '4px',
+								padding: '12px',
+								marginBottom: '15px',
+								color: '#c00',
+								fontSize: '14px',
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px'
+							}}>
+								<span style={{fontSize: '18px'}}>⚠️</span>
+								<span>{state.customAttributesValidationError}</span>
+							</div>
+						)}
 
 						<div className="custom-attributes-editor">
 							{state.customAttributesData && state.customAttributesData.length > 0 ? (
@@ -7279,10 +7462,11 @@ const view = (state, {updateState, dispatch}) => {
 						<div className="pgi-modal" style={{
 							backgroundColor: 'white',
 							borderRadius: '8px',
-							padding: '24px',
+							width: '90vw',
 							maxWidth: '800px',
-							maxHeight: '80vh',
-							overflow: 'auto',
+							height: '80vh',
+							display: 'flex',
+							flexDirection: 'column',
 							boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
 						}}
 						onclick={(e) => e.stopPropagation()}
@@ -7291,9 +7475,9 @@ const view = (state, {updateState, dispatch}) => {
 								display: 'flex',
 								justifyContent: 'space-between',
 								alignItems: 'center',
-								marginBottom: '20px',
+								padding: '24px 24px 12px 24px',
 								borderBottom: '2px solid #e5e7eb',
-								paddingBottom: '12px'
+								flexShrink: 0
 							}}>
 								<h3 style={{margin: 0, fontSize: '20px', fontWeight: '600'}}>
 									Problems, Goals, Interventions & Barriers
@@ -7313,6 +7497,11 @@ const view = (state, {updateState, dispatch}) => {
 								</button>
 							</div>
 
+							<div style={{
+								flex: 1,
+								overflow: 'auto',
+								padding: '24px'
+							}}>
 							{isLoading ? (
 								<div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
 									⏳ Loading relationships...
@@ -7323,6 +7512,43 @@ const view = (state, {updateState, dispatch}) => {
 								</div>
 							) : (
 								<div>
+									{/* Guidelines Section */}
+									{relationships.guidelines && relationships.guidelines.guidelines && relationships.guidelines.guidelines.length > 0 ? (
+										<div style={{marginBottom: '24px'}}>
+											<h4 style={{
+												fontSize: '16px',
+												fontWeight: '600',
+												color: '#1f2937',
+												marginBottom: '12px',
+												display: 'flex',
+												alignItems: 'center',
+												gap: '8px'
+											}}>
+												<span style={{
+													backgroundColor: '#dbeafe',
+													color: '#1e40af',
+													padding: '2px 8px',
+													borderRadius: '12px',
+													fontSize: '14px'
+												}}>
+													Guidelines ({relationships.guidelines.guidelines_quantity || 0})
+												</span>
+											</h4>
+											{relationships.guidelines.guidelines.map((guideline, gIndex) => (
+												<div key={gIndex} style={{
+													marginLeft: '16px',
+													padding: '12px',
+													backgroundColor: '#eff6ff',
+													borderLeft: '3px solid #3b82f6',
+													borderRadius: '4px',
+													marginBottom: '8px'
+												}}>
+													{guideline.name || guideline.label}
+												</div>
+											))}
+										</div>
+									) : null}
+
 									{/* Problems Section */}
 									{relationships.problems && relationships.problems.problems && relationships.problems.problems.length > 0 ? (
 										<div style={{marginBottom: '24px'}}>
@@ -7345,73 +7571,171 @@ const view = (state, {updateState, dispatch}) => {
 													Problems ({relationships.problems.problems_quantity || 0})
 												</span>
 											</h4>
-											{relationships.problems.problems.map((problem, pIndex) => (
-												<div key={pIndex} style={{
-													marginLeft: '16px',
-													marginBottom: '16px',
-													padding: '12px',
-													backgroundColor: '#fffbeb',
-													borderLeft: '3px solid #f59e0b',
-													borderRadius: '4px'
-												}}>
-													<div style={{fontWeight: '500', marginBottom: '8px'}}>
-														{problem.label || problem.name}
-													</div>
+											{relationships.problems.problems.map((problem, pIndex) => {
+												const isExpanded = state.expandedProblems && state.expandedProblems[problem.id];
+												const goals = state.problemGoals && state.problemGoals[problem.id];
+												const goalsLoading = state.goalsLoading && state.goalsLoading[problem.id];
+												const goalCount = goals ? goals.length : (problem.goals_quantity || 0);
 
-													{/* Goals under this problem */}
-													{problem.goals && problem.goals.length > 0 && (
-														<div style={{marginLeft: '16px', marginTop: '12px'}}>
-															<div style={{
-																fontSize: '14px',
-																fontWeight: '600',
-																color: '#059669',
-																marginBottom: '8px'
-															}}>
-																Goals ({problem.goals.length})
+												return (
+													<div key={pIndex} style={{
+														marginLeft: '16px',
+														marginBottom: '16px',
+														padding: '12px',
+														backgroundColor: '#fffbeb',
+														borderLeft: '3px solid #f59e0b',
+														borderRadius: '4px'
+													}}>
+														<div style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}
+															onclick={() => {
+																if (isExpanded) {
+																	updateState({
+																		expandedProblems: {
+																			...state.expandedProblems,
+																			[problem.id]: false
+																		}
+																	});
+																} else {
+																	updateState({
+																		expandedProblems: {
+																			...state.expandedProblems,
+																			[problem.id]: true
+																		}
+																	});
+																	if (!goals) {
+																		dispatch('LOAD_PROBLEM_GOALS', {
+																			problemId: problem.id,
+																			guidelineTemplateId: state.currentAssessmentId
+																		});
+																	}
+																}
+															}}
+														>
+															<span style={{fontSize: '12px', color: '#92400e'}}>
+																{isExpanded ? '▼' : '▶'}
+															</span>
+															<div style={{fontWeight: '500', flex: 1}}>
+																{problem.label || problem.name}
 															</div>
-															{problem.goals.map((goal, gIndex) => (
-																<div key={gIndex} style={{
-																	marginBottom: '12px',
-																	padding: '10px',
+															{goalCount > 0 && (
+																<span style={{
+																	fontSize: '12px',
+																	color: '#059669',
 																	backgroundColor: '#f0fdf4',
-																	borderLeft: '3px solid #10b981',
-																	borderRadius: '4px'
+																	padding: '2px 6px',
+																	borderRadius: '8px',
+																	fontWeight: '500'
 																}}>
-																	<div style={{fontWeight: '500', fontSize: '14px', marginBottom: '6px'}}>
-																		{goal.label || goal.name}
-																	</div>
-
-																	{/* Interventions under this goal */}
-																	{goal.interventions && goal.interventions.length > 0 && (
-																		<div style={{marginLeft: '16px', marginTop: '8px'}}>
-																			<div style={{
-																				fontSize: '13px',
-																				fontWeight: '600',
-																				color: '#3b82f6',
-																				marginBottom: '6px'
-																			}}>
-																				Interventions ({goal.interventions.length})
-																			</div>
-																			{goal.interventions.map((intervention, iIndex) => (
-																				<div key={iIndex} style={{
-																					padding: '8px',
-																					backgroundColor: '#eff6ff',
-																					borderLeft: '2px solid #3b82f6',
-																					borderRadius: '4px',
-																					marginBottom: '6px',
-																					fontSize: '13px'
-																				}}>
-																					{intervention.label || intervention.name}
-																				</div>
-																			))}
-																		</div>
-																	)}
-																</div>
-															))}
+																	{goalCount} goal{goalCount !== 1 ? 's' : ''}
+																</span>
+															)}
 														</div>
-													)}
-												</div>
-											))}
+
+														{isExpanded && (
+															<div style={{marginLeft: '16px', marginTop: '12px'}}>
+																{goalsLoading ? (
+																	<div style={{padding: '8px', color: '#6b7280', fontSize: '13px'}}>
+																		⏳ Loading goals...
+																	</div>
+																) : goals && goals.length > 0 ? (
+																	goals.map((goal, gIndex) => {
+																		const isGoalExpanded = state.expandedGoals && state.expandedGoals[goal.id];
+																		const interventions = state.goalInterventions && state.goalInterventions[goal.id];
+																		const interventionsLoading = state.interventionsLoading && state.interventionsLoading[goal.id];
+																		const interventionCount = interventions ? interventions.length : (goal.interventions_quantity || 0);
+
+																		return (
+																			<div key={gIndex} style={{
+																				marginBottom: '12px',
+																				padding: '10px',
+																				backgroundColor: '#f0fdf4',
+																				borderLeft: '3px solid #10b981',
+																				borderRadius: '4px'
+																			}}>
+																				<div style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}
+																					onclick={() => {
+																						if (isGoalExpanded) {
+																							updateState({
+																								expandedGoals: {
+																									...state.expandedGoals,
+																									[goal.id]: false
+																								}
+																							});
+																						} else {
+																							updateState({
+																								expandedGoals: {
+																									...state.expandedGoals,
+																									[goal.id]: true
+																								}
+																							});
+																							if (!interventions) {
+																								dispatch('LOAD_GOAL_INTERVENTIONS', {
+																									goalId: goal.id,
+																									guidelineTemplateId: state.currentAssessmentId
+																								});
+																							}
+																						}
+																					}}
+																				>
+																					<span style={{fontSize: '11px', color: '#059669'}}>
+																						{isGoalExpanded ? '▼' : '▶'}
+																					</span>
+																					<div style={{fontWeight: '500', fontSize: '14px', flex: 1}}>
+																						{goal.label || goal.name}
+																					</div>
+																					{interventionCount > 0 && (
+																						<span style={{
+																							fontSize: '11px',
+																							color: '#3b82f6',
+																							backgroundColor: '#eff6ff',
+																							padding: '2px 6px',
+																							borderRadius: '8px',
+																							fontWeight: '500'
+																						}}>
+																							{interventionCount} intervention{interventionCount !== 1 ? 's' : ''}
+																						</span>
+																					)}
+																				</div>
+
+																				{isGoalExpanded && (
+																					<div style={{marginLeft: '16px', marginTop: '8px'}}>
+																						{interventionsLoading ? (
+																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px'}}>
+																								⏳ Loading interventions...
+																							</div>
+																						) : interventions && interventions.length > 0 ? (
+																							interventions.map((intervention, iIndex) => (
+																								<div key={iIndex} style={{
+																									padding: '8px',
+																									backgroundColor: '#eff6ff',
+																									borderLeft: '2px solid #3b82f6',
+																									borderRadius: '4px',
+																									marginBottom: '6px',
+																									fontSize: '13px'
+																								}}>
+																									{intervention.label || intervention.name}
+																								</div>
+																							))
+																						) : (
+																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px', fontStyle: 'italic'}}>
+																								No interventions found
+																							</div>
+																						)}
+																					</div>
+																				)}
+																			</div>
+																		);
+																	})
+																) : (
+																	<div style={{padding: '8px', color: '#6b7280', fontSize: '13px', fontStyle: 'italic'}}>
+																		No goals found
+																	</div>
+																)}
+															</div>
+														)}
+													</div>
+												);
+											})}
 										</div>
 									) : null}
 
@@ -7453,18 +7777,106 @@ const view = (state, {updateState, dispatch}) => {
 									) : null}
 
 									{/* No PGI Message */}
-									{(!relationships.problems || !relationships.problems.problems || relationships.problems.problems.length === 0) &&
+									{(!relationships.guidelines || !relationships.guidelines.guidelines || relationships.guidelines.guidelines.length === 0) &&
+									 (!relationships.problems || !relationships.problems.problems || relationships.problems.problems.length === 0) &&
 									 (!relationships.barriers || !relationships.barriers.barriers || relationships.barriers.barriers.length === 0) && (
 										<div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
-											No Problems, Goals, Interventions, or Barriers associated with this answer.
+											No Guidelines, Problems, Goals, Interventions, or Barriers associated with this answer.
 										</div>
 									)}
 								</div>
 							)}
+							</div>
 						</div>
 					</div>
 				);
 			})()}
+
+			{/* Confirmation Dialog for Unsaved Changes */}
+			{state.confirmationDialogOpen && (
+				<div style={{
+					position: 'fixed',
+					top: 0,
+					left: 0,
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0, 0, 0, 0.5)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: 10000
+				}}
+				onclick={(e) => {
+					if (e.target === e.currentTarget) {
+						dispatch('CANCEL_DIALOG_ACTION');
+					}
+				}}
+				>
+					<div style={{
+						backgroundColor: 'white',
+						borderRadius: '8px',
+						padding: '24px',
+						maxWidth: '500px',
+						width: '90%',
+						boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+					}}
+					onclick={(e) => e.stopPropagation()}
+					>
+						<h3 style={{
+							margin: '0 0 16px 0',
+							fontSize: '18px',
+							fontWeight: '600',
+							color: '#dc2626'
+						}}>
+							⚠️ Unsaved Changes
+						</h3>
+						<p style={{
+							margin: '0 0 24px 0',
+							fontSize: '14px',
+							color: '#4b5563',
+							lineHeight: '1.5'
+						}}>
+							{state.confirmationDialogMessage}
+						</p>
+						<div style={{
+							display: 'flex',
+							gap: '12px',
+							justifyContent: 'flex-end'
+						}}>
+							<button
+								onclick={() => dispatch('CANCEL_DIALOG_ACTION')}
+								style={{
+									padding: '8px 16px',
+									backgroundColor: '#f3f4f6',
+									color: '#374151',
+									border: 'none',
+									borderRadius: '4px',
+									fontSize: '14px',
+									fontWeight: '500',
+									cursor: 'pointer'
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								onclick={() => dispatch('CONFIRM_DIALOG_ACTION')}
+								style={{
+									padding: '8px 16px',
+									backgroundColor: '#dc2626',
+									color: 'white',
+									border: 'none',
+									borderRadius: '4px',
+									fontSize: '14px',
+									fontWeight: '500',
+									cursor: 'pointer'
+								}}
+							>
+								Continue
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Scoring Models Side Panel */}
 			{state.scoringPanelOpen && (
@@ -7508,12 +7920,12 @@ const view = (state, {updateState, dispatch}) => {
 											</div>
 											<div className="form-group">
 												<label>Scoring Type:</label>
-												<select
+												<input
+													type="text"
 													className="scoring-model-type-select"
-													value="sum"
-												>
-													<option value="sum">Sum</option>
-												</select>
+													value="Sum"
+													disabled
+												/>
 											</div>
 											<div className="form-buttons">
 												<button
@@ -7610,6 +8022,169 @@ const view = (state, {updateState, dispatch}) => {
 							)}
 						</div>
 					</div>
+				</div>
+			)}
+
+			{/* Confirmation Dialog Modal */}
+			{state.confirmationDialogOpen && (
+				<div className="modal-overlay" style={{
+					position: 'fixed',
+					top: '0',
+					left: '0',
+					width: '100%',
+					height: '100%',
+					backgroundColor: 'rgba(0,0,0,0.6)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					zIndex: '1000100'
+				}}>
+					<div className="confirmation-dialog" style={{
+						backgroundColor: 'white',
+						padding: '24px',
+						borderRadius: '12px',
+						width: '420px',
+						maxWidth: '90vw',
+						boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+						position: 'relative',
+						zIndex: '1000101',
+						animation: 'fadeIn 0.2s ease-out'
+					}}>
+						<div style={{
+							display: 'flex',
+							alignItems: 'flex-start',
+							marginBottom: '20px'
+						}}>
+							<span style={{
+								fontSize: '32px',
+								marginRight: '12px',
+								lineHeight: '1'
+							}}>⚠️</span>
+							<div style={{flex: 1}}>
+								<h3 style={{
+									margin: '0 0 8px 0',
+									fontSize: '18px',
+									fontWeight: '600',
+									color: '#1f2937'
+								}}>Confirm Action</h3>
+								<p style={{
+									margin: '0',
+									fontSize: '14px',
+									color: '#6b7280',
+									lineHeight: '1.5'
+								}}>
+									{state.confirmationDialogMessage}
+								</p>
+							</div>
+						</div>
+						<div style={{
+							display: 'flex',
+							gap: '12px',
+							justifyContent: 'flex-end'
+						}}>
+							<button
+								style={{
+									backgroundColor: '#6b7280',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '6px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: '500',
+									transition: 'background-color 0.2s'
+								}}
+								onclick={() => {
+									dispatch('CANCEL_DIALOG_ACTION');
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								style={{
+									backgroundColor: '#dc3545',
+									color: 'white',
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '6px',
+									cursor: 'pointer',
+									fontSize: '14px',
+									fontWeight: '500',
+									transition: 'background-color 0.2s'
+								}}
+								onclick={() => {
+									dispatch('CONFIRM_DIALOG_ACTION');
+								}}
+							>
+								Continue
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Toast Notifications */}
+			{state.toastNotifications && state.toastNotifications.length > 0 && (
+				<div className="toast-container" style={{
+					position: 'fixed',
+					top: '20px',
+					right: '20px',
+					zIndex: '1000200',
+					display: 'flex',
+					flexDirection: 'column',
+					gap: '12px',
+					maxWidth: '400px'
+				}}>
+					{state.toastNotifications.map((toast) => (
+						<div
+							key={toast.id}
+							className="toast-notification"
+							style={{
+								backgroundColor: 'white',
+								padding: '16px',
+								borderRadius: '8px',
+								boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+								display: 'flex',
+								alignItems: 'flex-start',
+								gap: '12px',
+								minWidth: '300px',
+								animation: 'slideInRight 0.3s ease-out',
+								borderLeft: `4px solid ${
+									toast.type === 'success' ? '#28a745' :
+									toast.type === 'error' ? '#dc3545' :
+									toast.type === 'warning' ? '#ffc107' : '#17a2b8'
+								}`
+							}}
+						>
+							<span style={{
+								fontSize: '20px',
+								lineHeight: '1'
+							}}>
+								{toast.type === 'success' ? '✅' :
+								 toast.type === 'error' ? '❌' :
+								 toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+							</span>
+							<div style={{flex: 1, fontSize: '14px', color: '#374151'}}>
+								{toast.message}
+							</div>
+							<button
+								style={{
+									background: 'none',
+									border: 'none',
+									cursor: 'pointer',
+									fontSize: '18px',
+									color: '#9ca3af',
+									padding: '0',
+									lineHeight: '1'
+								}}
+								onclick={() => {
+									dispatch('DISMISS_TOAST', {toastId: toast.id});
+								}}
+							>
+								✗
+							</button>
+						</div>
+					))}
 				</div>
 			)}
 
@@ -7797,6 +8372,8 @@ createCustomElement('cadal-careiq-builder', {
 		deletingQuestions: {},                    // Track which questions are being deleted {questionId: true}
 		updatingQuestions: {},                    // Track which questions are being updated {questionId: true}
 		addingQuestion: false,                    // Track if a question is being added
+		savingQuestions: {},                      // Track which questions are being saved {questionId: true}
+		cancelingQuestions: {},                   // Track which questions are being canceled {questionId: true}
 
 		// Answer operation loading states
 		deletingAnswers: {},                      // Track which answers are being deleted {answerId: true}
@@ -7826,7 +8403,15 @@ createCustomElement('cadal-careiq-builder', {
 		deletingBarriers: {},                     // Track which barriers are being deleted {barrierId: true}
 		addingBranchQuestion: false,              // Track if a branch question is being added
 		addingGuideline: false,                   // Track if a guideline is being added
-		addingBarrier: false                      // Track if a barrier is being added
+		addingBarrier: false,                     // Track if a barrier is being added
+
+		// Unsaved changes confirmation dialog
+		confirmationDialogOpen: false,            // Is confirmation dialog visible
+		confirmationDialogMessage: '',            // Message to display
+		confirmationDialogPendingAction: null,    // Action to execute if user confirms
+
+		// Toast notifications
+		toastNotifications: []                    // Array of {id, type, message, timestamp}
 	},
 	actionHandlers: {
 		[COMPONENT_BOOTSTRAPPED]: (coeffects) => {
@@ -7864,172 +8449,10 @@ createCustomElement('cadal-careiq-builder', {
 		// Configuration Actions (config loading, token exchange, use case categories)
 		...configActions,
 
-		
-		'CAREIQ_CONFIG_FETCH_SUCCESS': (coeffects) => {
-			const {action, updateState, dispatch} = coeffects;
-			// Map the results to our config object
-			const props = {};
-			if (action.payload.result) {
-				action.payload.result.forEach(prop => {
-					const key = prop.name.replace('x_1628056_careiq.careiq.platform.', '');
-					props[key] = prop.value;
-				});
-			}
-			// Check which required properties are missing
-			const required = ['apikey', 'app', 'id', 'otoken', 'region', 'version'];
-			const missing = required.filter(key => !props[key] || props[key].trim() === '');
-			
-			if (missing.length > 0) {
-				updateState({
-					loading: false,
-					error: `Missing system properties: ${missing.map(p => 'x_1628056_careiq.careiq.platform.' + p).join(', ')}`
-				});
-			} else {
-				updateState({
-					error: null,
-					careiqConfig: props
-				});
-				// Automatically exchange token after config success
-				dispatch('EXCHANGE_TOKEN', {config: props});
-			}
-		},
-		
-		'CAREIQ_CONFIG_FETCH_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('HTTP Effect Error:', action.payload);
-			const errorMessage = 'Failed to fetch system properties: ' + (action.payload?.message || 'Unknown error');
-			updateState({
-				loading: false,
-				error: errorMessage,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: errorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
-		'EXCHANGE_TOKEN': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {config} = action.payload;
-			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				apikey: config.apikey,
-				otoken: config.otoken,
-				client_id: config.id
-			});
-			// Dispatch the HTTP effect with the request body data
-			dispatch('MAKE_TOKEN_REQUEST', {requestBody: requestBody});
-		},
-
-		'MAKE_TOKEN_REQUEST': effects.MAKE_TOKEN_REQUEST,
-
-		'TOKEN_EXCHANGE_SUCCESS': (coeffects) => {
-			const {action, updateState, dispatch, state} = coeffects;
-			// Use either access_token (real) or mock_access_token (debug)
-			const token = action.payload.access_token || action.payload.mock_access_token;
-			updateState({
-				loading: false,
-				accessToken: token
-			});
-
-			// Automatically fetch use case categories after token success
-			dispatch('FETCH_USE_CASE_CATEGORIES', {
-				config: state.careiqConfig,
-				accessToken: token
-			});
-
-			// Automatically fetch assessments after token success
-			dispatch('FETCH_ASSESSMENTS', {
-				offset: 0,
-				limit: 200,
-				latestVersionOnly: true
-			});
-		},
-
-		'TOKEN_EXCHANGE_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('Token Exchange Error - Full Response:', action.payload);
-			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
-			const errorMessage = 'Failed to exchange token: ' + (action.payload?.message || 'Unknown error');
-			updateState({
-				error: errorMessage,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: errorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
-
-		'FETCH_USE_CASE_CATEGORIES': (coeffects) => {
-			const {action, dispatch, updateState} = coeffects;
-			const {config, accessToken} = action.payload;
-			updateState({categoriesLoading: true});
-			
-			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				useCase: 'CM'
-			});
-			dispatch('MAKE_USE_CASE_CATEGORIES_REQUEST', {requestBody: requestBody});
-		},
 
 		'MAKE_USE_CASE_CATEGORIES_REQUEST': effects.MAKE_USE_CASE_CATEGORIES_REQUEST,
 
-		'USE_CASE_CATEGORIES_FETCH_START': (coeffects) => {
-			const {updateState} = coeffects;
-			updateState({categoriesLoading: true});
-		},
-
-		'USE_CASE_CATEGORIES_SUCCESS': (coeffects) => {
-			const {action, updateState} = coeffects;
-			// Check if response has use_case_categories
-			const categories = action.payload?.use_case_categories;
-
-			updateState({
-				useCaseCategories: categories || [],
-				categoriesLoading: false
-			});
-		},
-
-		'USE_CASE_CATEGORIES_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			console.error('USE_CASE_CATEGORIES_ERROR - Full Response:', action.payload);
-			console.error('Error type:', typeof action.payload);
-			console.error('Error keys:', Object.keys(action.payload || {}));
-			console.error('Error Details:', JSON.stringify(action.payload, null, 2));
-
-			const errorMessage = action.payload?.message ||
-							   action.payload?.error ||
-							   action.payload?.statusText ||
-							   'Unknown error';
-
-			const fullErrorMessage = 'Failed to fetch use case categories: ' + errorMessage;
-
-			updateState({
-				error: fullErrorMessage,
-				categoriesLoading: false,
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: fullErrorMessage,
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
-		},
 
 		'MAKE_ASSESSMENTS_REQUEST': effects.MAKE_ASSESSMENTS_REQUEST,
 
@@ -8040,7 +8463,6 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENTS_SUCCESS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
-
 			const assessments = action.payload?.results || [];
 			const total = action.payload?.total || 0;
 			const offset = action.payload?.offset || 0;
@@ -8082,7 +8504,15 @@ createCustomElement('cadal-careiq-builder', {
 						apiLimit: limit,
 						displayPage: 0,
 						totalPages: Math.ceil(sortedAssessments.length / state.assessmentsPagination.displayPageSize)
-					}
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: `Loaded ${assessments.length} assessments`,
+							timestamp: new Date().toISOString()
+						}
+					]
 				});
 			}
 		},
@@ -8128,9 +8558,19 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'FETCH_ASSESSMENTS': (coeffects) => {
-			const {action, dispatch, updateState} = coeffects;
+			const {action, dispatch, updateState, state} = coeffects;
 			const {offset, limit, latestVersionOnly, searchValue} = action.payload;
-			updateState({assessmentsLoading: true});
+			updateState({
+				assessmentsLoading: true,
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'loading',
+						message: 'Loading assessments...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 
 			const requestBody = JSON.stringify({
 				useCase: 'CM',
@@ -8255,10 +8695,6 @@ createCustomElement('cadal-careiq-builder', {
 			// Build request body - ServiceNow wraps in data automatically
 			// CRITICAL: Send fields directly, ServiceNow HTTP framework adds data wrapper
 			const payload = {
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
 				title: assessmentData.guidelineName, // Map guidelineName to title
 				use_case: 'CM', // Fixed value as per your example
 				content_source: 'Organization', // Fixed value as per your example
@@ -8534,6 +8970,7 @@ createCustomElement('cadal-careiq-builder', {
 					isOpen: true,
 					useCase: state.currentAssessment?.use_case || '',
 					versionName: state.currentAssessment?.version_name || '',
+					title: state.currentAssessment?.title || '',  // NEW - Display only
 					useCaseCategory: state.currentAssessment?.use_case_category?.id || '',
 					useCaseCategoryName: state.currentAssessment?.use_case_category?.name || '',
 					usage: state.currentAssessment?.usage || '',
@@ -8543,8 +8980,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: state.currentAssessment?.end_date || '',
 					reviewDate: state.currentAssessment?.review_date || '',
 					nextReviewDate: state.currentAssessment?.next_review_date || '',
-					responseLogging: state.currentAssessment?.response_logging || false,
+					responseLogging: state.currentAssessment?.response_logging || 'Use Org Default',  // Changed to string
 					allowMcgContent: state.currentAssessment?.allow_mcg_content || false,
+					enableSelectAllPgi: state.currentAssessment?.enable_select_all_pgi || false,  // NEW
 					isEditable: state.currentAssessment?.status === 'draft'
 				}
 			});
@@ -8558,6 +8996,7 @@ createCustomElement('cadal-careiq-builder', {
 					isOpen: false,
 					useCase: '',
 					versionName: '',
+					title: '',  // NEW
 					useCaseCategory: '',
 					useCaseCategoryName: '',
 					usage: '',
@@ -8567,8 +9006,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: '',
 					reviewDate: '',
 					nextReviewDate: '',
-					responseLogging: false,
+					responseLogging: 'Use Org Default',  // Changed to string
 					allowMcgContent: false,
+					enableSelectAllPgi: false,  // NEW
 					isEditable: false
 				}
 			});
@@ -8619,7 +9059,8 @@ createCustomElement('cadal-careiq-builder', {
 				reviewDate: panelData.reviewDate,
 				nextReviewDate: panelData.nextReviewDate,
 				responseLogging: panelData.responseLogging,
-				allowMcgContent: panelData.allowMcgContent
+				allowMcgContent: panelData.allowMcgContent,
+				enableSelectAllPgi: panelData.enableSelectAllPgi  // NEW
 			});
 
 			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
@@ -9078,7 +9519,32 @@ createCustomElement('cadal-careiq-builder', {
 
 		'OPEN_ASSESSMENT_BUILDER': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
-			const {assessmentId, assessmentTitle} = action.payload;
+			const {assessmentId, assessmentTitle, skipUnsavedCheck} = action.payload;
+
+			// Check for unsaved changes when switching assessments (unless confirming)
+			if (!skipUnsavedCheck && state.builderView) {
+				const hasUnsavedChanges =
+					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
+					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
+					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'OPEN_ASSESSMENT_BUILDER',
+							payload: {
+								assessmentId: assessmentId,
+								assessmentTitle: assessmentTitle,
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			// Switch to builder view and start loading assessment details
 			updateState({
 				builderView: true,
@@ -9087,7 +9553,7 @@ createCustomElement('cadal-careiq-builder', {
 				selectedSection: null,
 				currentAssessmentId: assessmentId // Store the assessment ID for later use
 			});
-			
+
 			// Fetch full assessment details
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: assessmentId,
@@ -9235,7 +9701,7 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			// 
+			//
 			
 			// Debug section sort_order values
 			if (action.payload?.sections) {
@@ -9335,7 +9801,31 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CLOSE_ASSESSMENT_BUILDER': (coeffects) => {
-			const {updateState} = coeffects;
+			const {action, state, dispatch, updateState} = coeffects;
+			const {skipUnsavedCheck} = action.payload || {};
+
+			// Check for unsaved changes (unless confirming)
+			if (!skipUnsavedCheck) {
+				const hasUnsavedChanges =
+					(state.sectionChanges && Object.keys(state.sectionChanges).length > 0) ||
+					(state.questionChanges && Object.keys(state.questionChanges).length > 0) ||
+					(state.answerChanges && Object.keys(state.answerChanges).length > 0);
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'CLOSE_ASSESSMENT_BUILDER',
+							payload: {
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			updateState({
 				builderView: false,
 				currentAssessment: null,
@@ -9349,7 +9839,34 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SELECT_SECTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
-			const {sectionId, sectionLabel} = action.payload;
+			const {sectionId, sectionLabel, skipUnsavedCheck} = action.payload;
+
+			// Check for unsaved changes (unless we're confirming the action)
+			if (!skipUnsavedCheck) {
+				// Use consistent logic with hasAnyUnsavedChanges helper
+				const hasUnsavedQuestions = state.currentQuestions?.questions?.some(q => q.isUnsaved === true) || false;
+				const hasUnsavedAnswers = (state.answerChanges && Object.keys(state.answerChanges).length > 0) || false;
+				const hasUnsavedSections = (state.sectionChanges && Object.keys(state.sectionChanges).length > 0) || false;
+
+				const hasUnsavedChanges = hasUnsavedQuestions || hasUnsavedAnswers || hasUnsavedSections;
+
+				if (hasUnsavedChanges) {
+					// Show confirmation dialog
+					dispatch('SHOW_CONFIRMATION_DIALOG', {
+						message: 'You have unsaved changes that will be lost. Do you want to continue?',
+						pendingAction: {
+							type: 'SELECT_SECTION',
+							payload: {
+								sectionId: sectionId,
+								sectionLabel: sectionLabel,
+								skipUnsavedCheck: true  // Skip check on retry
+							}
+						}
+					});
+					return;  // Block the action
+				}
+			}
+
 			// Update selected section and start loading questions
 			updateState({
 				selectedSection: sectionId,
@@ -9357,7 +9874,7 @@ createCustomElement('cadal-careiq-builder', {
 				questionsLoading: true,
 				currentQuestions: null
 			});
-			
+
 			// Fetch questions for the selected section
 			dispatch('FETCH_SECTION_QUESTIONS', {
 				sectionId: sectionId,
@@ -9426,7 +9943,9 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadLoading: false,
 				answerTypeaheadVisible: false,
 				answerTypeaheadResults: [],
-				editingAnswerId: null
+				editingAnswerId: null,
+				// Clear question operation loading states
+				cancelingQuestions: {}
 			};
 
 			// If this was after a question move, clear modal, switch to target section, and show success message
@@ -9744,59 +10263,60 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'REORDER_ANSWERS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {questionId, sourceIndex, targetIndex} = action.payload;
 			if (!state.currentQuestions?.questions || sourceIndex === targetIndex) {
 				return;
 			}
-			
+
 			const questions = [...state.currentQuestions.questions];
 			const questionIndex = questions.findIndex(q => q.ids.id === questionId);
-			
+
 			if (questionIndex === -1 || !questions[questionIndex].answers) {
 				return;
 			}
-			
+
 			const answers = [...questions[questionIndex].answers];
 			const [movedAnswer] = answers.splice(sourceIndex, 1);
 			answers.splice(targetIndex, 0, movedAnswer);
-			
+
 			// Update sort_order for all answers
 			const updatedAnswers = answers.map((answer, index) => ({
 				...answer,
 				sort_order: index + 1
 			}));
-			
+
+			// Mark question as unsaved (this will show save/cancel buttons)
 			questions[questionIndex] = {
 				...questions[questionIndex],
-				answers: updatedAnswers
+				answers: updatedAnswers,
+				isUnsaved: true
 			};
+
+			// Track answer reordering in questionChanges
+			// Store the new sort orders for all affected answers
+			const answerSortOrders = {};
+			updatedAnswers.forEach(answer => {
+				// Only track real answers (not temp ones)
+				if (!answer.ids.id.startsWith('temp_')) {
+					answerSortOrders[answer.ids.id] = answer.sort_order;
+				}
+			});
 
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: questions
-				}
-			});
-
-			// Auto-save only the affected answers with individual UPDATE_ANSWER_API calls
-			updatedAnswers.forEach(answer => {
-				// Only update real answers (not temp ones)
-				if (!answer.ids.id.startsWith('temp_')) {
-					dispatch('UPDATE_ANSWER_API', {
-						answerData: {
-							answerId: answer.ids.id,
-							sort_order: answer.sort_order,
-							// Include other required fields
-							label: answer.label,
-							tooltip: answer.tooltip || '',
-							alternative_wording: answer.alternative_wording || 'string',
-							required: answer.required || false,
-							custom_attributes: answer.custom_attributes || {},
-							secondary_input_type: answer.secondary_input_type,
-							mutually_exclusive: answer.mutually_exclusive || false
-						}
-					});
+				},
+				// Track answer reorder changes for this question
+				questionChanges: {
+					...state.questionChanges,
+					[questionId]: {
+						...(state.questionChanges?.[questionId] || {}),
+						action: state.questionChanges?.[questionId]?.action || 'update',
+						questionId: questionId,
+						answerSortOrders: answerSortOrders // Store all answer sort orders
+					}
 				}
 			});
 		},
@@ -9817,7 +10337,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			const newQuestion = {
 				ids: { id: newQuestionId },
-				label: 'New Question',
+				label: '',
 				type: 'Single Select',
 				required: false,
 				hidden: false,
@@ -9826,7 +10346,7 @@ createCustomElement('cadal-careiq-builder', {
 				answers: [
 					{
 						ids: { id: 'temp_answer_' + Date.now() + '_1' },
-						label: 'Option 1',
+						label: '',
 						sort_order: 1,
 						secondary_input_type: null,
 						mutually_exclusive: false,
@@ -9834,7 +10354,7 @@ createCustomElement('cadal-careiq-builder', {
 						triggered_questions: []
 					}
 				],
-				// Mark as unsaved
+				// Mark as unsaved so save/cancel buttons appear immediately
 				isUnsaved: true
 			};
 
@@ -9850,7 +10370,7 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[newQuestionId]: {
 						action: 'add',
-						label: 'New Question',
+						label: '',
 						type: 'Single Select',
 						tooltip: '',
 						required: false,
@@ -9860,7 +10380,7 @@ createCustomElement('cadal-careiq-builder', {
 						guideline_template_id: state.currentAssessmentId,
 						answers: [
 							{
-								label: 'Option 1',
+								label: '',
 								sort_order: 1,
 								tooltip: '',
 								secondary_input_type: null,
@@ -9899,7 +10419,7 @@ createCustomElement('cadal-careiq-builder', {
 						updatedQuestion.answers = [
 							{
 								ids: { id: 'temp_answer_' + Date.now() + '_1' },
-								label: 'Option 1',
+								label: '',
 								sort_order: 1,
 								secondary_input_type: null,
 								mutually_exclusive: false,
@@ -10045,7 +10565,7 @@ createCustomElement('cadal-careiq-builder', {
 
 					const newAnswer = {
 						ids: { id: newAnswerId },
-						label: `Option ${nextSortOrder}`,
+						label: '',
 						sort_order: nextSortOrder,
 						secondary_input_type: null,
 						mutually_exclusive: false,
@@ -10068,7 +10588,7 @@ createCustomElement('cadal-careiq-builder', {
 				[newAnswerId]: {
 					action: 'add',
 					questionId: questionId,
-					label: `Option ${updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1}`,
+					label: '',
 					sort_order: updatedQuestions.find(q => q.ids.id === questionId)?.answers?.length || 1,
 					tooltip: '',
 					alternative_wording: '',
@@ -10159,37 +10679,42 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			const questionLabel = questionToDelete.label || 'Untitled Question';
-			// Show confirmation alert like sections
-			if (confirm(`Are you sure you want to delete question "${questionLabel}"?`)) {
-				// Remove question from local state immediately (optimistic update)
-				const updatedQuestions = state.currentQuestions.questions.filter(question =>
-					question.ids.id !== questionId
-				);
 
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					}
-				});
-
-				// Auto-delete from backend immediately (only if not temp ID)
-				if (!questionId.startsWith('temp_')) {
-					dispatch('DELETE_QUESTION_API', { questionId });
-				} else {
-					// Show immediate success message for temp questions
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'success',
-								message: 'Question removed successfully! No backend call needed.',
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: `Are you sure you want to delete question "${questionLabel}"?`,
+				pendingAction: {
+					type: 'CONFIRM_DELETE_QUESTION',
+					payload: { questionId }
 				}
+			});
+		},
+
+		'CONFIRM_DELETE_QUESTION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			// Remove question from local state immediately (optimistic update)
+			const updatedQuestions = state.currentQuestions.questions.filter(question =>
+				question.ids.id !== questionId
+			);
+
+			updateState({
+				currentQuestions: {
+					...state.currentQuestions,
+					questions: updatedQuestions
+				}
+			});
+
+			// Auto-delete from backend immediately (only if not temp ID)
+			if (!questionId.startsWith('temp_')) {
+				dispatch('DELETE_QUESTION_API', { questionId });
+			} else {
+				// Show toast for temp questions
+				dispatch('SHOW_TOAST', {
+					type: 'success',
+					message: 'Question removed successfully!'
+				});
 			}
 		},
 
@@ -10258,19 +10783,31 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
 
-			// Store questionId so SUCCESS handler can clear it
+			// Store questionId and set saving state for spinner
 			updateState({
-				lastSavedQuestionId: questionId
+				lastSavedQuestionId: questionId,
+				savingQuestions: {
+					...state.savingQuestions,
+					[questionId]: true
+				}
 			});
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
+				// Clear saving state on error
+				const updatedSavingQuestions = {...state.savingQuestions};
+				delete updatedSavingQuestions[questionId];
+				updateState({ savingQuestions: updatedSavingQuestions });
 				return;
 			}
 
 			// Validate question label is not blank
 			if (!question.label || question.label.trim() === '') {
+				// Clear saving state on validation error
+				const updatedSavingQuestions = {...state.savingQuestions};
+				delete updatedSavingQuestions[questionId];
 				updateState({
+					savingQuestions: updatedSavingQuestions,
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
@@ -10281,6 +10818,42 @@ createCustomElement('cadal-careiq-builder', {
 					]
 				});
 				return;
+			}
+
+			// Check for duplicate answers within this question
+			if (question.answers && question.answers.length > 1) {
+				const answerLabels = [];
+				const duplicates = [];
+
+				question.answers.forEach(answer => {
+					const trimmedLabel = answer.label.toLowerCase().trim();
+					if (answerLabels.includes(trimmedLabel)) {
+						// Found a duplicate
+						if (!duplicates.includes(answer.label)) {
+							duplicates.push(answer.label);
+						}
+					} else {
+						answerLabels.push(trimmedLabel);
+					}
+				});
+
+				if (duplicates.length > 0) {
+					// Clear saving state on validation error
+					const updatedSavingQuestions = {...state.savingQuestions};
+					delete updatedSavingQuestions[questionId];
+					updateState({
+						savingQuestions: updatedSavingQuestions,
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'error',
+								message: `Duplicate answer(s) found: "${duplicates.join('", "')}". Each answer must be unique within the question.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
 			}
 
 			// Check if there are answer changes for this question - if so, use SAVE_ALL_CHANGES
@@ -10315,7 +10888,11 @@ createCustomElement('cadal-careiq-builder', {
 					state.currentQuestions.questions.forEach(existingQuestion => {
 						// Don't compare with itself
 						if (existingQuestion.ids.id !== questionId) {
-							existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+							// Only check against questions that are NOT temp questions
+							// (i.e., questions that already existed in the section before)
+							if (!existingQuestion.ids.id.startsWith('temp_')) {
+								existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+							}
 						}
 					});
 				}
@@ -10440,6 +11017,35 @@ createCustomElement('cadal-careiq-builder', {
 				const updatedQuestionChanges = {...state.questionChanges};
 				const updatedAnswerChanges = {...state.answerChanges};
 
+				// Check if there are answer reordering changes for this question
+				const questionChange = state.questionChanges?.[questionId];
+				const hasAnswerReordering = questionChange?.answerSortOrders;
+
+				// If we have answer reordering, send UPDATE_ANSWER_API calls for each answer
+				if (hasAnswerReordering) {
+					const answerSortOrders = questionChange.answerSortOrders;
+					Object.keys(answerSortOrders).forEach(answerId => {
+						const answer = question.answers?.find(a => a.ids.id === answerId);
+						if (answer) {
+							dispatch('UPDATE_ANSWER_API', {
+								answerData: {
+									answerId: answerId,
+									sort_order: answerSortOrders[answerId],
+									// Include other required fields
+									label: answer.label,
+									tooltip: answer.tooltip || '',
+									alternative_wording: answer.alternative_wording || 'string',
+									required: answer.required || false,
+									custom_attributes: answer.custom_attributes || {},
+									secondary_input_type: answer.secondary_input_type,
+									mutually_exclusive: answer.mutually_exclusive || false
+								},
+								skipReload: true // Don't trigger reload for batch answer reordering
+							});
+						}
+					});
+				}
+
 				// Remove changes related to this question
 				delete updatedQuestionChanges[questionId];
 
@@ -10501,7 +11107,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_ANSWER_RELATIONSHIPS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_ANSWER_RELATIONSHIPS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/answer-relationships', {
+		'MAKE_ANSWER_RELATIONSHIPS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/answer-relationships', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10568,7 +11174,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-branch-question', {
+		'MAKE_ADD_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-branch-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10579,14 +11185,15 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-guideline-relationship', {
+		'MAKE_ADD_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-guideline-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			successActionType: 'ADD_GUIDELINE_RELATIONSHIP_SUCCESS',
-			errorActionType: 'ADD_GUIDELINE_RELATIONSHIP_ERROR'
+			errorActionType: 'ADD_GUIDELINE_RELATIONSHIP_ERROR',
+			metaParam: 'meta'
 		}),
 
 		'ADD_GUIDELINE_RELATIONSHIP_SUCCESS': (coeffects) => {
@@ -10610,15 +11217,18 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// Show success message - don't clear relationshipChanges until refresh completes
+			const successMessage = {
+				type: 'success',
+				message: `Guideline relationship saved successfully! Auto-refreshing now...`,
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: `Guideline relationship saved successfully! Auto-refreshing now...`,
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), successMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					successMessage
+				] : state.modalSystemMessages
 			});
 
 			// Immediate auto-refresh since backend has already committed
@@ -10786,7 +11396,7 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 		},
-		'MAKE_DELETE_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-branch-question', {
+		'MAKE_DELETE_BRANCH_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-branch-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10797,7 +11407,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-guideline-relationship', {
+		'MAKE_DELETE_GUIDELINE_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-guideline-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10808,7 +11418,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-barrier-relationship', {
+		'MAKE_ADD_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-barrier-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10818,7 +11428,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_BARRIER_RELATIONSHIP_ERROR'
 		}),
 
-		'MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-barrier-relationship', {
+		'MAKE_DELETE_BARRIER_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-barrier-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10829,7 +11439,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-problem-relationship', {
+		'MAKE_ADD_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-problem-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10839,7 +11449,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_PROBLEM_RELATIONSHIP_ERROR'
 		}),
 
-		'MAKE_SAVE_PROBLEM_EDITS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-problem-edits', {
+		'MAKE_SAVE_PROBLEM_EDITS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/save-problem-edits', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10849,7 +11459,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'SAVE_PROBLEM_EDITS_ERROR'
 		}),
 
-		'MAKE_GET_PROBLEM_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-details', {
+		'MAKE_GET_PROBLEM_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-problem-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10859,7 +11469,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_PROBLEM_DETAILS_ERROR'
 		}),
 
-		'MAKE_GET_GOAL_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-details', {
+		'MAKE_GET_GOAL_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-goal-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10869,7 +11479,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_GOAL_DETAILS_ERROR'
 		}),
 
-		'MAKE_UPDATE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-goal', {
+		'MAKE_UPDATE_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10880,7 +11490,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_GET_INTERVENTION_DETAILS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-intervention-details', {
+		'MAKE_GET_INTERVENTION_DETAILS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-intervention-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10890,7 +11500,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'GET_INTERVENTION_DETAILS_ERROR'
 		}),
 
-		'MAKE_UPDATE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-intervention', {
+		'MAKE_UPDATE_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10901,7 +11511,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-problem-relationship', {
+		'MAKE_DELETE_PROBLEM_RELATIONSHIP_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-problem-relationship', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10912,7 +11522,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-goal', {
+		'MAKE_DELETE_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10923,7 +11533,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_DELETE_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-intervention', {
+		'MAKE_DELETE_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10934,7 +11544,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-problem-goals', {
+		'MAKE_LOAD_PROBLEM_GOALS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-problem-goals', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10945,7 +11555,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_GOAL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-goal', {
+		'MAKE_ADD_GOAL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-goal', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10957,7 +11567,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		// Intervention API endpoints (following goals pattern)
-		'MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-goal-interventions', {
+		'MAKE_LOAD_GOAL_INTERVENTIONS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-goal-interventions', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -10968,7 +11578,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11580,46 +12190,8 @@ createCustomElement('cadal-careiq-builder', {
 				creatingScoringModel: true
 			});
 
-			// Get current config for the request
-			if (!state.careiqConfig) {
-				updateState({
-					creatingScoringModel: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Configuration not loaded. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					creatingScoringModel: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: guidelineTemplateId,
 				label: label,
 				scoring_type: scoringType
@@ -11627,7 +12199,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_CREATE_SCORING_MODEL_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_CREATE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-scoring-model', {
+		'MAKE_CREATE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11699,36 +12271,14 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					scoringModelsLoading: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: guidelineTemplateId
 			});
 			dispatch('MAKE_GET_SCORING_MODELS_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_GET_SCORING_MODELS_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-scoring-models', {
+		'MAKE_GET_SCORING_MODELS_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-scoring-models', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11779,44 +12329,9 @@ createCustomElement('cadal-careiq-builder', {
 		'DELETE_SCORING_MODEL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {modelId, modelLabel} = coeffects.action.payload;
-			// Get current config for the request
-			if (!state.careiqConfig) {
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Configuration not loaded. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
-
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
-			if (!accessToken) {
-				updateState({
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'error',
-							message: 'Authentication token not available. Please try again.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-				return;
-			}
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				guideline_template_id: state.currentAssessmentId,
 				model_id: modelId
 			});
@@ -11826,7 +12341,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_DELETE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-scoring-model', {
+		'MAKE_DELETE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -11837,7 +12352,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'meta'
 		}),
 
-		'MAKE_SAVE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/save-scoring-model', {
+		'MAKE_SAVE_SCORING_MODEL_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/save-scoring-model', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -12224,15 +12739,18 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Show system message about deletion
+			const deletingMessage = {
+				type: 'info',
+				message: 'Deleting problem relationship from backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Deleting problem relationship from backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), deletingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					deletingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -12667,7 +13185,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-intervention', {
+		'MAKE_ADD_INTERVENTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-intervention', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -13127,7 +13645,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_GENERIC_TYPEAHEAD_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+		'MAKE_GENERIC_TYPEAHEAD_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/generic-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -13719,7 +14237,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/guideline-typeahead', {
+'MAKE_GUIDELINE_SEARCH_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/guideline-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -13731,7 +14249,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 
-		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/get-library-question', {
+		'MAKE_LIBRARY_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-library-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -13743,7 +14261,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 
-		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/library-answer-details', {
+		'MAKE_LIBRARY_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/library-answer-details', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -14753,12 +15271,25 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
 
-
 			const requestBody = JSON.stringify({
 				answerId: answerId,
 				questionId: questionId
 			});
 
+			// Show system message about auto-save
+			const savingMessage = {
+				type: 'info',
+				message: 'Saving triggered question relationship to backend...',
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
+			});
 
 			dispatch('MAKE_ADD_BRANCH_QUESTION_REQUEST', {
 				requestBody: requestBody,
@@ -14788,15 +15319,18 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Show system message about auto-save
+			const savingMessage = {
+				type: 'info',
+				message: 'Saving guideline relationship to backend...',
+				timestamp: new Date().toISOString()
+			};
+
 			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'info',
-						message: 'Saving guideline relationship to backend...',
-						timestamp: new Date().toISOString()
-					}
-				]
+				systemMessages: [...(state.systemMessages || []), savingMessage],
+				modalSystemMessages: state.relationshipPanelOpen ? [
+					...(state.modalSystemMessages || []),
+					savingMessage
+				] : state.modalSystemMessages
 			});
 		},
 
@@ -16156,9 +16690,39 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			} else {
 				// Existing section - use UPDATE API
+				// Find the section to get its current sort_order
+				let existingSection = null;
+
+				// First check if it's a parent section
+				for (const section of state.currentAssessment.sections) {
+					if (section.id === sectionId) {
+						existingSection = section;
+						break;
+					}
+				}
+
+				// If not found as parent section, check subsections
+				if (!existingSection) {
+					for (const section of state.currentAssessment.sections) {
+						if (section.subsections) {
+							const foundSubsection = section.subsections.find(sub => sub.id === sectionId);
+							if (foundSubsection) {
+								existingSection = foundSubsection;
+								break;
+							}
+						}
+					}
+				}
+
+				if (!existingSection) {
+					console.error('Could not find section data for existing section:', sectionId);
+					return;
+				}
+
 				const sectionData = {
 					sectionId: sectionId,
-					label: sectionLabel
+					label: sectionLabel,
+					sort_order: existingSection.sort_order // Include sort_order to preserve it
 				};
 
 				if (libraryId) {
@@ -16172,55 +16736,61 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_SECTION': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, dispatch} = coeffects;
 			const {sectionId, sectionName} = action.payload;
-			if (confirm(`Are you sure you want to delete section "${sectionName}"?`)) {
-				let updatedSections;
-				let isParentSection = false;
 
-				// Check if this is a parent section (top level)
-				const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
-
-				if (parentSectionToDelete) {
-					// This is a parent section - remove it completely from the sections array
-					isParentSection = true;
-					updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
-				} else {
-					// This is a child section - remove it from parent sections' subsections
-					updatedSections = state.currentAssessment.sections.map(section => ({
-						...section,
-						subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
-					}));
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: `Are you sure you want to delete section "${sectionName}"?`,
+				pendingAction: {
+					type: 'CONFIRM_DELETE_SECTION',
+					payload: { sectionId }
 				}
+			});
+		},
 
-				updateState({
-					currentAssessment: {
-						...state.currentAssessment,
-						sections: updatedSections
-					},
-					selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
-					selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
+		'CONFIRM_DELETE_SECTION': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {sectionId} = action.payload;
+
+			let updatedSections;
+			let isParentSection = false;
+
+			// Check if this is a parent section (top level)
+			const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
+
+			if (parentSectionToDelete) {
+				// This is a parent section - remove it completely from the sections array
+				isParentSection = true;
+				updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
+			} else {
+				// This is a child section - remove it from parent sections' subsections
+				updatedSections = state.currentAssessment.sections.map(section => ({
+					...section,
+					subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
+				}));
+			}
+
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				},
+				selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
+				selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
+			});
+
+			// Auto-delete from backend immediately (only if not temp ID)
+			if (!sectionId.startsWith('temp_')) {
+				dispatch('DELETE_SECTION_API', {
+					sectionId: sectionId
 				});
-
-				// Auto-delete from backend immediately (only if not temp ID)
-				if (!sectionId.startsWith('temp_')) {
-					dispatch('DELETE_SECTION_API', {
-						sectionId: sectionId
-					});
-				} else {
-					// Show immediate success message for temp sections
-					updateState({
-						systemMessages: [
-					...(state.systemMessages || []),
-							
-							{
-								type: 'success',
-								message: 'Section removed successfully!',
-								timestamp: new Date().toISOString()
-							}
-						]
-					});
-				}
+			} else {
+				// Show toast for temp sections
+				dispatch('SHOW_TOAST', {
+					type: 'success',
+					message: 'Section removed successfully!'
+				});
 			}
 		},
 
@@ -16233,16 +16803,8 @@ createCustomElement('cadal-careiq-builder', {
 				addingSection: true
 			});
 
-			// Get config and access token like other APIs
-			const config = state.careiqConfig;
-			const accessToken = state.accessToken;
-
 			// Send fields directly - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				app: config.app,
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
 				gt_id: state.currentAssessmentId,
 				parent_section_id: sectionData.parent_section_id, // Use the correct parent_section_id from sectionData
 				label: sectionData.label,
@@ -16268,8 +16830,11 @@ createCustomElement('cadal-careiq-builder', {
 			const requestBody = JSON.stringify({
 				sectionId: sectionData.sectionId,
 				label: sectionData.label,
-				library_id: sectionData.library_id,
-				sort_order: sectionData.sort_order
+				tooltip: sectionData.tooltip || '',
+				alternative_wording: sectionData.alternative_wording || '',
+				required: sectionData.required || false,
+				custom_attributes: sectionData.custom_attributes || {},
+				sort_order: sectionData.sort_order || 0
 			});
 			dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody: requestBody, sectionId: sectionData.sectionId});
 		},
@@ -16292,7 +16857,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_DELETE_SECTION_REQUEST', {requestBody: requestBody, sectionId: sectionId});
 		},
 
-		'MAKE_DELETE_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-section', {
+		'MAKE_DELETE_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -16313,10 +16878,17 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedDeletingSections[sectionId];
 			}
 
+			// Clear section changes for the deleted section
+			const updatedSectionChanges = {...state.sectionChanges};
+			if (sectionId) {
+				delete updatedSectionChanges[sectionId];
+			}
+
 			// The section was already removed locally by DELETE_SECTION handler
 			// Just confirm the backend operation succeeded
 			updateState({
 				deletingSections: updatedDeletingSections,
+				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -16786,7 +17358,8 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesData: Object.keys(currentAttributes || {}).map(key => ({
 					key: key,
 					value: currentAttributes[key]
-				}))
+				})),
+				customAttributesValidationError: null  // Clear any previous errors
 			});
 		},
 
@@ -16796,7 +17369,8 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesModalOpen: false,
 				customAttributesItemType: null,
 				customAttributesItemId: null,
-				customAttributesData: []
+				customAttributesData: [],
+				customAttributesValidationError: null  // Clear validation error
 			});
 		},
 
@@ -16837,6 +17411,24 @@ createCustomElement('cadal-careiq-builder', {
 
 		'SAVE_CUSTOM_ATTRIBUTES': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
+
+			// Validate: check for blank keys or values
+			const hasBlankFields = state.customAttributesData.some(item =>
+				item.key.trim() === '' || item.value.trim() === ''
+			);
+
+			if (hasBlankFields) {
+				// Show validation error
+				updateState({
+					customAttributesValidationError: 'All custom attribute keys and values must be filled in. Remove empty rows or fill them out.'
+				});
+				return; // Stop save process
+			}
+
+			// Clear validation error
+			updateState({
+				customAttributesValidationError: null
+			});
 
 			// Convert array back to object format
 			const customAttributes = {};
@@ -16939,6 +17531,18 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
+
+			// Add system message for successful save
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Custom attributes saved successfully!',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 
 			dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL');
 		},
@@ -17054,10 +17658,6 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Build request payload - ServiceNow adds data wrapper automatically
 			const requestBody = JSON.stringify({
-				region: config.region,
-				version: config.version,
-				accessToken: accessToken,
-				app: config.app,
 				scoring_model_id: selectedModel.id,
 				guideline_template_id: state.currentAssessmentId,
 				label: selectedModel.label,
@@ -17246,21 +17846,42 @@ createCustomElement('cadal-careiq-builder', {
 
 				if (!state.answerDuplicateCheckCompleted) {
 
-					// Only check NEW answers (action: 'add' OR temp ID with 'update') for library matches
+					// Check ALL answers from questions with temp IDs (new questions)
+					if (state.currentQuestions && state.currentQuestions.questions) {
+						state.currentQuestions.questions.forEach(question => {
+							// For new questions (temp IDs), check all their answers
+							if (question.ids.id.startsWith('temp_') && question.answers && question.answers.length > 0) {
+								question.answers.forEach(answer => {
+									// Only check if this answer doesn't already have a library_id
+									if (!answer.library_id && !answer.isLibraryAnswer) {
+										answersToCheck.push({
+											questionId: question.ids.id,
+											questionLabel: question.label,
+											answerLabel: answer.label,
+											answerId: answer.ids.id // Store answerId for later matching
+										});
+									}
+								});
+							}
+						});
+					}
+
+					// Also check answers from answerChanges (for existing questions)
 					Object.keys(state.answerChanges || {}).forEach(answerId => {
 						const answerChange = state.answerChanges[answerId];
 
 						// Check answers that are being added OR are temp answers being updated (new answers that were edited)
 						const isNewAnswer = answerChange && (answerChange.action === 'add' || (answerChange.action === 'update' && answerId.startsWith('temp_')));
 
-						if (isNewAnswer) {
-							const questionId = answerChange.questionId;
-							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+						// Support both question_id and questionId field names
+						const questionIdForAnswer = answerChange.question_id || answerChange.questionId;
 
+						if (isNewAnswer && questionIdForAnswer && !questionIdForAnswer.startsWith('temp_')) {
+							const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionIdForAnswer);
 
-							if (currentQuestion) {
+							if (currentQuestion && !answersToCheck.some(a => a.answerId === answerId)) {
 								answersToCheck.push({
-									questionId: questionId,
+									questionId: questionIdForAnswer,
 									questionLabel: currentQuestion.label,
 									answerLabel: answerChange.label,
 									answerId: answerId // Store answerId for later matching
@@ -17911,7 +18532,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-section', {
+		'MAKE_SECTION_UPDATE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -17922,7 +18543,7 @@ createCustomElement('cadal-careiq-builder', {
 			metaParam: 'sectionId'
 		}),
 
-		'MAKE_ADD_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-section', {
+		'MAKE_ADD_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18050,8 +18671,16 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'UPDATE_ANSWER_API': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {answerData} = action.payload;
+			const {action, dispatch, updateState} = coeffects;
+			const {answerData, skipReload} = action.payload;
+
+			// Store skipReload flag in state for success handler to check
+			if (skipReload) {
+				updateState({
+					skipAnswerUpdateReload: true
+				});
+			}
+
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerData.answerId,
@@ -18067,7 +18696,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_UPDATE_ANSWER_REQUEST', {requestBody: requestBody});
 		},
 
-		'MAKE_UPDATE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-answer', {
+		'MAKE_UPDATE_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18079,10 +18708,29 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			// Check if we should skip reload (e.g., during batch answer reordering)
+			if (state.skipAnswerUpdateReload) {
+				// Clear the flag and show success message without reload
+				updateState({
+					skipAnswerUpdateReload: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'success',
+							message: 'Answer updated successfully!',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Exit early, no reload
+			}
+
+			// Normal flow: reload data after answer update
 			// Store the current section to re-select after refresh
 			const currentSection = state.selectedSection;
 			const currentSectionLabel = state.selectedSectionLabel;
-			
+
 			// Add success message
 			updateState({
 				systemMessages: [
@@ -18095,12 +18743,12 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				]
 			});
-			
+
 			// Set pending reselection data
 			updateState({
 				pendingReselectionSection: currentSection
 			});
-			
+
 			// Trigger data refresh with proper reselection
 			dispatch('FETCH_ASSESSMENT_DETAILS', {
 				assessmentId: state.currentAssessmentId,
@@ -18178,7 +18826,7 @@ createCustomElement('cadal-careiq-builder', {
 			dispatch('MAKE_UPDATE_QUESTION_REQUEST', {requestBody: requestBody, questionId: questionId});
 		},
 
-		'MAKE_UPDATE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/update-question', {
+		'MAKE_UPDATE_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/update-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			metaParam: 'questionId',
@@ -18200,12 +18848,18 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedQuestionChanges[questionId];
 			}
 
+			// Clear saving state
+			const updatedSavingQuestions = {...state.savingQuestions};
+			if (questionId) {
+				delete updatedSavingQuestions[questionId];
+			}
 
 			// Just show success message - no refresh needed
 			// CRITICAL: Force UI re-render by updating renderKey
 			updateState({
 				questionChanges: updatedQuestionChanges,
 				lastSavedQuestionId: null,
+				savingQuestions: updatedSavingQuestions,
 				renderKey: Date.now(), // Force re-render
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -18225,7 +18879,15 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.error('Update question failed:', errorMessage);
 
+			// Clear saving state on error
+			const questionId = state.lastSavedQuestionId;
+			const updatedSavingQuestions = {...state.savingQuestions};
+			if (questionId) {
+				delete updatedSavingQuestions[questionId];
+			}
+
 			updateState({
+				savingQuestions: updatedSavingQuestions,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -18239,7 +18901,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 
-		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section', {
+		'MAKE_ADD_QUESTION_TO_SECTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-question-to-section', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18249,7 +18911,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_QUESTION_TO_SECTION_ERROR'
 		}),
 
-		'MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answers-to-question', {
+		'MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-answers-to-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18259,7 +18921,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_ANSWERS_TO_QUESTION_ERROR'
 		}),
 
-		'MAKE_CREATE_QUESTION_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-question-bundle', {
+		'MAKE_CREATE_QUESTION_BUNDLE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-question-bundle', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18269,7 +18931,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'CREATE_QUESTION_BUNDLE_ERROR'
 		}),
 
-		'MAKE_CREATE_PROBLEM_BUNDLE_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/create-problem-bundle', {
+		'MAKE_CREATE_PROBLEM_BUNDLE_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/create-problem-bundle', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18605,12 +19267,15 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			}
 			// Find and update the temp question with the real ID locally
+			// Match using lastSavedQuestionId to find the exact question that was just saved
+			const savedQuestionId = state.lastSavedQuestionId;
 			const updatedQuestions = state.currentQuestions.questions.map(question => {
 				// If this is the temp question being saved, replace with real data
-				if (question.isUnsaved && question.ids.id.startsWith('temp_')) {
+				// Check by ID match (not isUnsaved flag, which may be false for new questions)
+				if (savedQuestionId && question.ids.id === savedQuestionId && question.ids.id.startsWith('temp_')) {
 					return {
 						...question,
-						ids: { id: newQuestionId || question.ids.id }, // Keep temp ID if no real ID provided
+						ids: { id: newQuestionId || question.ids.id }, // Replace temp ID with real ID
 						isUnsaved: false // Remove the unsaved flag
 					};
 				}
@@ -18701,15 +19366,17 @@ createCustomElement('cadal-careiq-builder', {
 					},
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'success',
 							message: 'Question added to section successfully! Adding answers...',
 							timestamp: new Date().toISOString()
 						}
 					],
-					// Clear pending answers since we're using them now
-					pendingQuestionAnswers: null
+					// CRITICAL: Clear all question save tracking to prevent re-saving
+					pendingQuestionAnswers: null,
+					lastSavedQuestionId: null,
+					savingQuestions: {}  // Clear all saving states
 				});
 			} else {
 				// No answers to add
@@ -18735,7 +19402,7 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
-					// Regular question - just update state
+					// Regular question - just update state and CLEAR tracking
 					updateState({
 						currentQuestions: {
 							...state.currentQuestions,
@@ -18748,7 +19415,11 @@ createCustomElement('cadal-careiq-builder', {
 								message: 'Question added to section successfully! No refresh needed.',
 								timestamp: new Date().toISOString()
 							}
-						]
+						],
+						// CRITICAL: Clear all question save tracking to prevent re-saving
+						lastSavedQuestionId: null,
+						pendingQuestionAnswers: null,
+						savingQuestions: {}  // Clear all saving states
 					});
 				}
 			}
@@ -18763,6 +19434,9 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				movingQuestion: false,  // Clear loading spinner
 				pendingQuestionMove: null,  // Clear move context
+				// CRITICAL: Clear all question save tracking on error to prevent issues
+				lastSavedQuestionId: null,
+				pendingQuestionAnswers: null,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -18878,7 +19552,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_ADD_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/add-answer', {
+		'MAKE_ADD_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/add-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18888,7 +19562,7 @@ createCustomElement('cadal-careiq-builder', {
 			errorActionType: 'ADD_ANSWER_ERROR'
 		}),
 
-		'MAKE_DELETE_ANSWER_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-answer', {
+		'MAKE_DELETE_ANSWER_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-answer', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -18941,7 +19615,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'MAKE_DELETE_QUESTION_REQUEST': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/delete-question', {
+		'MAKE_DELETE_QUESTION_REQUEST': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/delete-question', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19089,7 +19763,7 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SECTION_UPDATE_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const sectionId = action.meta?.sectionId;
 
 			// Clear loading state
@@ -19098,10 +19772,17 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedUpdatingSections[sectionId];
 			}
 
+			// Clear section changes for the updated section since it's now saved
+			const updatedSectionChanges = {...state.sectionChanges};
+			if (sectionId) {
+				delete updatedSectionChanges[sectionId];
+			}
+
 			// The section was already updated locally by SAVE_SECTION_IMMEDIATELY or reordering
 			// Just confirm the backend operation succeeded
 			updateState({
 				updatingSections: updatedUpdatingSections,
+				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
 
@@ -19187,6 +19868,12 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Update any child sections in sectionChanges that reference this temp parent ID
 			const updatedSectionChanges = {...state.sectionChanges};
+
+			// Remove the temp section that was just saved from sectionChanges
+			if (oldTempSectionId) {
+				delete updatedSectionChanges[oldTempSectionId];
+			}
+
 			let childSectionsUpdated = 0;
 			Object.keys(updatedSectionChanges).forEach(sectionId => {
 				const sectionData = updatedSectionChanges[sectionId];
@@ -19316,108 +20003,126 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CANCEL_ALL_CHANGES': (coeffects) => {
-			const {updateState, state, dispatch} = coeffects;
-			if (confirm('Are you sure you want to cancel all unsaved changes? This action cannot be undone.')) {
-				// Restore original assessment data
-				if (state.originalAssessmentData) {
-					updateState({
-						currentAssessment: JSON.parse(JSON.stringify(state.originalAssessmentData)),
-						sectionChanges: {},
-						questionChanges: {},
-						answerChanges: {},
-						// Clear any editing states
-						editingSectionId: null,
-						editingSectionName: null
-					});
-					
-					// Reload the current section questions if one is selected
-					if (state.selectedSection) {
-						dispatch('FETCH_SECTION_QUESTIONS', {
-							sectionId: state.selectedSection,
-							sectionLabel: state.selectedSectionLabel
-						});
-					}
-				} else {
-					// Fallback: just clear the changes tracking
-					updateState({
-						sectionChanges: {},
-						questionChanges: {},
-						answerChanges: {},
-						relationshipChanges: {},
-						editingSectionId: null,
-						editingSectionName: null
-					});
+			const {dispatch} = coeffects;
+
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to cancel all unsaved changes? This action cannot be undone.',
+				pendingAction: {
+					type: 'CONFIRM_CANCEL_ALL_CHANGES',
+					payload: {}
 				}
-				
-				// Show warning message
-				updateState({
-					systemMessages: [
-					...(state.systemMessages || []),
-						...state.systemMessages,
-						{
-							type: 'warning',
-							message: 'All unsaved changes have been canceled.',
-							timestamp: new Date().toISOString()
-						}
-					]
-				});
-			}
+			});
 		},
 
-		'CANCEL_QUESTION_CHANGES': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
-			const {questionId} = action.payload;
+		'CONFIRM_CANCEL_ALL_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
 
-			if (!state.currentQuestions?.questions) {
-				return;
-			}
-
-			// Find the original question data to restore from
-			// Option 1: If we have a server backup, use it
-			// Option 2: Reload the section to get fresh data
-			// For now, let's reload the section to get the original data
-
-			if (confirm('Are you sure you want to cancel all changes to this question? This will reload the current data from the server.')) {
-				// Clear any question-specific change tracking
-				const updatedQuestionChanges = {...state.questionChanges};
-				const updatedAnswerChanges = {...state.answerChanges};
-
-				// Remove changes related to this question
-				delete updatedQuestionChanges[questionId];
-
-				// Remove answer changes related to this question
-				Object.keys(updatedAnswerChanges).forEach(answerId => {
-					const answerChange = updatedAnswerChanges[answerId];
-					// Check if this answer change belongs to the question being canceled
-					const belongsToQuestion = state.currentQuestions.questions
-						.find(q => q.ids.id === questionId)
-						?.answers?.some(a => a.ids.id === answerId);
-
-					if (belongsToQuestion || answerChange.question_id === questionId) {
-						delete updatedAnswerChanges[answerId];
-					}
-				});
-
+			// Restore original assessment data
+			if (state.originalAssessmentData) {
 				updateState({
-					questionChanges: updatedQuestionChanges,
-					answerChanges: updatedAnswerChanges,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'warning',
-							message: 'Question changes cancelled. Refreshing section data from server...',
-							timestamp: new Date().toISOString()
-						}
-					]
+					currentAssessment: JSON.parse(JSON.stringify(state.originalAssessmentData)),
+					sectionChanges: {},
+					questionChanges: {},
+					answerChanges: {},
+					// Clear any editing states
+					editingSectionId: null,
+					editingSectionName: null
 				});
 
-				// Reload section to get fresh data from server
+				// Reload the current section questions if one is selected
 				if (state.selectedSection) {
 					dispatch('FETCH_SECTION_QUESTIONS', {
 						sectionId: state.selectedSection,
 						sectionLabel: state.selectedSectionLabel
 					});
 				}
+			} else {
+				// Fallback: just clear the changes tracking
+				updateState({
+					sectionChanges: {},
+					questionChanges: {},
+					answerChanges: {},
+					relationshipChanges: {},
+					editingSectionId: null,
+					editingSectionName: null
+				});
+			}
+
+			// Show toast message
+			dispatch('SHOW_TOAST', {
+				type: 'warning',
+				message: 'All unsaved changes have been canceled.'
+			});
+		},
+
+		'CANCEL_QUESTION_CHANGES': (coeffects) => {
+			const {action, dispatch, state} = coeffects;
+			const {questionId} = action.payload;
+
+			if (!state.currentQuestions?.questions) {
+				return;
+			}
+
+			// Show confirmation dialog
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to cancel all changes to this question? This will reload the current data from the server.',
+				pendingAction: {
+					type: 'CONFIRM_CANCEL_QUESTION_CHANGES',
+					payload: { questionId }
+				}
+			});
+		},
+
+		'CONFIRM_CANCEL_QUESTION_CHANGES': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {questionId} = action.payload;
+
+			// Set canceling state for spinner
+			updateState({
+				cancelingQuestions: {
+					...state.cancelingQuestions,
+					[questionId]: true
+				}
+			});
+
+			// Clear any question-specific change tracking
+			const updatedQuestionChanges = {...state.questionChanges};
+			const updatedAnswerChanges = {...state.answerChanges};
+
+			// Remove changes related to this question
+			delete updatedQuestionChanges[questionId];
+
+			// Remove answer changes related to this question
+			Object.keys(updatedAnswerChanges).forEach(answerId => {
+				const answerChange = updatedAnswerChanges[answerId];
+				// Check if this answer change belongs to the question being canceled
+				const belongsToQuestion = state.currentQuestions.questions
+					.find(q => q.ids.id === questionId)
+					?.answers?.some(a => a.ids.id === answerId);
+
+				if (belongsToQuestion || answerChange.question_id === questionId) {
+					delete updatedAnswerChanges[answerId];
+				}
+			});
+
+			updateState({
+				questionChanges: updatedQuestionChanges,
+				answerChanges: updatedAnswerChanges
+			});
+
+			// Show toast
+			dispatch('SHOW_TOAST', {
+				type: 'warning',
+				message: 'Question changes cancelled. Refreshing section data from server...'
+			});
+
+			// Reload section to get fresh data from server
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
 			}
 		},
 
@@ -19476,7 +20181,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 		},
 
-		'SECTION_TYPEAHEAD_SEARCH': createHttpEffect('/api/x_cadal_careiq_b_0/careiq_api/generic-typeahead', {
+		'SECTION_TYPEAHEAD_SEARCH': createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/generic-typeahead', {
 			method: 'POST',
 			dataParam: 'requestBody',
 			headers: {
@@ -19873,6 +20578,88 @@ createCustomElement('cadal-careiq-builder', {
 				expandedGoals: {},
 				problemGoals: {},
 				goalInterventions: {}
+			});
+		},
+
+		// Confirmation Dialog Action Handlers
+		'SHOW_CONFIRMATION_DIALOG': (coeffects) => {
+			const {action, updateState} = coeffects;
+			const {message, pendingAction} = action.payload;
+			updateState({
+				confirmationDialogOpen: true,
+				confirmationDialogMessage: message,
+				confirmationDialogPendingAction: pendingAction
+			});
+		},
+
+		'CONFIRM_DIALOG_ACTION': (coeffects) => {
+			const {state, updateState, dispatch} = coeffects;
+			const pendingAction = state.confirmationDialogPendingAction;
+
+			// Close dialog
+			updateState({
+				confirmationDialogOpen: false,
+				confirmationDialogMessage: '',
+				confirmationDialogPendingAction: null
+			});
+
+			// Execute the pending action if it exists
+			if (pendingAction) {
+				dispatch(pendingAction.type, pendingAction.payload);
+			}
+		},
+
+		'CANCEL_DIALOG_ACTION': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				confirmationDialogOpen: false,
+				confirmationDialogMessage: '',
+				confirmationDialogPendingAction: null
+			});
+		},
+
+		// Toast Notification Handlers
+		'SHOW_TOAST': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {type, message, duration = 5000} = action.payload;
+
+			// Create unique toast ID
+			const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(7);
+
+			// Add toast to array
+			const newToast = {
+				id: toastId,
+				type: type || 'info',
+				message: message,
+				timestamp: new Date().toISOString()
+			};
+
+			updateState({
+				toastNotifications: [...(state.toastNotifications || []), newToast]
+			});
+
+			// Auto-dismiss after duration (unless it's an error)
+			if (type !== 'error') {
+				setTimeout(() => {
+					// Dispatch dismiss action
+					const currentState = state;
+					if (currentState.toastNotifications) {
+						const filteredToasts = currentState.toastNotifications.filter(t => t.id !== toastId);
+						updateState({
+							toastNotifications: filteredToasts
+						});
+					}
+				}, duration);
+			}
+		},
+
+		'DISMISS_TOAST': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {toastId} = action.payload;
+
+			const filteredToasts = (state.toastNotifications || []).filter(t => t.id !== toastId);
+			updateState({
+				toastNotifications: filteredToasts
 			});
 		},
 

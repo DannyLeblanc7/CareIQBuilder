@@ -1406,29 +1406,6 @@ const view = (state, {updateState, dispatch}) => {
 																	<option value="Caregiver" selected={question.voice === 'Caregiver'}>Caregiver</option>
 																	<option value="Patient" selected={question.voice === 'Patient'}>Patient</option>
 																</select>
-																<span 
-																	className="edit-icon"
-																	title="Edit question text"
-																	style={{
-																		cursor: 'pointer',
-																		marginRight: '8px',
-																		padding: '2px 4px',
-																		backgroundColor: '#f0f0f0',
-																		borderRadius: '3px',
-																		fontSize: '12px',
-																		display: 'inline-block',
-																		border: '1px solid #ccc'
-																	}}
-																	onclick={() => {
-																		dispatch('OPEN_EDIT_MODAL', {
-																			type: 'question',
-																			itemId: question.ids.id,
-																			text: question.label
-																		});
-																	}}
-																>
-																	🔍
-																</span>
 																<div className="typeahead-container">
 																	<input
 																		type="text"
@@ -1436,6 +1413,13 @@ const view = (state, {updateState, dispatch}) => {
 																		value={question.label}
 																		placeholder="Enter question text..."
 																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																		ondblclick={() => {
+																			dispatch('OPEN_EDIT_MODAL', {
+																				type: 'question',
+																				itemId: question.ids.id,
+																				text: question.label
+																			});
+																		}}
 																		oninput={(e) => {
 																			const newValue = e.target.value;
 																			// Update the question label locally
@@ -1840,29 +1824,6 @@ const view = (state, {updateState, dispatch}) => {
 																		<div className="answer-edit">
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
-																				<span 
-																					className="edit-icon"
-																					title="Edit answer text"
-																					style={{
-																						cursor: 'pointer',
-																						marginRight: '6px',
-																						padding: '1px 3px',
-																						backgroundColor: '#f0f0f0',
-																						borderRadius: '3px',
-																						fontSize: '11px',
-																						display: 'inline-block',
-																						border: '1px solid #ccc'
-																					}}
-																					onclick={() => {
-																						dispatch('OPEN_EDIT_MODAL', {
-																							type: 'answer',
-																							itemId: answer.ids.id,
-																							text: answer.label
-																						});
-																					}}
-																				>
-																					🔍
-																				</span>
 																				<div className="typeahead-container">
 																					<input
 																						type="text"
@@ -1870,6 +1831,20 @@ const view = (state, {updateState, dispatch}) => {
 																						value={answer.label}
 																						placeholder="Enter answer text..."
 																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																			ondblclick={() => {
+
+																				dispatch('OPEN_EDIT_MODAL', {
+
+																					type: 'answer',
+
+																					itemId: answer.ids.id,
+
+																					text: answer.label
+
+																				});
+
+																			}}
+
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -2754,29 +2729,6 @@ const view = (state, {updateState, dispatch}) => {
 																		<div className="answer-edit">
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
-																				<span 
-																					className="edit-icon"
-																					title="Edit answer text"
-																					style={{
-																						cursor: 'pointer',
-																						marginRight: '6px',
-																						padding: '1px 3px',
-																						backgroundColor: '#f0f0f0',
-																						borderRadius: '3px',
-																						fontSize: '11px',
-																						display: 'inline-block',
-																						border: '1px solid #ccc'
-																					}}
-																					onclick={() => {
-																						dispatch('OPEN_EDIT_MODAL', {
-																							type: 'answer',
-																							itemId: answer.ids.id,
-																							text: answer.label
-																						});
-																					}}
-																				>
-																					🔍
-																				</span>
 																				<div className="typeahead-container">
 																					<input
 																						type="text"
@@ -2784,6 +2736,20 @@ const view = (state, {updateState, dispatch}) => {
 																						value={answer.label}
 																						placeholder="Enter answer text..."
 																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																			ondblclick={() => {
+
+																				dispatch('OPEN_EDIT_MODAL', {
+
+																					type: 'answer',
+
+																					itemId: answer.ids.id,
+
+																					text: answer.label
+
+																				});
+
+																			}}
+
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
