@@ -6562,6 +6562,7 @@ const view = (state, {updateState, dispatch}) => {
 																																	style={{
 																																		marginLeft: '12px',
 																																		fontSize: '12px',
+																																		fontWeight: 'normal',
 																																		padding: '4px 8px',
 																																		opacity: state.deletingInterventions[intervention.id] ? 0.6 : 1,
 																																		cursor: state.deletingInterventions[intervention.id] ? 'not-allowed' : 'pointer'
@@ -6579,7 +6580,7 @@ const view = (state, {updateState, dispatch}) => {
 																																		}
 																																	}}
 																																>
-																																	{state.deletingInterventions[intervention.id] ? '🔄' : <XIcon />}
+																																	{state.deletingInterventions[intervention.id] ? '🔄' : 'X'}
 																																</button>
 																															</div>
 																														);
