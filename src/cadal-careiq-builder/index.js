@@ -4772,20 +4772,13 @@ const view = (state, {updateState, dispatch}) => {
 				<div className={`relationship-panel expanded`}>
 					<div className="relationship-header">
 						<div className="relationship-title-container">
-							<button
-								className="expand-relationship-btn"
-								onclick={() => dispatch('TOGGLE_RELATIONSHIP_PANEL')}
-								title="Collapse relationship panel"
-							>
-								<span className="expand-icon expanded">⤢</span>
-							</button>
 							<h3>Manage Answer Relationships</h3>
 						</div>
 						<button
 							className="btn-cancel"
 							onclick={() => dispatch('CLOSE_RELATIONSHIP_MODAL')}
 						>
-							✗
+							<XIcon />
 						</button>
 					</div>
 
@@ -6130,7 +6123,42 @@ const view = (state, {updateState, dispatch}) => {
 																										if (goalInterventions && goalInterventions.length > 0) {
 																											return (
 																												<div className="existing-interventions" style={{marginBottom: '12px'}}>
-																													{goalInterventions.map((intervention, interventionIndex) => {
+																											{(() => {
+																												// Group interventions by category
+																												const groupedByCategory = {};
+																												goalInterventions.forEach(intervention => {
+																													const category = intervention.category || 'Uncategorized';
+																													if (!groupedByCategory[category]) {
+																														groupedByCategory[category] = [];
+																													}
+																													groupedByCategory[category].push(intervention);
+																												});
+
+																												// Sort categories alphabetically
+																												const sortedCategories = Object.keys(groupedByCategory).sort();
+
+																												// Sort interventions within each category alphabetically
+																												sortedCategories.forEach(category => {
+																													groupedByCategory[category].sort((a, b) => {
+																														const labelA = (a.label || '').toLowerCase();
+																														const labelB = (b.label || '').toLowerCase();
+																														return labelA.localeCompare(labelB);
+																													});
+																												});
+
+																												return sortedCategories.map(category => (
+																													<div key={category} style={{marginBottom: '16px'}}>
+																														<div style={{
+																															fontSize: '13px',
+																															fontWeight: '600',
+																															color: '#374151',
+																															marginBottom: '8px',
+																															paddingBottom: '4px',
+																															borderBottom: '2px solid #e5e7eb'
+																														}}>
+																															{category}
+																														</div>
+																														{groupedByCategory[category].map((intervention, interventionIndex) => {
 																														// Check if this intervention is being edited
 																														const isEditing = state.editingInterventionId === intervention.id;
 																														const isLoading = state.interventionDetailsLoading === intervention.id;
@@ -6490,7 +6518,10 @@ const view = (state, {updateState, dispatch}) => {
 																																</button>
 																															</div>
 																														);
-																													})}
+																														})}
+																													</div>
+																												));
+																											})()}
 																												</div>
 																											);
 																										}
