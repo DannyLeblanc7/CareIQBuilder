@@ -7280,7 +7280,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Barriers Tab */}
 								{state.relationshipModalActiveTab === 'barriers' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for barrier operations */}
+										{state.savingBarrierRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Barriers</h4>
 
 										{/* Existing Barriers */}
@@ -8320,6 +8324,7 @@ createCustomElement('cadal-careiq-builder', {
 		pendingScoringChanges: 0, // Count of pending save requests
 		savingGuidelineRelationship: false, // Loading state for adding/deleting guideline relationships
 		savingQuestionRelationship: false, // Loading state for adding/deleting question relationships
+		savingBarrierRelationship: false, // Loading state for adding/deleting barrier relationships
 		relationshipPanelOpen: false, // Controls relationship panel visibility (converted from modal)
 		pgiModalOpen: false, // Controls PGI preview modal visibility
 		pgiModalAnswerId: null, // Answer ID for PGI modal
@@ -11822,7 +11827,9 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedBarrierData: null
+				selectedBarrierData: null,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11859,7 +11866,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 		},
 
@@ -11977,7 +11986,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 
 			// Refresh the modal answer relationships to show updated data
@@ -12007,7 +12018,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 		},
 
@@ -12018,6 +12031,12 @@ createCustomElement('cadal-careiq-builder', {
 			const relationships = state.answerRelationships?.[answerId];
 			const barrier = relationships?.barriers?.barriers?.find(b => b.id === barrierId);
 			const barrierName = barrier?.label || barrier?.name || 'Unknown Barrier';
+
+			// Set loading state
+			updateState({
+				savingBarrierRelationship: true
+			});
+
 			// AUTO-DELETE: Immediately call API
 			const requestBody = JSON.stringify({
 				barrierId: barrierId
@@ -15509,6 +15528,11 @@ createCustomElement('cadal-careiq-builder', {
 			// Calculate sort_order based on existing barriers
 			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
 			const sortOrder = existingBarriers.length + 1;
+
+			// Set loading state
+			updateState({
+				savingBarrierRelationship: true
+			});
 
 			// AUTO-SAVE: Immediately call API
 			const requestBody = JSON.stringify({
