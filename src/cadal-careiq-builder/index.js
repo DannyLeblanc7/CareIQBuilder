@@ -5116,7 +5116,11 @@ const view = (state, {updateState, dispatch}) => {
 							<div className="modal-body">
 								{/* Guidelines Tab */}
 								{state.relationshipModalActiveTab === 'guidelines' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for guideline operations */}
+										{state.savingGuidelineRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Guidelines</h4>
 
 										{/* Existing Guidelines */}
@@ -5283,7 +5287,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Questions Tab */}
 								{state.relationshipModalActiveTab === 'questions' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for question operations */}
+										{state.savingQuestionRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Questions</h4>
 
 										{/* Existing Questions */}
@@ -5477,7 +5485,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Problems Tab */}
 								{state.relationshipModalActiveTab === 'problems' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for problem add operations */}
+										{state.savingProblem && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Problems</h4>
 
 										{/* Existing Problems */}
@@ -6599,8 +6611,8 @@ const view = (state, {updateState, dispatch}) => {
 																									{/* Add New Intervention */}
 																									<div className="add-intervention" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																										{/* Loading overlay for intervention save */}
-																										{false && (
-																											<LoadingOverlay message="Saving intervention..." />
+																										{state.savingInterventions[goal.id] && (
+																											<LoadingOverlay message="Processing..." />
 																										)}
 																										<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
 																											Add New Intervention
@@ -6869,8 +6881,8 @@ const view = (state, {updateState, dispatch}) => {
 																	{/* Add New Goal */}
 																	<div className="add-goal" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																		{/* Loading overlay for goal save */}
-																		{false && (
-																			<LoadingOverlay message="Saving goal..." />
+																		{state.savingGoals[problem.id] && (
+																			<LoadingOverlay message="Processing..." />
 																		)}
 																		<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
 																			Add New Goal
@@ -7565,7 +7577,11 @@ const view = (state, {updateState, dispatch}) => {
 								<div>
 									{/* Guidelines Section */}
 									{relationships.guidelines && relationships.guidelines.guidelines && relationships.guidelines.guidelines.length > 0 ? (
-										<div style={{marginBottom: '24px'}}>
+										<div style={{marginBottom: '24px', position: 'relative'}}>
+											{/* Loading overlay for guideline operations */}
+											{state.savingGuidelineRelationship && (
+												<LoadingOverlay message="Processing..." />
+											)}
 											<h4 style={{
 												fontSize: '16px',
 												fontWeight: '600',
@@ -8302,6 +8318,8 @@ createCustomElement('cadal-careiq-builder', {
 		scoringChanges: {}, // Track unsaved scoring changes { answerId: { modelId: score } }
 		savingScoringChanges: false, // Loading state for saving scoring changes
 		pendingScoringChanges: 0, // Count of pending save requests
+		savingGuidelineRelationship: false, // Loading state for adding/deleting guideline relationships
+		savingQuestionRelationship: false, // Loading state for adding/deleting question relationships
 		relationshipPanelOpen: false, // Controls relationship panel visibility (converted from modal)
 		pgiModalOpen: false, // Controls PGI preview modal visibility
 		pgiModalAnswerId: null, // Answer ID for PGI modal
@@ -8438,6 +8456,7 @@ createCustomElement('cadal-careiq-builder', {
 		deletingProblems: {},                     // Track which problems are being deleted {problemId: true}
 		updatingProblems: {},                     // Track which problems are being updated {problemId: true}
 		addingProblem: false,                     // Track if a problem is being added
+		savingProblem: false,                     // Loading state for adding problem relationship
 
 		// Goal operation loading states
 		deletingGoals: {},                        // Track which goals are being deleted {goalId: true}
@@ -11282,7 +11301,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingGuidelineRelationship: false
 			});
 
 			// Immediate auto-refresh since backend has already committed
@@ -11295,14 +11315,14 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
+
 			console.error('=== ADD_GUIDELINE_RELATIONSHIP_ERROR ===');
 			console.error('Error adding guideline relationship:', action.payload);
-			
-			const errorMessage = action.payload?.error || 
-							   action.payload?.message || 
+
+			const errorMessage = action.payload?.error ||
+							   action.payload?.message ||
 							   'Unknown error occurred while adding guideline relationship';
-			
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -11311,7 +11331,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to add guideline relationship: ${errorMessage}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 		},
 
@@ -11346,7 +11367,8 @@ createCustomElement('cadal-careiq-builder', {
 						modalSystemMessages: state.relationshipPanelOpen ? [
 							...(state.modalSystemMessages || []),
 							errorMessage
-						] : state.modalSystemMessages
+						] : state.modalSystemMessages,
+						savingQuestionRelationship: false
 					});
 					return; // Stop here, don't refresh
 				}
@@ -11388,7 +11410,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
@@ -11420,15 +11443,17 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 		},
 		'DELETE_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
 
-			// Store deletion context in state for success handler (meta params don't work reliably)
+			// Set loading state and store deletion context for success handler (meta params don't work reliably)
 			updateState({
+				savingQuestionRelationship: true,
 				lastDeletedQuestionContext: {
 					answerId: answerId,
 					questionId: questionId,
@@ -11671,7 +11696,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newSystemMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 			
 			// Only refresh the specific answer relationships, not the entire assessment
@@ -11696,7 +11722,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to delete triggered question: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingQuestionRelationship: false
 			});
 		},
 
@@ -11717,7 +11744,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Successfully deleted guideline relationship "${guidelineName}"! Refreshing data...`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11749,7 +11777,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to delete guideline relationship: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 		},
 
@@ -11878,7 +11907,8 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedProblemData: null
+				selectedProblemData: null,
+				savingProblem: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11929,7 +11959,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessageObj
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingProblem: false
 			});
 		},
 
@@ -13299,11 +13330,17 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Get original data from meta
+			// Get original data from meta, with fallback to stored state
 			const meta = action.meta || {};
-			const {answerId, interventionText, goalId} = meta;
+			let {answerId, interventionText, goalId} = meta;
+
+			// Fallback: Use stored goalId if meta doesn't have it (meta params unreliable in ServiceNow)
+			if (!goalId) {
+				goalId = state.lastAddedInterventionGoalId;
+			}
+
 			// Show success or backend message
-			let systemMessage = `Intervention "${interventionText}" processed! Refreshing data...`;
+			let systemMessage = interventionText ? `Intervention "${interventionText}" processed! Refreshing data...` : 'Intervention created successfully! Refreshing data...';
 			let messageType = 'success';
 
 			// ALWAYS surface backend detail messages to user (duplicates, errors, warnings, etc)
@@ -13340,7 +13377,22 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear typeahead state after successful intervention creation
+				interventionTypeaheadText: goalId ? {
+					...state.interventionTypeaheadText,
+					[goalId]: ''
+				} : state.interventionTypeaheadText,
+				interventionTypeaheadResults: goalId ? {
+					...state.interventionTypeaheadResults,
+					[goalId]: []
+				} : state.interventionTypeaheadResults,
+				selectedInterventionData: goalId ? {
+					...state.selectedInterventionData,
+					[goalId]: null
+				} : state.selectedInterventionData,
+				// Clear stored goalId after use
+				lastAddedInterventionGoalId: null
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -13348,15 +13400,14 @@ createCustomElement('cadal-careiq-builder', {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
+			}
 
-				// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
-				// This follows the same pattern as goal editing success
-				if (goalId && state.currentAssessmentId) {
-					dispatch('LOAD_GOAL_INTERVENTIONS', {
-						goalId: goalId,
-						guidelineTemplateId: state.currentAssessmentId
-					});
-				}
+			// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
+			if (goalId && state.currentAssessmentId) {
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
+				});
 			}
 
 			// Also refresh section questions to update badge counts
@@ -15352,6 +15403,12 @@ createCustomElement('cadal-careiq-builder', {
 		'REMOVE_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingGuidelineRelationship: true
+			});
+
 			// Call backend API to delete guideline relationship immediately (like DELETE_BRANCH_QUESTION)
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15371,6 +15428,11 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingQuestionRelationship: true
+			});
 
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15405,6 +15467,12 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingGuidelineRelationship: true
+			});
+
 			// AUTO-SAVE: Immediately call API like sections do
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15579,6 +15647,11 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Set loading state
+			updateState({
+				savingProblem: true
+			});
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -15611,6 +15684,12 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingProblem: true
+			});
+
 			// Show saving message
 			const savingMessage = {
 				type: 'info',
@@ -15661,6 +15740,12 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM_AFTER_CHECK': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
+
+			// Ensure loading state is set (may already be set from CREATE_NEW_PROBLEM)
+			updateState({
+				savingProblem: true
+			});
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -20974,99 +21059,6 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-		},
-
-		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
-			// Show success message
-			let systemMessage = 'Intervention created successfully! Refreshing data...';
-			let messageType = 'success';
-
-			// Surface any backend detail messages to user
-			if (action.payload && action.payload.detail) {
-				systemMessage = action.payload.detail;
-				if (systemMessage.toLowerCase().includes('duplicate') ||
-					systemMessage.toLowerCase().includes('already')) {
-					messageType = 'warning';
-				}
-			}
-
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: messageType,
-						message: systemMessage,
-						timestamp: new Date().toISOString()
-					}
-				],
-				modalSystemMessages: state.relationshipPanelOpen ? [
-					...(state.modalSystemMessages || []),
-					{
-						type: messageType,
-						message: systemMessage,
-						timestamp: new Date().toISOString()
-					}
-				] : state.modalSystemMessages
-			});
-
-			// Clear typeahead state after successful intervention creation
-			const answerId = state.relationshipModalAnswerId;
-			if (answerId) {
-				updateState({
-					interventionTypeaheadText: {},
-					interventionTypeaheadResults: {},
-					selectedInterventionData: {},
-					currentInterventionSearchContext: null
-				});
-			}
-
-			// CRITICAL: Refresh intervention data using stored goalId (meta params unreliable in ServiceNow)
-			const goalId = state.lastAddedInterventionGoalId;
-			if (goalId && state.currentAssessmentId) {
-				// Clear the stored ID after use
-				updateState({
-					lastAddedInterventionGoalId: null
-				});
-				dispatch('LOAD_GOAL_INTERVENTIONS', {
-					goalId: goalId,
-					guidelineTemplateId: state.currentAssessmentId
-				});
-			} else {
-			}
-
-			// Also refresh section questions to update badge counts
-			if (state.selectedSection) {
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: state.selectedSection,
-					sectionLabel: state.selectedSectionLabel
-				});
-			}
-		},
-
-		'ADD_INTERVENTION_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-
-			console.error('ADD_INTERVENTION_ERROR:', action.payload);
-
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				],
-				modalSystemMessages: state.relationshipPanelOpen ? [
-					...(state.modalSystemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				] : state.modalSystemMessages
 			});
 		},
 
