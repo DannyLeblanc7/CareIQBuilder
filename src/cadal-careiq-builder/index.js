@@ -886,7 +886,7 @@ const view = (state, {updateState, dispatch}) => {
 																		}}
 																		title="Delete section"
 																		style={{
-																			backgroundColor: '#dc3545',
+																			backgroundColor: '#6b7280',
 																			color: 'white',
 																			border: 'none',
 																			borderRadius: '3px',
@@ -2135,7 +2135,7 @@ const view = (state, {updateState, dispatch}) => {
 																									</span>
 																									{isEditable && (
 																										<button 
-																											className="remove-trigger-btn remove-guideline-btn"
+																											className="cancel-relationship-btn"
 																											onclick={(e) => {
 																												e.stopPropagation();
 																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
@@ -2147,10 +2147,9 @@ const view = (state, {updateState, dispatch}) => {
 																											title="Remove guideline relationship"
 																											style={{
 																												display: isEditable ? 'flex' : 'none',
-																												backgroundColor: isEditable ? '#fee2e2' : 'gray'
 																											}}
 																										>
-																											🗑️
+																											<XIcon />
 																										</button>
 																									)}
 																								</div>
@@ -4678,7 +4677,7 @@ const view = (state, {updateState, dispatch}) => {
 												dispatch('REMOVE_CUSTOM_ATTRIBUTE_ROW', {index: index});
 											}}
 											style={{
-												background: '#dc3545',
+												background: '#6b7280',
 												color: 'white',
 												border: 'none',
 												padding: '8px',
@@ -5086,7 +5085,7 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{guideline.label}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
 																			answerId: answerId,
@@ -5094,8 +5093,9 @@ const view = (state, {updateState, dispatch}) => {
 																			guidelineName: guideline.label
 																		})
 																	}}
+																	title="Delete guideline"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -5181,7 +5181,7 @@ const view = (state, {updateState, dispatch}) => {
 															style={{
 																fontSize: '14px',
 																padding: '10px 16px',
-																backgroundColor: '#ef4444',
+																backgroundColor: '#6b7280',
 																color: 'white',
 																border: 'none',
 																borderRadius: '6px',
@@ -5197,7 +5197,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Cancel"
 														>
-															✗
+															<XIcon />
 														</button>
 													</div>
 												)}
@@ -5251,7 +5251,7 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{question.label}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('DELETE_BRANCH_QUESTION', {
 																			answerId: answerId,
@@ -5259,8 +5259,9 @@ const view = (state, {updateState, dispatch}) => {
 																			questionLabel: question.label
 																		})
 																	}}
+																	title="Delete question"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -5345,7 +5346,7 @@ const view = (state, {updateState, dispatch}) => {
 															style={{
 																fontSize: '14px',
 																padding: '10px 16px',
-																backgroundColor: '#ef4444',
+																backgroundColor: '#6b7280',
 																color: 'white',
 																border: 'none',
 																borderRadius: '6px',
@@ -5361,7 +5362,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Cancel"
 														>
-															✗
+															<XIcon />
 														</button>
 													</div>
 												)}
@@ -5609,7 +5610,7 @@ const view = (state, {updateState, dispatch}) => {
 																										});
 																									}}
 																									style={{
-																										background: '#dc3545',
+																										background: '#6b7280',
 																										color: 'white',
 																										border: 'none',
 																										padding: '6px 8px',
@@ -5686,7 +5687,7 @@ const view = (state, {updateState, dispatch}) => {
 																			style={{
 																				fontSize: '14px',
 																				padding: '8px 12px',
-																				backgroundColor: '#ef4444',
+																				backgroundColor: '#6b7280',
 																				color: 'white',
 																				border: 'none',
 																				borderRadius: '4px',
@@ -5735,23 +5736,6 @@ const view = (state, {updateState, dispatch}) => {
 																		>
 																			{problem.label || problem.name}
 																		</span>,
-																	<button
-																		className="confirm-relationship-btn"
-																		onclick={() => {
-																			dispatch('FETCH_PROBLEM_DETAILS', {
-																				problemId: problem.id,
-																				fallbackData: {
-																					label: problem.label || problem.name,
-																					alternative_wording: problem.alternative_wording || '',
-																					tooltip: problem.tooltip || ''
-																				}
-																			});
-																		}}
-																		title="Edit problem"
-																		style={{marginLeft: '8px'}}
-																	>
-																		<CheckIcon />
-																	</button>,
 																	<button
 																		className="cancel-relationship-btn"
 																		onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
@@ -5984,7 +5968,7 @@ const view = (state, {updateState, dispatch}) => {
 																																	});
 																																}}
 																																style={{
-																																	background: '#dc3545',
+																																	background: '#6b7280',
 																																	color: 'white',
 																																	border: 'none',
 																																	padding: '6px 8px',
@@ -6059,7 +6043,7 @@ const view = (state, {updateState, dispatch}) => {
 																											style={{
 																												fontSize: '14px',
 																												padding: '8px 12px',
-																												backgroundColor: '#ef4444',
+																												backgroundColor: '#6b7280',
 																												color: 'white',
 																												border: 'none',
 																												borderRadius: '4px',
@@ -6341,7 +6325,7 @@ const view = (state, {updateState, dispatch}) => {
 																																								});
 																																							}}
 																																							style={{
-																																								background: '#dc3545',
+																																								background: '#6b7280',
 																																								color: 'white',
 																																								border: 'none',
 																																								padding: '6px 8px',
@@ -6736,7 +6720,7 @@ const view = (state, {updateState, dispatch}) => {
 																													style={{
 																														fontSize: '14px',
 																														padding: '10px 16px',
-																														backgroundColor: '#ef4444',
+																														backgroundColor: '#6b7280',
 																														color: 'white',
 																														border: 'none',
 																														borderRadius: '6px',
@@ -6995,7 +6979,7 @@ const view = (state, {updateState, dispatch}) => {
 																				style={{
 																					fontSize: '14px',
 																					padding: '10px 16px',
-																					backgroundColor: '#ef4444',
+																					backgroundColor: '#6b7280',
 																					color: 'white',
 																					border: 'none',
 																					borderRadius: '6px',
@@ -7126,7 +7110,7 @@ const view = (state, {updateState, dispatch}) => {
 													style={{
 														fontSize: '14px',
 														padding: '10px 16px',
-														backgroundColor: '#ef4444',
+														backgroundColor: '#6b7280',
 														color: 'white',
 														border: 'none',
 														borderRadius: '6px',
@@ -7142,7 +7126,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✗
+													<XIcon />
 												</button>
 											</div>
 
@@ -7214,15 +7198,16 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{barrier.label || barrier.name}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('REMOVE_BARRIER_RELATIONSHIP', {
 																			answerId: answerId,
 																			barrierId: barrier.id
 																		})
 																	}}
+																	title="Delete barrier"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -7321,7 +7306,7 @@ const view = (state, {updateState, dispatch}) => {
 													style={{
 														fontSize: '14px',
 														padding: '10px 16px',
-														backgroundColor: '#ef4444',
+														backgroundColor: '#6b7280',
 														color: 'white',
 														border: 'none',
 														borderRadius: '6px',
@@ -7337,7 +7322,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✗
+													<XIcon />
 												</button>
 											</div>
 
@@ -7844,7 +7829,7 @@ const view = (state, {updateState, dispatch}) => {
 								onclick={() => dispatch('CONFIRM_DIALOG_ACTION')}
 								style={{
 									padding: '8px 16px',
-									backgroundColor: '#dc2626',
+									backgroundColor: '#6b7280',
 									color: 'white',
 									border: 'none',
 									borderRadius: '4px',
@@ -8084,7 +8069,7 @@ const view = (state, {updateState, dispatch}) => {
 							</button>
 							<button
 								style={{
-									backgroundColor: '#dc3545',
+									backgroundColor: '#6b7280',
 									color: 'white',
 									border: 'none',
 									padding: '10px 20px',

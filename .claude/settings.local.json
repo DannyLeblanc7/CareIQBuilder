@@ -11,7 +11,9 @@
       "Bash(awk:*)",
       "Bash(grep:*)",
       "Read(//c//**)",
-      "Read(//c/**)"
+      "Read(//c/**)",
+      "Bash(node -e \"const fs=require(''fs''); let c=fs.readFileSync(''C:/Users/zolmo/ServiceNow/CareIQ Builder - Start to work/src/cadal-careiq-builder/index.js'',''utf8''); let arr=c.split(''\\n''); if(arr[7128] && arr[7128].includes(''✗'')){arr[7128]=arr[7128].replace(''✗'',''<XIcon />'')} if(arr[7320] && arr[7320].includes(''✗'')){arr[7320]=arr[7320].replace(''✗'',''<XIcon />'')} fs.writeFileSync(''C:/Users/zolmo/ServiceNow/CareIQ Builder - Start to work/src/cadal-careiq-builder/index.js'',arr.join(''\\n''),''utf8''); console.log(''Changed lines 7129 and 7321'');\")",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
