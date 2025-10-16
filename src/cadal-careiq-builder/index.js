@@ -671,27 +671,96 @@ const view = (state, {updateState, dispatch}) => {
 							color: '#1976d2',
 							display: 'flex',
 							alignItems: 'center',
-							justifyContent: 'space-between'
+							justifyContent: 'space-between',
+							position: 'relative'
 						}}>
-							<span>📊 Now editing: {state.selectedScoringModel.label}</span>
-							<button
-								className="exit-scoring-btn"
-								onclick={() => dispatch('EXIT_SCORING_MODE')}
-								title="Exit scoring mode"
-								style={{
-									background: 'none',
-									border: 'none',
-									color: '#1976d2',
-									cursor: 'pointer',
-									padding: '2px',
-									borderRadius: '2px',
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'center'
-								}}
-							>
-								<XIcon />
-							</button>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+								<span>📊 Now editing: {state.selectedScoringModel.label}</span>
+								{Object.keys(state.scoringChanges || {}).length > 0 && (
+									<span style={{
+										fontSize: '12px',
+										color: '#f57c00',
+										fontWeight: '600',
+										background: '#fff3e0',
+										padding: '2px 8px',
+										borderRadius: '3px',
+										border: '1px solid #ffb74d'
+									}}>
+										Unsaved changes
+									</span>
+								)}
+							</div>
+							<div style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px'
+							}}>
+								{Object.keys(state.scoringChanges || {}).length > 0 && (
+									<button
+										onclick={() => dispatch('SAVE_SCORING_CHANGES')}
+										title="Save all scoring changes"
+										disabled={state.savingScoringChanges}
+										style={{
+											background: state.savingScoringChanges ? '#90caf9' : '#1976d2',
+											border: 'none',
+											color: 'white',
+											cursor: state.savingScoringChanges ? 'wait' : 'pointer',
+											padding: '6px 12px',
+											borderRadius: '4px',
+											fontSize: '13px',
+											fontWeight: '500',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '4px',
+											opacity: state.savingScoringChanges ? 0.7 : 1
+										}}
+									>
+										{state.savingScoringChanges ? '⏳ Saving...' : '💾 Save'}
+									</button>
+								)}
+								<button
+									onclick={() => dispatch('CANCEL_SCORING_CHANGES')}
+									title="Cancel scoring changes"
+									disabled={state.savingScoringChanges}
+									style={{
+										background: '#f5f5f5',
+										border: '1px solid #d1d5db',
+										color: '#666',
+										cursor: state.savingScoringChanges ? 'not-allowed' : 'pointer',
+										padding: '6px 12px',
+										borderRadius: '4px',
+										fontSize: '13px',
+										fontWeight: '500',
+										display: 'flex',
+										alignItems: 'center',
+										gap: '4px',
+										opacity: state.savingScoringChanges ? 0.5 : 1
+									}}
+								>
+									↶ Cancel
+								</button>
+								<button
+									className="exit-scoring-btn"
+									onclick={() => dispatch('EXIT_SCORING_MODE')}
+									title="Exit scoring mode"
+									style={{
+										background: 'none',
+										border: 'none',
+										color: '#1976d2',
+										cursor: 'pointer',
+										padding: '2px',
+										borderRadius: '2px',
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'center'
+									}}
+								>
+									<XIcon />
+								</button>
+							</div>
+							{state.savingScoringChanges && (
+								<LoadingOverlay message="Saving scores..." />
+							)}
 						</div>
 					)}
 
@@ -1955,14 +2024,6 @@ const view = (state, {updateState, dispatch}) => {
 																									score: score
 																								});
 																							}}
-																							onblur={(e) => {
-																								// Auto-save the score when user finishes editing
-																								const score = e.target.value;
-																								dispatch('SAVE_ANSWER_SCORE', {
-																									answerId: answer.ids.id,
-																									score: score
-																								});
-																							}}
 																							onclick={(e) => {
 																								e.stopPropagation();
 																							}}
@@ -2855,14 +2916,6 @@ const view = (state, {updateState, dispatch}) => {
 																							oninput={(e) => {
 																								const score = e.target.value;
 																								dispatch('UPDATE_ANSWER_SCORE', {
-																									answerId: answer.ids.id,
-																									score: score
-																								});
-																							}}
-																							onblur={(e) => {
-																								// Auto-save the score when user finishes editing
-																								const score = e.target.value;
-																								dispatch('SAVE_ANSWER_SCORE', {
 																									answerId: answer.ids.id,
 																									score: score
 																								});
@@ -8246,6 +8299,9 @@ createCustomElement('cadal-careiq-builder', {
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
 		questionsPanelExpanded: false, // Toggle for expanded questions panel
+		scoringChanges: {}, // Track unsaved scoring changes { answerId: { modelId: score } }
+		savingScoringChanges: false, // Loading state for saving scoring changes
+		pendingScoringChanges: 0, // Count of pending save requests
 		relationshipPanelOpen: false, // Controls relationship panel visibility (converted from modal)
 		pgiModalOpen: false, // Controls PGI preview modal visibility
 		pgiModalAnswerId: null, // Answer ID for PGI modal
@@ -12402,34 +12458,81 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SAVE_SCORING_MODEL_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			const originalRequest = action.payload?.originalRequest || {};
+			const {action, updateState, state, dispatch} = coeffects;
 
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: 'Score saved successfully',
-						timestamp: new Date().toISOString()
-					}
-				]
+			console.log('SAVE_SCORING_MODEL_SUCCESS called:', {
+				savingScoringChanges: state.savingScoringChanges,
+				pendingScoringChanges: state.pendingScoringChanges,
+				actionPayload: action.payload
 			});
+
+			// Only process when we're in a batch save operation
+			if (state.savingScoringChanges && state.pendingScoringChanges > 0) {
+				const remainingCount = state.pendingScoringChanges - 1;
+
+				console.log('Processing batch save, remainingCount:', remainingCount);
+
+				// If this is the last save, show message and reload
+				if (remainingCount <= 0) {
+					console.log('Last save completed, clearing loading state');
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Scores saved successfully',
+								timestamp: new Date().toISOString()
+							}
+						],
+						savingScoringChanges: false,
+						pendingScoringChanges: 0
+					});
+
+					// Reload assessment data after all saves complete (stay in scoring mode)
+					if (state.currentAssessmentId) {
+						dispatch('FETCH_ASSESSMENT_DETAILS', {
+							assessmentId: state.currentAssessmentId
+						});
+					}
+				} else {
+					// Decrement the counter
+					console.log('Decrementing counter to:', remainingCount);
+					updateState({
+						pendingScoringChanges: remainingCount
+					});
+				}
+			}
 		},
 
 		'SAVE_SCORING_MODEL_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
+			// Always clear loading state on error during batch saves
+			if (state.savingScoringChanges) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
+							timestamp: new Date().toISOString()
+						}
+					],
+					savingScoringChanges: false,
+					pendingScoringChanges: 0
+				});
+			} else {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
 		},
 
 		'SELECT_SCORING_MODEL': (coeffects) => {
@@ -17660,9 +17763,109 @@ createCustomElement('cadal-careiq-builder', {
 				}))
 			};
 
+			// Track the change in scoringChanges state
+			const updatedScoringChanges = {
+				...state.scoringChanges,
+				[answerId]: {
+					...(state.scoringChanges[answerId] || {}),
+					[selectedModelId]: score || null
+				}
+			};
+
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				scoringChanges: updatedScoringChanges
 			});
+		},
+
+		'SAVE_SCORING_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			if (!state.selectedScoringModel) {
+				return;
+			}
+
+			const scoringChanges = state.scoringChanges || {};
+			const selectedModelId = state.selectedScoringModel.id;
+			const selectedModel = state.selectedScoringModel;
+
+			// If no changes, just show message
+			if (Object.keys(scoringChanges).length === 0) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'info',
+							message: 'No changes to save',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Count how many saves we need to do
+			let saveCount = 0;
+			Object.keys(scoringChanges).forEach(answerId => {
+				const answerChanges = scoringChanges[answerId];
+				if (answerChanges[selectedModelId] !== undefined) {
+					saveCount++;
+				}
+			});
+
+			// Set loading state and pending count
+			updateState({
+				savingScoringChanges: true,
+				pendingScoringChanges: saveCount
+			});
+
+			// Iterate through all scoring changes and save them
+			let completedCount = 0;
+			Object.keys(scoringChanges).forEach(answerId => {
+				const answerChanges = scoringChanges[answerId];
+				if (answerChanges[selectedModelId] !== undefined) {
+					const score = answerChanges[selectedModelId];
+					const scoreString = score ? String(score) : "";
+
+					// Use the exact same format as SAVE_ANSWER_SCORE
+					const requestBody = JSON.stringify({
+						scoring_model_id: selectedModel.id,
+						guideline_template_id: state.currentAssessmentId,
+						label: selectedModel.label,
+						scoring_type: selectedModel.scoring_type,
+						answer_id: answerId,
+						value: scoreString
+					});
+
+					dispatch('MAKE_SAVE_SCORING_MODEL_REQUEST', {
+						requestBody: requestBody,
+						isBatch: true,
+						totalCount: saveCount
+					});
+				}
+			});
+
+			// Clear scoring changes after dispatching all saves
+			updateState({
+				scoringChanges: {}
+			});
+		},
+
+		'CANCEL_SCORING_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			// Clear scoring changes and exit scoring mode
+			updateState({
+				scoringChanges: {},
+				selectedScoringModel: null
+			});
+
+			// Reload assessment data to restore original values
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
+				});
+			}
 		},
 
 		'SAVE_ANSWER_SCORE': (coeffects) => {
