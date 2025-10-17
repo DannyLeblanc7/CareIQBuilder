@@ -9798,9 +9798,6 @@ createCustomElement('cadal-careiq-builder', {
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
 
-			console.log('ASSESSMENT_DETAILS_SUCCESS - pendingReselection:', pendingReselection);
-			console.log('ASSESSMENT_DETAILS_SUCCESS - pendingReselectionLabel:', pendingReselectionLabel);
-
 			updateState({
 				currentAssessment: action.payload,
 				assessmentDetailsLoading: false,
@@ -9835,11 +9832,9 @@ createCustomElement('cadal-careiq-builder', {
 			let sectionLabelToSelect = null;
 
 			if (pendingReselection && pendingReselectionLabel) {
-				console.log('ASSESSMENT_DETAILS_SUCCESS - Using pending reselection');
 				sectionToSelect = pendingReselection;
 				sectionLabelToSelect = pendingReselectionLabel;
 			} else {
-				console.log('ASSESSMENT_DETAILS_SUCCESS - Auto-selecting first section');
 				// Auto-select first section (by sort_order) for immediate editing
 				const sortedSections = (action.payload?.sections || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 				const firstSection = sortedSections[0];
@@ -9851,9 +9846,6 @@ createCustomElement('cadal-careiq-builder', {
 					sectionLabelToSelect = firstSubsection.label;
 				}
 			}
-
-			console.log('ASSESSMENT_DETAILS_SUCCESS - sectionToSelect:', sectionToSelect);
-			console.log('ASSESSMENT_DETAILS_SUCCESS - sectionLabelToSelect:', sectionLabelToSelect);
 
 			if (sectionToSelect && sectionLabelToSelect) {
 				dispatch('SELECT_SECTION', {
@@ -10872,9 +10864,6 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
 
-			console.log('=== SAVE_QUESTION_IMMEDIATELY START ===');
-			console.log('questionId:', questionId);
-
 			// Store questionId and set saving state for spinner
 			updateState({
 				lastSavedQuestionId: questionId,
@@ -10884,9 +10873,6 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
-
-			console.log('Found question:', question);
-			console.log('Question type:', question?.type);
 
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
@@ -18315,13 +18301,21 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Check for duplicate questions - applies to 'add' and 'library_replace' actions
 					if (questionData.action === 'add' || questionData.action === 'library_replace') {
-						// Check if this question already exists in the current section
+						// CRITICAL FIX: Only check against questions that have REAL UUIDs (already persisted to backend)
+						// Skip any questions with temp IDs (they're all new questions in this save batch)
 						const existingQuestions = [];
 						if (state.currentQuestions?.questions) {
 							state.currentQuestions.questions.forEach(existingQuestion => {
-								// Don't compare with itself (in case it's a temp ID)
+								// Don't compare with itself
 								if (existingQuestion.ids.id !== questionId) {
-									existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+									// ONLY include questions with real UUIDs (not temp_*)
+									// These are questions that were already saved in previous operations
+									const hasRealUUID = !existingQuestion.ids.id.startsWith('temp_');
+									const hasNoChanges = !questionChanges.includes(existingQuestion.ids.id) && existingQuestion.isUnsaved !== true;
+
+									if (hasRealUUID && hasNoChanges) {
+										existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+									}
 								}
 							});
 						}
@@ -18339,6 +18333,7 @@ createCustomElement('cadal-careiq-builder', {
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
 			if (validationErrors.length > 0) {
 				updateState({
+					savingQuestions: {}, // Clear all saving spinners
 					systemMessages: [
 						...(state.systemMessages || []),
 						...validationErrors.map(error => ({
@@ -19756,6 +19751,12 @@ createCustomElement('cadal-careiq-builder', {
 				// Dispatch the add answers request
 				dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
 
+				// CRITICAL: Remove the saved question from questionChanges to prevent re-saving
+				const updatedQuestionChanges = {...state.questionChanges};
+				if (savedQuestionId) {
+					delete updatedQuestionChanges[savedQuestionId];
+				}
+
 				// Update UI with message about adding answers and clear pending answers
 				updateState({
 					currentQuestions: {
@@ -19772,6 +19773,7 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					],
 					// CRITICAL: Clear all question save tracking to prevent re-saving
+					questionChanges: updatedQuestionChanges,  // Remove this question from changes
 					pendingQuestionAnswers: null,
 					lastSavedQuestionId: null,
 					savingQuestions: {}  // Clear all saving states
@@ -19800,6 +19802,12 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
+					// CRITICAL: Remove the saved question from questionChanges to prevent re-saving
+					const updatedQuestionChanges = {...state.questionChanges};
+					if (savedQuestionId) {
+						delete updatedQuestionChanges[savedQuestionId];
+					}
+
 					// Regular question - just update state and CLEAR tracking
 					updateState({
 						currentQuestions: {
@@ -19815,6 +19823,7 @@ createCustomElement('cadal-careiq-builder', {
 							}
 						],
 						// CRITICAL: Clear all question save tracking to prevent re-saving
+						questionChanges: updatedQuestionChanges,  // Remove this question from changes
 						lastSavedQuestionId: null,
 						pendingQuestionAnswers: null,
 						savingQuestions: {}  // Clear all saving states
@@ -20245,10 +20254,6 @@ createCustomElement('cadal-careiq-builder', {
 			const newSectionId = action.payload.id;
 			const newSectionLabel = state.pendingNewSectionLabel;
 
-			console.log('ADD_SECTION_SUCCESS - newSectionId:', newSectionId);
-			console.log('ADD_SECTION_SUCCESS - newSectionLabel (from state):', newSectionLabel);
-			console.log('ADD_SECTION_SUCCESS - Full payload:', action.payload);
-
 			// Clear loading state and show success message
 			updateState({
 				addingSection: false,
@@ -20269,9 +20274,6 @@ createCustomElement('cadal-careiq-builder', {
 					pendingReselectionSection: newSectionId,
 					pendingReselectionSectionLabel: newSectionLabel
 				});
-
-				console.log('ADD_SECTION_SUCCESS - Set pendingReselectionSection:', newSectionId);
-				console.log('ADD_SECTION_SUCCESS - Set pendingReselectionSectionLabel:', newSectionLabel);
 
 				dispatch('FETCH_ASSESSMENT_DETAILS', {
 					assessmentId: state.currentAssessmentId
