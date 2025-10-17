@@ -10423,6 +10423,7 @@ createCustomElement('cadal-careiq-builder', {
 				required: false,
 				hidden: false,
 				tooltip: '',
+				voice: 'CaseManager', // Set default voice for new questions
 				sort_order: nextSortOrder,
 				answers: [
 					{
@@ -10864,6 +10865,9 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
 
+			console.log('=== SAVE_QUESTION_IMMEDIATELY START ===');
+			console.log('questionId:', questionId);
+
 			// Store questionId and set saving state for spinner
 			updateState({
 				lastSavedQuestionId: questionId,
@@ -10873,6 +10877,10 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+
+			console.log('Found question:', question);
+			console.log('Question type:', question?.type);
+
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
 				// Clear saving state on error
@@ -11025,12 +11033,15 @@ createCustomElement('cadal-careiq-builder', {
 				// New question - use new 2-step process
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
+					// Get the most current voice value from questionChanges if available
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
 					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
+						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
 						custom_attributes: {},
@@ -11053,12 +11064,23 @@ createCustomElement('cadal-careiq-builder', {
 					if (question.isLibraryQuestion) {
 					}
 
+					// DEBUG: Log what we're checking for voice
+					console.log('SAVE_QUESTION_IMMEDIATELY - questionId:', questionId);
+					console.log('SAVE_QUESTION_IMMEDIATELY - question.voice:', question.voice);
+					console.log('SAVE_QUESTION_IMMEDIATELY - questionChanges voice:', state.questionChanges?.[questionId]?.voice);
+					console.log('SAVE_QUESTION_IMMEDIATELY - Full questionChanges:', state.questionChanges?.[questionId]);
+
+					// Get the most current voice value from questionChanges if available
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
+					console.log('SAVE_QUESTION_IMMEDIATELY - Final currentVoice:', currentVoice);
+
 					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
+						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
 						custom_attributes: {},
@@ -11155,6 +11177,9 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 
+				// Get the most current voice value - check questionChanges first, then question object
+				const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
 				dispatch('UPDATE_QUESTION_API', {
 					questionData: {
 						questionId: questionId,
@@ -11162,9 +11187,10 @@ createCustomElement('cadal-careiq-builder', {
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
-						sort_order: question.sort_order,
-						answers: question.answers || []
+						alternative_wording: question.alternative_wording || '',
+						custom_attributes: question.custom_attributes || {},
+						voice: currentVoice,
+						sort_order: question.sort_order
 					}
 				});
 			}
@@ -18436,7 +18462,7 @@ createCustomElement('cadal-careiq-builder', {
 							alternative_wording: '',
 							sort_order: questionData.sort_order,
 							custom_attributes: {},
-							voice: 'CaseManager',
+							voice: currentQuestion?.voice || questionData.voice || 'CaseManager',
 							required: questionData.required || false,
 							available: false,
 							has_quality_measures: false
@@ -18925,6 +18951,10 @@ createCustomElement('cadal-careiq-builder', {
 					library_id: questionData.library_id
 				};
 			} else {
+				// DEBUG: Log the voice value we're about to send
+				console.log('ADD_QUESTION_TO_SECTION_API - questionData.voice:', questionData.voice);
+				console.log('ADD_QUESTION_TO_SECTION_API - Full questionData:', questionData);
+
 				// Regular question - use full payload
 				requestBodyData = {
 					sectionId: sectionId,
@@ -18939,6 +18969,9 @@ createCustomElement('cadal-careiq-builder', {
 					available: questionData.available || false,
 					has_quality_measures: questionData.has_quality_measures || false
 				};
+
+				// DEBUG: Log the final voice value being sent
+				console.log('ADD_QUESTION_TO_SECTION_API - Final voice in requestBodyData:', requestBodyData.voice);
 
 				// Add library_id for library questions
 				if (questionData.library_id) {
