@@ -1890,7 +1890,7 @@ const view = (state, {updateState, dispatch}) => {
 																			</div>
 																		) : null}
 																	{isEditable ? (
-																		<div className="answer-edit">
+																		<div className="answer-edit" style={answer.isDeleted ? {opacity: 0.5, backgroundColor: '#fee2e2'} : {}}>
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
 																				<div className="typeahead-container">
@@ -1899,7 +1899,8 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																			ondblclick={() => {
 
 																				dispatch('OPEN_EDIT_MODAL', {
@@ -2098,7 +2099,8 @@ const view = (state, {updateState, dispatch}) => {
 																				} : {}}>
 																					<select
 																						className="secondary-input-select"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2117,7 +2119,8 @@ const view = (state, {updateState, dispatch}) => {
 																					<button
 																						className="delete-answer-btn"
 																						title="Delete Answer"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2786,7 +2789,7 @@ const view = (state, {updateState, dispatch}) => {
 																			</div>
 																		) : null}
 																	{isEditable ? (
-																		<div className="answer-edit">
+																		<div className="answer-edit" style={answer.isDeleted ? {opacity: 0.5, backgroundColor: '#fee2e2'} : {}}>
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
 																				<div className="typeahead-container">
@@ -2795,7 +2798,8 @@ const view = (state, {updateState, dispatch}) => {
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																			ondblclick={() => {
 
 																				dispatch('OPEN_EDIT_MODAL', {
@@ -3013,7 +3017,8 @@ const view = (state, {updateState, dispatch}) => {
 																					</label>
 																					<select
 																						className="secondary-input-select"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -3032,7 +3037,8 @@ const view = (state, {updateState, dispatch}) => {
 																					<button
 																						className="delete-answer-btn"
 																						title="Delete Answer"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -10025,7 +10031,8 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadResults: [],
 				editingAnswerId: null,
 				// Clear question operation loading states
-				cancelingQuestions: {}
+				cancelingQuestions: {},
+				savingQuestions: {} // Clear all saving spinners after refresh
 			};
 
 			// If this was after a question move, clear modal, switch to target section, and show success message
@@ -10690,20 +10697,25 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_ANSWER': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {answerId, questionId} = action.payload;
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
 
-			// Check if this is a temp answer (never saved to backend)
-			if (answerId.startsWith('temp_')) {
+			// Check if this is a temp answer that has never been saved
+			// An answer is only truly unsaved if it has temp_ ID AND is tracked in answerChanges with action 'add'
+			const isUnsavedTempAnswer = answerId.startsWith('temp_') &&
+				state.answerChanges?.[answerId]?.action === 'add';
+
+			if (isUnsavedTempAnswer) {
 				// Just remove from UI, no API call needed
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === questionId) {
 						return {
 							...question,
-							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
+							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || [],
+							isUnsaved: true // Mark question as unsaved to show save/cancel buttons
 						};
 					}
 					return question;
@@ -10721,27 +10733,42 @@ createCustomElement('cadal-careiq-builder', {
 					answerChanges: updatedAnswerChanges
 				});
 			} else {
-				// Real answer - remove from UI immediately and call API
+				// Real answer - mark for deletion, don't remove from UI yet
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === questionId) {
 						return {
 							...question,
-							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
-							// NO isUnsaved flag - immediate delete
+							answers: question.answers?.map(answer => {
+								if (answer.ids.id === answerId) {
+									return {
+										...answer,
+										isDeleted: true // Mark answer as deleted
+									};
+								}
+								return answer;
+							}) || [],
+							isUnsaved: true // Mark question as unsaved to show save/cancel buttons
 						};
 					}
 					return question;
 				});
 
+				// Track the deletion in answerChanges
+				const updatedAnswerChanges = {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'delete',
+						questionId: questionId
+					}
+				};
+
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					}
+					},
+					answerChanges: updatedAnswerChanges
 				});
-
-				// Call API immediately to delete from backend
-				dispatch('DELETE_ANSWER_API', {answerId: answerId});
 			}
 		},
 
@@ -18148,10 +18175,14 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 
-			// Validate all answers for blank text
+			// Validate all answers for blank text (skip deleted answers)
 			if (answerChanges.length > 0) {
 				answerChanges.forEach(answerId => {
 					const answerData = answerChangesData[answerId];
+					// Skip validation for answers being deleted
+					if (answerData.action === 'delete') {
+						return;
+					}
 					if (!answerData.label || answerData.label.trim() === '') {
 						validationErrors.push('Answer text cannot be blank. Please enter answer text.');
 					}
@@ -18199,6 +18230,10 @@ createCustomElement('cadal-careiq-builder', {
 
 
 						currentQuestion.answers.forEach(answer => {
+							// Skip answers marked for deletion
+							if (answer.isDeleted) {
+								return;
+							}
 							const trimmedLabel = answer.label.toLowerCase().trim();
 							if (answerLabels.includes(trimmedLabel)) {
 								// This is a duplicate within the same question
@@ -18353,6 +18388,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerChanges: {},
 				relationshipChanges: {},
 				answerDuplicateCheckCompleted: false, // Reset for next save
+				savingQuestions: {}, // Clear all saving spinners
 				// Clear isUnsaved flags from all questions to hide save buttons
 				currentQuestions: state.currentQuestions ? {
 					...state.currentQuestions,
@@ -18716,7 +18752,7 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
-			
+
 			// Save relationship changes
 			if (relationshipChanges.length > 0) {
 				relationshipChanges.forEach(relationshipKey => {
@@ -19935,6 +19971,14 @@ createCustomElement('cadal-careiq-builder', {
 					lastCreatedQuestionId: null
 				});
 			}
+
+			// Refresh section to get real UUIDs for newly added answers
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
 		},
 
 		'ADD_ANSWERS_TO_QUESTION_ERROR': (coeffects) => {
@@ -20420,12 +20464,6 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				questionChanges: updatedQuestionChanges,
 				answerChanges: updatedAnswerChanges
-			});
-
-			// Show toast
-			dispatch('SHOW_TOAST', {
-				type: 'warning',
-				message: 'Question changes cancelled. Refreshing section data from server...'
 			});
 
 			// Reload section to get fresh data from server
