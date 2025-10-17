@@ -8707,13 +8707,13 @@ createCustomElement('cadal-careiq-builder', {
 			// Validate required fields
 			const form = state.newAssessmentForm;
 
-			if (!form.guidelineName || !form.useCaseCategory || !form.effectiveDate) {
+			if (!form.guidelineName || !form.useCaseCategory) {
 				updateState({
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'error',
-							message: 'Please fill in all required fields (Guideline Name, Use Case Category, and Effective Date)',
+							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -8781,7 +8781,6 @@ createCustomElement('cadal-careiq-builder', {
 				external_id: assessmentData.external_id || '',
 				custom_attributes: assessmentData.custom_attributes || {},
 				tags: assessmentData.tags || [],
-				effective_date: assessmentData.effectiveDate, // Required - already validated
 				tooltip: assessmentData.tooltip || '',
 				alternative_wording: assessmentData.alternative_wording || '',
 				available: assessmentData.available || false,
@@ -8797,7 +8796,10 @@ createCustomElement('cadal-careiq-builder', {
 				multi_tenant_default: assessmentData.multi_tenant_default || false
 			};
 
-			// Only add optional date fields if they are not empty
+			// Only add date fields if they are not empty
+			if (assessmentData.effectiveDate && assessmentData.effectiveDate.trim() !== '') {
+				payload.effective_date = assessmentData.effectiveDate;
+			}
 			if (assessmentData.endDate && assessmentData.endDate.trim() !== '') {
 				payload.end_date = assessmentData.endDate;
 			}
