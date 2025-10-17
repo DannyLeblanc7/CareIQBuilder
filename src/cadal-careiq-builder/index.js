@@ -9797,7 +9797,9 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if we need to re-select a section after save
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
-			
+
+			console.log('ASSESSMENT_DETAILS_SUCCESS - pendingReselection:', pendingReselection);
+			console.log('ASSESSMENT_DETAILS_SUCCESS - pendingReselectionLabel:', pendingReselectionLabel);
 
 			updateState({
 				currentAssessment: action.payload,
@@ -9831,23 +9833,28 @@ createCustomElement('cadal-careiq-builder', {
 			// Re-select the section we were editing, or auto-select first section
 			let sectionToSelect = null;
 			let sectionLabelToSelect = null;
-			
+
 			if (pendingReselection && pendingReselectionLabel) {
+				console.log('ASSESSMENT_DETAILS_SUCCESS - Using pending reselection');
 				sectionToSelect = pendingReselection;
 				sectionLabelToSelect = pendingReselectionLabel;
 			} else {
+				console.log('ASSESSMENT_DETAILS_SUCCESS - Auto-selecting first section');
 				// Auto-select first section (by sort_order) for immediate editing
 				const sortedSections = (action.payload?.sections || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 				const firstSection = sortedSections[0];
 				const sortedSubsections = firstSection?.subsections?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 				const firstSubsection = sortedSubsections?.[0];
-				
+
 				if (firstSubsection) {
 					sectionToSelect = firstSubsection.id;
 					sectionLabelToSelect = firstSubsection.label;
 				}
 			}
-			
+
+			console.log('ASSESSMENT_DETAILS_SUCCESS - sectionToSelect:', sectionToSelect);
+			console.log('ASSESSMENT_DETAILS_SUCCESS - sectionLabelToSelect:', sectionLabelToSelect);
+
 			if (sectionToSelect && sectionLabelToSelect) {
 				dispatch('SELECT_SECTION', {
 					sectionId: sectionToSelect,
@@ -17077,9 +17084,10 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionData} = action.payload;
 
-			// Set loading state
+			// Store the new section label in state so we can use it after the API call
 			updateState({
-				addingSection: true
+				addingSection: true,
+				pendingNewSectionLabel: sectionData.label
 			});
 
 			// Send fields directly - ServiceNow adds data wrapper automatically
@@ -17148,7 +17156,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_SECTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const sectionId = action.meta?.sectionId;
 
 			// Clear loading state
@@ -17163,21 +17171,25 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedSectionChanges[sectionId];
 			}
 
-			// The section was already removed locally by DELETE_SECTION handler
-			// Just confirm the backend operation succeeded
 			updateState({
 				deletingSections: updatedDeletingSections,
 				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Section deleted successfully! No refresh needed.',
+						message: 'Section deleted successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
+
+			// Reload assessment data to refresh the section list and reset to first section
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
+				});
+			}
 		},
 
 		'DELETE_SECTION_ERROR': (coeffects) => {
@@ -20229,130 +20241,40 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// The response contains the new section ID: { "id": "uuid" }
+			// The response contains the new section ID, label comes from state
 			const newSectionId = action.payload.id;
+			const newSectionLabel = state.pendingNewSectionLabel;
 
-			// Find which temp section was just saved
-			let oldTempSectionId = null;
-			for (const section of state.currentAssessment.sections) {
-				if (section.isNew && section.id.startsWith('temp_')) {
-					oldTempSectionId = section.id;
-					break;
-				}
-				// Also check subsections
-				if (section.subsections) {
-					for (const subsection of section.subsections) {
-						if (subsection.isNew && subsection.id.startsWith('temp_')) {
-							oldTempSectionId = subsection.id;
-							break;
-						}
-					}
-				}
-				if (oldTempSectionId) break;
-			}
+			console.log('ADD_SECTION_SUCCESS - newSectionId:', newSectionId);
+			console.log('ADD_SECTION_SUCCESS - newSectionLabel (from state):', newSectionLabel);
+			console.log('ADD_SECTION_SUCCESS - Full payload:', action.payload);
 
-
-			// Update any child sections in sectionChanges that reference this temp parent ID
-			const updatedSectionChanges = {...state.sectionChanges};
-
-			// Remove the temp section that was just saved from sectionChanges
-			if (oldTempSectionId) {
-				delete updatedSectionChanges[oldTempSectionId];
-			}
-
-			let childSectionsUpdated = 0;
-			Object.keys(updatedSectionChanges).forEach(sectionId => {
-				const sectionData = updatedSectionChanges[sectionId];
-				if (sectionData.parent_section_id === oldTempSectionId) {
-					updatedSectionChanges[sectionId] = {
-						...sectionData,
-						parent_section_id: newSectionId
-					};
-					childSectionsUpdated++;
-				}
-			});
-
-			// Find and update the temp section with the real ID locally
-			const updatedSections = state.currentAssessment.sections.map(section => {
-				// If this section was just saved (temp -> real UUID), update it
-				if (section.isNew && section.id === oldTempSectionId) {
-					return {
-						...section,
-						id: newSectionId,
-						isNew: false // Remove the temp flag
-					};
-				}
-
-				// For all sections, update any subsections that were just saved
-				return {
-					...section,
-					subsections: section.subsections?.map(subsection => {
-						// If this is the temp subsection (marked as isNew), replace with real data
-						if (subsection.isNew && subsection.id === oldTempSectionId) {
-							return {
-								...subsection,
-								id: newSectionId,
-								isNew: false // Remove the temp flag
-							};
-						}
-						return subsection;
-					}) || []
-				};
-			});
-
+			// Clear loading state and show success message
 			updateState({
-				addingSection: false, // Clear loading state
-				currentAssessment: {
-					...state.currentAssessment,
-					sections: updatedSections
-				},
-				sectionChanges: updatedSectionChanges, // Update sectionChanges with corrected parent IDs
+				addingSection: false,
+				pendingNewSectionLabel: null, // Clear the stored label
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Section added successfully! No refresh needed.',
+						message: 'Section added successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
 
-			// Check if there are pending child sections to save after parent sections are done
-			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
-
-				// Update child sections' parent_section_id from temp ID to real UUID
-				const updatedChildSections = state.pendingChildSections.map(({sectionId, sectionData}) => {
-					// Check if this child section's parent_section_id is a temp ID that needs updating
-					let updatedSectionData = {...sectionData};
-
-					// Find all sections that were just saved and map temp IDs to real UUIDs
-					// Look through the current assessment for temp IDs that were replaced
-					if (sectionData.parent_section_id && sectionData.parent_section_id.startsWith('temp_')) {
-						// This child section has a temp parent ID - we need to update it to the real UUID
-						// Since we just got a successful response, the newSectionId is the real UUID for the parent
-						updatedSectionData = {
-							...sectionData,
-							parent_section_id: newSectionId
-						};
-					}
-
-					return {sectionId, sectionData: updatedSectionData};
-				});
-
-				// Save all pending child sections with updated parent IDs
-				updatedChildSections.forEach(({sectionId, sectionData}) => {
-					dispatch('SAVE_SECTION', {
-						sectionId: sectionId,
-						sectionData: sectionData,
-						config: state.careiqConfig,
-						accessToken: state.accessToken
-					});
-				});
-
-				// Clear pending child sections
+			// Refresh assessment data and automatically select the new section
+			if (state.currentAssessmentId && newSectionLabel) {
 				updateState({
-					pendingChildSections: []
+					pendingReselectionSection: newSectionId,
+					pendingReselectionSectionLabel: newSectionLabel
+				});
+
+				console.log('ADD_SECTION_SUCCESS - Set pendingReselectionSection:', newSectionId);
+				console.log('ADD_SECTION_SUCCESS - Set pendingReselectionSectionLabel:', newSectionLabel);
+
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
 				});
 			}
 		},
@@ -20377,6 +20299,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				addingSection: false, // Clear loading state
+				pendingNewSectionLabel: null, // Clear the stored label
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
