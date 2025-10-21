@@ -1786,18 +1786,6 @@ const view = (state, {updateState, dispatch}) => {
 															<div className="question-meta">
 																<span className="question-type">{question.type}</span>
 																{question.hidden && <span className="hidden-indicator">Hidden</span>}
-																{question.isLibraryQuestion && (
-																	<span className="library-indicator" style={{
-																		backgroundColor: '#17a2b8',
-																		color: 'white',
-																		padding: '2px 6px',
-																		borderRadius: '10px',
-																		fontSize: '11px',
-																		fontWeight: 'bold'
-																	}}>
-																		📚 LIBRARY
-																	</span>
-																)}
 															</div>
 														</div>
 													)}
@@ -2052,19 +2040,6 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				{answer.isLibraryAnswer && (
-																					<span className="answer-library-indicator" style={{
-																						backgroundColor: '#17a2b8',
-																						color: 'white',
-																						padding: '1px 4px',
-																						borderRadius: '8px',
-																						fontSize: '9px',
-																						fontWeight: 'bold',
-																						marginLeft: '4px'
-																					}}>
-																						📚 LIB
-																					</span>
-																				)}
 																				<span
 																					className="custom-attributes-icon"
 																					title="Click to add, remove or change custom attributes"
@@ -2937,19 +2912,6 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				{answer.isLibraryAnswer && (
-																					<span className="answer-library-indicator" style={{
-																						backgroundColor: '#17a2b8',
-																						color: 'white',
-																						padding: '1px 4px',
-																						borderRadius: '8px',
-																						fontSize: '9px',
-																						fontWeight: 'bold',
-																						marginLeft: '4px'
-																					}}>
-																						📚 LIB
-																					</span>
-																				)}
 																				<span
 																					className="custom-attributes-icon"
 																					title="Click to add, remove or change custom attributes"
