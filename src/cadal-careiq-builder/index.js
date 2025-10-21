@@ -478,6 +478,9 @@ const view = (state, {updateState, dispatch}) => {
 													</p>
 													<p className="assessment-usage">Usage: {assessment.usage}</p>
 													<p className="assessment-version">Version: {assessment.version}</p>
+													{assessment.version_name && (
+														<p className="assessment-version-name">{assessment.version_name}</p>
+													)}
 													<p className="assessment-dates">
 														Created: {new Date(assessment.created_date).toLocaleDateString()}
 													</p>
@@ -502,6 +505,9 @@ const view = (state, {updateState, dispatch}) => {
 																</span>
 															</div>
 															<div className="version-body">
+																{version.version_name && (
+																	<p className="version-name">{version.version_name}</p>
+																)}
 																<p>Created: {new Date(version.created_date).toLocaleDateString()}</p>
 																{version.end_date && (
 																	<p>Ended: {new Date(version.end_date).toLocaleDateString()}</p>
