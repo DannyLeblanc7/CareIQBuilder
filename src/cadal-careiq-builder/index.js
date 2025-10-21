@@ -17567,7 +17567,8 @@ createCustomElement('cadal-careiq-builder', {
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					}
+					},
+					skipAnswerUpdateReload: true  // Skip reload for custom attributes
 				});
 
 				// Immediately save to backend with complete answer data
