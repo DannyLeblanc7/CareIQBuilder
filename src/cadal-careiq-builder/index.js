@@ -8367,6 +8367,9 @@ createCustomElement('cadal-careiq-builder', {
 		creatingVersion: false,                   // Creating new version loading state
 		publishingAssessment: false,              // Publishing assessment loading state
 
+		// Pending error context for newer GT version name lookup
+		pendingNewerGtError: null,                // {originalMessage, gtId} for "newer GTs available" errors
+
 		// Toast notifications
 		toastNotifications: []                    // Array of {id, type, message, timestamp}
 	},
@@ -9270,10 +9273,38 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_VERSION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			// Debug logging to see the actual response structure
 			// Check if this is actually an error response disguised as success
 			if (action.payload && (action.payload.detail || action.payload.error)) {
 				const errorMessage = action.payload.detail || action.payload.error;
+
+				// Check if this is a "newer GTs available" error
+				if (errorMessage && errorMessage.includes('newer GTs available')) {
+					// Extract the GT ID using regex
+					const idMatch = errorMessage.match(/newer GTs available:\s*([a-f0-9-]+)/i);
+
+					if (idMatch && idMatch[1]) {
+						const newerGtId = idMatch[1];
+
+						// Store the original error message and GT ID for later use
+						updateState({
+							creatingVersion: false,
+							pendingNewerGtError: {
+								originalMessage: errorMessage,
+								gtId: newerGtId
+							}
+						});
+
+						// Make API call to get the version name using the correct parameter
+						const requestBody = JSON.stringify({
+							assessmentId: newerGtId
+						});
+
+						dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody});
+						return;
+					}
+				}
+
+				// Regular error - just display it
 				updateState({
 					creatingVersion: false,
 					systemMessages: [
@@ -9328,18 +9359,58 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CREATE_VERSION_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 
-			// Extract error message from backend response
+			// Extract error message from backend response - check all possible locations
 			let errorMessage = 'Failed to create new version';
-			if (action.payload?.data?.error) {
+			let detailMessage = null;
+
+			// Check various possible locations for the detail/error message
+			if (action.payload?.detail) {
+				detailMessage = action.payload.detail;
+				errorMessage = detailMessage;
+			} else if (action.payload?.data?.detail) {
+				detailMessage = action.payload.data.detail;
+				errorMessage = detailMessage;
+			} else if (action.payload?.data?.error) {
 				errorMessage = action.payload.data.error;
+				detailMessage = action.payload.data.error;
 			} else if (action.payload?.error) {
 				errorMessage = action.payload.error;
+				detailMessage = action.payload.error;
 			} else if (action.payload?.message) {
 				errorMessage = action.payload.message;
+				detailMessage = action.payload.message;
 			}
 
+			// Check if this is a "newer GTs available" error
+			if (detailMessage && detailMessage.includes('newer GTs available')) {
+				// Extract the GT ID using regex: "newer GTs available: <ID>"
+				const idMatch = detailMessage.match(/newer GTs available:\s*([a-f0-9-]+)/i);
+
+				if (idMatch && idMatch[1]) {
+					const newerGtId = idMatch[1];
+
+					// Store the original error message and GT ID for later use
+					updateState({
+						creatingVersion: false,
+						pendingNewerGtError: {
+							originalMessage: errorMessage,
+							gtId: newerGtId
+						}
+					});
+
+					// Make API call to get the version name using the existing assessment details endpoint
+					const requestBody = JSON.stringify({
+						assessmentId: newerGtId
+					});
+
+					dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody});
+					return;
+				}
+			}
+
+			// Regular error - just display it
 			updateState({
 				creatingVersion: false,
 				systemMessages: [
@@ -9669,8 +9740,29 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			//
-			
+			// Check if this is a response for a "newer GT available" error
+			if (state.pendingNewerGtError) {
+				const versionName = action.payload?.version_name || 'Unknown Version';
+				const gtId = state.pendingNewerGtError.gtId;
+
+				// Update the error message with the version name
+				const enhancedMessage = `There are already newer GTs available: ${versionName} (${gtId})`;
+
+				updateState({
+					pendingNewerGtError: null,
+					assessmentDetailsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: enhancedMessage,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
 			// Debug section sort_order values
 			if (action.payload?.sections) {
 				action.payload.sections.forEach(section => {
@@ -9680,7 +9772,7 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
-			
+
 			// Check if we need to re-select a section after save
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
@@ -9745,6 +9837,26 @@ createCustomElement('cadal-careiq-builder', {
 		'ASSESSMENT_DETAILS_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			console.error('ASSESSMENT_DETAILS_ERROR - Full Response:', action.payload);
+
+			// Check if this was a failed attempt to fetch newer GT version name
+			if (state.pendingNewerGtError) {
+				// Fallback to showing the original error without the version name
+				const originalMessage = state.pendingNewerGtError.originalMessage;
+
+				updateState({
+					pendingNewerGtError: null,
+					assessmentDetailsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: originalMessage,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
 
 			const errorMessage = action.payload?.message ||
 							   action.payload?.error ||
