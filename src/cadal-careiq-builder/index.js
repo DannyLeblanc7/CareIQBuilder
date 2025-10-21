@@ -1482,13 +1482,6 @@ const view = (state, {updateState, dispatch}) => {
 																		value={question.label}
 																		placeholder="Enter question text..."
 																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
-																		ondblclick={() => {
-																			dispatch('OPEN_EDIT_MODAL', {
-																				type: 'question',
-																				itemId: question.ids.id,
-																				text: question.label
-																			});
-																		}}
 																		oninput={(e) => {
 																			const newValue = e.target.value;
 																			// Update the question label locally
@@ -1901,20 +1894,6 @@ const view = (state, {updateState, dispatch}) => {
 																						placeholder="Enter answer text..."
 																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
 																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
-																			ondblclick={() => {
-
-																				dispatch('OPEN_EDIT_MODAL', {
-
-																					type: 'answer',
-
-																					itemId: answer.ids.id,
-
-																					text: answer.label
-
-																				});
-
-																			}}
-
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -2800,20 +2779,6 @@ const view = (state, {updateState, dispatch}) => {
 																						placeholder="Enter answer text..."
 																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
 																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
-																			ondblclick={() => {
-
-																				dispatch('OPEN_EDIT_MODAL', {
-
-																					type: 'answer',
-
-																					itemId: answer.ids.id,
-
-																					text: answer.label
-
-																				});
-
-																			}}
-
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -4212,99 +4177,6 @@ const view = (state, {updateState, dispatch}) => {
 								disabled={!state.publishPanel.effectiveDate}
 							>
 								Publish
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* Edit Modal */}
-			{state.modalOpen && (
-				<div className="modal-overlay" style={{
-					position: 'fixed',
-					top: '0',
-					left: '0',
-					width: '100%',
-					height: '100%',
-					backgroundColor: 'rgba(0,0,0,0.5)',
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					zIndex: '1000000'
-				}}>
-					<div className="modal-content" style={{
-						backgroundColor: 'white',
-						padding: '20px',
-						borderRadius: '8px',
-						width: '500px',
-						maxWidth: '90vw',
-						boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-						position: 'relative',
-						zIndex: '1000001'
-					}}>
-						<h3 className="modal-title">
-							Edit {state.modalType === 'question' ? 'Question' : state.modalType === 'answer' ? 'Answer' : 'Section'}
-						</h3>
-						<textarea
-							className="modal-textarea"
-							value={state.modalText}
-							oninput={(e) => {
-								dispatch('UPDATE_MODAL_TEXT', {
-									text: e.target.value
-								});
-							}}
-							placeholder={`Enter ${state.modalType === 'question' ? 'question' : state.modalType === 'answer' ? 'answer' : 'section'} text...`}
-							rows="8"
-							style={{
-								width: '100%',
-								minHeight: '200px',
-								resize: 'vertical',
-								fontFamily: 'inherit',
-								fontSize: '14px',
-								padding: '10px',
-								border: '1px solid #ccc',
-								borderRadius: '4px'
-							}}
-						></textarea>
-						<div className="modal-buttons" style={{
-							marginTop: '15px',
-							display: 'flex',
-							gap: '10px',
-							justifyContent: 'flex-end'
-						}}>
-							<button 
-								className="modal-save-btn"
-								style={{
-									backgroundColor: '#28a745',
-									color: 'white',
-									border: 'none',
-									padding: '8px 16px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px'
-								}}
-								onclick={() => {
-									dispatch('SAVE_MODAL_TEXT');
-								}}
-							>
-								<CheckIcon /> Save
-							</button>
-							<button 
-								className="modal-cancel-btn"
-								style={{
-									backgroundColor: '#6c757d',
-									color: 'white',
-									border: 'none',
-									padding: '8px 16px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px'
-								}}
-								onclick={() => {
-									dispatch('CLOSE_MODAL');
-								}}
-							>
-								✗ Cancel
 							</button>
 						</div>
 					</div>
@@ -8352,12 +8224,6 @@ createCustomElement('cadal-careiq-builder', {
 		selectedQuestionLibraryId: null,
 		pendingLibraryQuestionReplacementId: null,
 		libraryQuestionLoading: null,
-		// Modal state for editing long text
-		modalOpen: false,
-		modalType: null, // 'question' or 'answer'
-		modalItemId: null,
-		modalText: '',
-		modalOriginalText: '',
 		// New Assessment Modal state
 		newAssessmentModalOpen: false,
 		newAssessmentForm: {
@@ -16359,122 +16225,6 @@ createCustomElement('cadal-careiq-builder', {
 				questionId: questionId,
 				questionLabel: questionLabel
 			});
-		},
-
-		'OPEN_EDIT_MODAL': (coeffects) => {
-			const {action, updateState} = coeffects;
-			const {type, itemId, text} = action.payload;
-			updateState({
-				modalOpen: true,
-				modalType: type,
-				modalItemId: itemId,
-				modalText: text,
-				modalOriginalText: text
-			});
-		},
-
-		'UPDATE_MODAL_TEXT': (coeffects) => {
-			const {action, updateState} = coeffects;
-			const {text} = action.payload;
-			
-			updateState({
-				modalText: text
-			});
-		},
-
-		'CLOSE_MODAL': (coeffects) => {
-			const {updateState} = coeffects;
-			
-			updateState({
-				modalOpen: false,
-				modalType: null,
-				modalItemId: null,
-				modalText: '',
-				modalOriginalText: ''
-			});
-		},
-
-		'SAVE_MODAL_TEXT': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			if (state.modalType === 'question') {
-				// Update question label
-				const updatedQuestions = state.currentQuestions.questions.map(question => 
-					question.ids.id === state.modalItemId 
-						? {...question, label: state.modalText}
-						: question
-				);
-				
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					},
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			} else if (state.modalType === 'answer') {
-				// Update answer label
-				const updatedQuestions = state.currentQuestions.questions.map(question => ({
-					...question,
-					answers: question.answers?.map(answer => 
-						answer.ids.id === state.modalItemId 
-							? {...answer, label: state.modalText}
-							: answer
-					) || []
-				}));
-				
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					},
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			} else if (state.modalType === 'section') {
-				// Update section label and mark as changed for saving
-				const updatedSections = state.currentAssessment.sections.map(section => ({
-					...section,
-					subsections: section.subsections?.map(subsection => 
-						subsection.id === state.modalItemId 
-							? {...subsection, label: state.modalText}
-							: subsection
-					) || []
-				}));
-				
-				// Track this section as changed so it gets saved
-				const newSectionChanges = {
-					...state.sectionChanges,
-					[state.modalItemId]: {
-						id: state.modalItemId,
-						label: state.modalText,
-						tooltip: '', // Keep existing or default
-						alternative_wording: '',
-						required: false,
-						custom_attributes: {},
-						sort_order: 0
-					}
-				};
-				
-				updateState({
-					currentAssessment: {
-						...state.currentAssessment,
-						sections: updatedSections
-					},
-					sectionChanges: newSectionChanges,
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			}
 		},
 
 		'ADD_SECTION': (coeffects) => {
