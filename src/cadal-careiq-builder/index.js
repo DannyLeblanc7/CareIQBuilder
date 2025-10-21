@@ -1289,6 +1289,15 @@ const view = (state, {updateState, dispatch}) => {
 											}
 										</h3>
 									</div>
+									{state.questionsPanelExpanded && (
+										<button
+											className="btn-cancel"
+											onclick={() => dispatch('TOGGLE_QUESTIONS_PANEL')}
+											title="Close panel"
+										>
+											<XIcon />
+										</button>
+									)}
 								</div>
 
 
