@@ -3681,15 +3681,15 @@ const view = (state, {updateState, dispatch}) => {
 			{state.editingTooltip && (
 				<div className="modal-overlay" onclick={(e) => {
 					if (e.target.className === 'modal-overlay') {
-						dispatch('CANCEL_TOOLTIP_EDIT');
+						dispatch('SAVE_TOOLTIP_EDIT');
 					}
 				}}>
 					<div className="tooltip-modal">
 						<div className="modal-header">
 							<h3>Edit Tooltip</h3>
-							<button 
+							<button
 								className="modal-close"
-								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
+								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
 							>
 								×
 							</button>
@@ -3707,17 +3707,11 @@ const view = (state, {updateState, dispatch}) => {
 							></textarea>
 						</div>
 						<div className="modal-footer">
-							<button 
-								className="btn-cancel"
-								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
-							>
-								Cancel
-							</button>
-							<button 
+							<button
 								className="btn-save"
 								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
 							>
-								Save
+								Done
 							</button>
 						</div>
 					</div>
@@ -4518,7 +4512,13 @@ const view = (state, {updateState, dispatch}) => {
 					justifyContent: 'center',
 					zIndex: '99999',
 					isolation: 'isolate'
-				}}>
+				}}
+				onclick={(e) => {
+					if (e.target.className === 'modal-overlay') {
+						dispatch('SAVE_CUSTOM_ATTRIBUTES');
+					}
+				}}
+				>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
 						padding: '20px',
@@ -4531,9 +4531,25 @@ const view = (state, {updateState, dispatch}) => {
 						zIndex: '10000',
 						position: 'relative'
 					}}>
-						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
-							Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
-						</h3>
+						<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+							<h3 className="modal-title" style={{marginTop: '0', marginBottom: '0'}}>
+								Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
+							</h3>
+							<button
+								className="modal-close"
+								onclick={() => dispatch('SAVE_CUSTOM_ATTRIBUTES')}
+								style={{
+									background: 'none',
+									border: 'none',
+									fontSize: '24px',
+									cursor: 'pointer',
+									padding: '0',
+									lineHeight: '1'
+								}}
+							>
+								×
+							</button>
+						</div>
 
 						{/* Validation Error Message */}
 						{state.customAttributesValidationError && (
@@ -4674,24 +4690,7 @@ const view = (state, {updateState, dispatch}) => {
 								}}
 								onclick={() => dispatch('SAVE_CUSTOM_ATTRIBUTES')}
 							>
-								💾 Save
-							</button>
-							<button
-								className="modal-cancel-btn"
-								style={{
-									backgroundColor: '#6c757d',
-									color: 'white',
-									border: 'none',
-									padding: '10px 20px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px',
-									zIndex: '10001',
-									position: 'relative'
-								}}
-								onclick={() => dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL')}
-							>
-								✗ Cancel
+								Done
 							</button>
 						</div>
 					</div>
@@ -6902,20 +6901,6 @@ const view = (state, {updateState, dispatch}) => {
 																						})}
 																					</div>
 																				)}
-
-																				{/* Loading indicator */}
-																				{state.goalTypeaheadLoading[problem.id] && (
-																					<div style={{
-																						position: 'absolute',
-																						right: '12px',
-																						top: '50%',
-																						transform: 'translateY(-50%)',
-																						fontSize: '12px',
-																						color: '#6b7280'
-																					}}>
-																						Loading...
-																					</div>
-																				)}
 																			</div>
 																			<button
 																				className="confirm-relationship-btn"
@@ -8260,6 +8245,7 @@ createCustomElement('cadal-careiq-builder', {
 		// Tooltip editing state
 		editingTooltip: null,
 		editingTooltipText: null,
+		editingTooltipOriginalText: null,  // Store original value for comparison
 		editingTooltipQuestionId: null,
 		editingTooltipAnswerId: null,
 		// Typeahead state
@@ -9533,6 +9519,7 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: null,
 				editingTooltip: null,
 				editingTooltipText: null,
+				editingTooltipOriginalText: null,
 				editingTooltipQuestionId: null,
 				editingTooltipAnswerId: null,
 				// Clear answer selection state
@@ -9607,6 +9594,7 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: null,
 				editingTooltip: null,
 				editingTooltipText: null,
+				editingTooltipOriginalText: null,
 				editingTooltipQuestionId: null,
 				editingTooltipAnswerId: null,
 				// Clear answer selection state
@@ -17304,6 +17292,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
+				editingTooltipOriginalText: currentTooltip,  // Store original for comparison
 				editingTooltipQuestionId: questionId
 			});
 		},
@@ -17322,37 +17311,56 @@ createCustomElement('cadal-careiq-builder', {
 			const questionId = state.editingTooltipQuestionId;
 			const answerId = state.editingTooltipAnswerId;
 			const newTooltip = state.editingTooltipText;
-			
+			const originalTooltip = state.editingTooltipOriginalText;
+
+			// Check if tooltip actually changed
+			const tooltipChanged = newTooltip !== originalTooltip;
+
 			if (questionId) {
-				// Update the question in the current questions data and mark as unsaved
+				// Find the current question to check if it already has unsaved changes
+				const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+				const alreadyUnsaved = currentQuestion?.isUnsaved || false;
+
+				// Update the question in the current questions data
 				const updatedQuestions = {
 					...state.currentQuestions,
 					questions: state.currentQuestions.questions.map(question =>
 						question.ids.id === questionId
-							? {...question, tooltip: newTooltip, isUnsaved: true}
+							? {...question, tooltip: newTooltip, isUnsaved: tooltipChanged ? true : alreadyUnsaved}
 							: question
 					)
 				};
+
+				// Only track changes if tooltip actually changed
+				const updatedQuestionChanges = tooltipChanged ? {
+					...state.questionChanges,
+					[questionId]: {
+						...(state.questionChanges?.[questionId] || {}),
+						action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+						questionId: questionId,
+						tooltip: newTooltip
+					}
+				} : state.questionChanges;
 
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
+					editingTooltipOriginalText: null,
 					editingTooltipQuestionId: null,
 					editingTooltipAnswerId: null,
-					// Track question change for save - preserve 'add' action if it exists
-					questionChanges: {
-						...state.questionChanges,
-						[questionId]: {
-							...(state.questionChanges?.[questionId] || {}),
-							action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
-							questionId: questionId,
-							tooltip: newTooltip
-						}
-					}
+					questionChanges: updatedQuestionChanges
 				});
 			} else if (answerId) {
-				// Update the answer in the current questions data and mark question as unsaved
+				// Find the question containing this answer to check if it already has unsaved changes
+				let parentQuestionAlreadyUnsaved = false;
+				state.currentQuestions.questions.forEach(question => {
+					if (question.answers?.some(answer => answer.ids.id === answerId)) {
+						parentQuestionAlreadyUnsaved = question.isUnsaved || false;
+					}
+				});
+
+				// Update the answer in the current questions data
 				const updatedQuestions = {
 					...state.currentQuestions,
 					questions: state.currentQuestions.questions.map(question => {
@@ -17364,40 +17372,32 @@ createCustomElement('cadal-careiq-builder', {
 									? {...answer, tooltip: newTooltip}
 									: answer
 							) || [],
-							// Mark question as unsaved if it contains the updated answer
-							isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+							// Mark question as unsaved only if tooltip changed
+							isUnsaved: hasAnswerToUpdate ? (tooltipChanged ? true : parentQuestionAlreadyUnsaved) : question.isUnsaved
 						};
 					})
 				};
+
+				// Only track changes if tooltip actually changed
+				const updatedAnswerChanges = tooltipChanged ? {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'update',
+						answerId: answerId,
+						tooltip: newTooltip
+					}
+				} : state.answerChanges;
 
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
+					editingTooltipOriginalText: null,
 					editingTooltipQuestionId: null,
 					editingTooltipAnswerId: null,
-					// Track answer change for save
-					answerChanges: {
-						...state.answerChanges,
-						[answerId]: {
-							action: 'update',
-							answerId: answerId,
-							tooltip: newTooltip
-						}
-					}
+					answerChanges: updatedAnswerChanges
 				});
 			}
-		},
-
-		'CANCEL_TOOLTIP_EDIT': (coeffects) => {
-			const {updateState} = coeffects;
-
-			updateState({
-				editingTooltip: null,
-				editingTooltipText: null,
-				editingTooltipQuestionId: null,
-				editingTooltipAnswerId: null
-			});
 		},
 
 		// Custom Attributes Modal Actions
@@ -17413,6 +17413,7 @@ createCustomElement('cadal-careiq-builder', {
 					key: key,
 					value: currentAttributes[key]
 				})),
+				customAttributesOriginalData: currentAttributes || {},  // Store original for comparison
 				customAttributesValidationError: null  // Clear any previous errors
 			});
 		},
@@ -17424,6 +17425,7 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesItemType: null,
 				customAttributesItemId: null,
 				customAttributesData: [],
+				customAttributesOriginalData: null,  // Clear original data
 				customAttributesValidationError: null  // Clear validation error
 			});
 		},
@@ -17492,6 +17494,27 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
+			const originalAttributes = state.customAttributesOriginalData || {};
+
+			// Helper function to compare two attribute objects
+			const attributesChanged = () => {
+				const newKeys = Object.keys(customAttributes).sort();
+				const oldKeys = Object.keys(originalAttributes).sort();
+
+				// Check if keys are different
+				if (newKeys.length !== oldKeys.length) return true;
+				if (JSON.stringify(newKeys) !== JSON.stringify(oldKeys)) return true;
+
+				// Check if values are different
+				for (let key of newKeys) {
+					if (customAttributes[key] !== originalAttributes[key]) return true;
+				}
+
+				return false;
+			};
+
+			const hasChanges = attributesChanged();
+
 			const itemType = state.customAttributesItemType;
 			const itemId = state.customAttributesItemId;
 
@@ -17500,104 +17523,90 @@ createCustomElement('cadal-careiq-builder', {
 				const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === itemId);
 				if (!currentQuestion) return;
 
-				// Update question locally first
+				const alreadyUnsaved = currentQuestion?.isUnsaved || false;
+
+				// Update question locally
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === itemId) {
 						return {
 							...question,
-							custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+							custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined,
+							isUnsaved: hasChanges ? true : alreadyUnsaved
 						};
 					}
 					return question;
 				});
 
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					}
-				});
-
-				// Immediately save to backend with complete question data
-				dispatch('UPDATE_QUESTION_API', {
-					questionData: {
+				// Only track changes if custom attributes actually changed
+				const updatedQuestionChanges = hasChanges ? {
+					...state.questionChanges,
+					[itemId]: {
+						...(state.questionChanges?.[itemId] || {}),
+						action: state.questionChanges?.[itemId]?.action === 'add' ? 'add' : 'update',
 						questionId: itemId,
-						label: currentQuestion.label,
-						type: currentQuestion.type,
-						required: currentQuestion.required,
-						tooltip: currentQuestion.tooltip || '',
-						alternative_wording: currentQuestion.alternative_wording || '',
-						voice: currentQuestion.voice || 'CaseManager',
-						sort_order: currentQuestion.sort_order,
 						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
 					}
-				});
-
-			} else if (itemType === 'answer') {
-				// Find the current answer data
-				let currentAnswer = null;
-				state.currentQuestions.questions.forEach(question => {
-					const answer = question.answers?.find(a => a.ids.id === itemId);
-					if (answer) {
-						currentAnswer = answer;
-					}
-				});
-
-				if (!currentAnswer) return;
-
-				// Update answer locally first
-				const updatedQuestions = state.currentQuestions.questions.map(question => {
-					const updatedAnswers = question.answers?.map(answer => {
-						if (answer.ids.id === itemId) {
-							return {
-								...answer,
-								custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
-							};
-						}
-						return answer;
-					}) || [];
-
-					return {
-						...question,
-						answers: updatedAnswers
-					};
-				});
+				} : state.questionChanges;
 
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
 					},
-					skipAnswerUpdateReload: true  // Skip reload for custom attributes
+					questionChanges: updatedQuestionChanges
 				});
 
-				// Immediately save to backend with complete answer data
-				dispatch('UPDATE_ANSWER_API', {
-					answerData: {
+			} else if (itemType === 'answer') {
+				// Find the current answer and parent question
+				let currentAnswer = null;
+				let parentQuestionAlreadyUnsaved = false;
+				state.currentQuestions.questions.forEach(question => {
+					const answer = question.answers?.find(a => a.ids.id === itemId);
+					if (answer) {
+						currentAnswer = answer;
+						parentQuestionAlreadyUnsaved = question.isUnsaved || false;
+					}
+				});
+
+				if (!currentAnswer) return;
+
+				// Update answer locally
+				const updatedQuestions = state.currentQuestions.questions.map(question => {
+					const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === itemId);
+					return {
+						...question,
+						answers: question.answers?.map(answer => {
+							if (answer.ids.id === itemId) {
+								return {
+									...answer,
+									custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+								};
+							}
+							return answer;
+						}) || [],
+						// Mark question as unsaved only if custom attributes changed
+						isUnsaved: hasAnswerToUpdate ? (hasChanges ? true : parentQuestionAlreadyUnsaved) : question.isUnsaved
+					};
+				});
+
+				// Only track changes if custom attributes actually changed
+				const updatedAnswerChanges = hasChanges ? {
+					...state.answerChanges,
+					[itemId]: {
+						action: 'update',
 						answerId: itemId,
-						label: currentAnswer.label,
-						tooltip: currentAnswer.tooltip || '',
-						alternative_wording: currentAnswer.alternative_wording || '',
-						required: currentAnswer.required || false,
-						sort_order: currentAnswer.sort_order,
-						secondary_input_type: currentAnswer.secondary_input_type || '',
-						mutually_exclusive: currentAnswer.mutually_exclusive || false,
 						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
 					}
+				} : state.answerChanges;
+
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					},
+					answerChanges: updatedAnswerChanges
 				});
 			}
-
-			// Add system message for successful save
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: 'Custom attributes saved successfully!',
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
 
 			dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL');
 		},
@@ -17885,6 +17894,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
+				editingTooltipOriginalText: currentTooltip,  // Store original for comparison
 				editingTooltipAnswerId: answerId
 			});
 		},
@@ -17934,7 +17944,9 @@ createCustomElement('cadal-careiq-builder', {
 					if (answerData.action === 'delete') {
 						return;
 					}
-					if (!answerData.label || answerData.label.trim() === '') {
+					// Only validate label if the label field is actually being changed
+					// (answerData.label will be undefined for partial updates like tooltip or custom_attributes only)
+					if (answerData.hasOwnProperty('label') && (!answerData.label || answerData.label.trim() === '')) {
 						validationErrors.push('Answer text cannot be blank. Please enter answer text.');
 					}
 				});
