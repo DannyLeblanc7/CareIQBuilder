@@ -132,6 +132,16 @@ const view = (state, {updateState, dispatch}) => {
 				<LoadingOverlay message="Moving question..." isModal={true} />
 			)}
 
+			{/* Global modal loading overlay for creating version */}
+			{state.creatingVersion && (
+				<LoadingOverlay message="Creating new version..." isModal={true} />
+			)}
+
+			{/* Global modal loading overlay for publishing assessment */}
+			{state.publishingAssessment && (
+				<LoadingOverlay message="Publishing assessment..." isModal={true} />
+			)}
+
 			<h1>CareIQ Builder</h1>
 
 			{/* Ticker-Style System Messages */}
@@ -8347,6 +8357,10 @@ createCustomElement('cadal-careiq-builder', {
 		confirmationDialogMessage: '',            // Message to display
 		confirmationDialogPendingAction: null,    // Action to execute if user confirms
 
+		// Loading states for long operations
+		creatingVersion: false,                   // Creating new version loading state
+		publishingAssessment: false,              // Publishing assessment loading state
+
 		// Toast notifications
 		toastNotifications: []                    // Array of {id, type, message, timestamp}
 	},
@@ -8870,8 +8884,9 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state, dispatch} = coeffects;
 			const modalData = state.createVersionModal;
 
-			// Close modal and show loading message
+			// Close modal, show loading message, and set loading state
 			updateState({
+				creatingVersion: true,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9056,8 +9071,9 @@ createCustomElement('cadal-careiq-builder', {
 		'SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const publishData = state.publishPanel;
-			// Close panel and show publishing message
+			// Close panel, show publishing message, and set loading state
 			updateState({
+				publishingAssessment: true,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9096,8 +9112,9 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			// Extract the new assessment ID from response
 			const newAssessmentId = action.payload?.id || action.payload?.data?.id;
-			// Show success message
+			// Show success message and clear loading state
 			updateState({
+				publishingAssessment: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9141,6 +9158,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			updateState({
+				publishingAssessment: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9251,6 +9269,7 @@ createCustomElement('cadal-careiq-builder', {
 			if (action.payload && (action.payload.detail || action.payload.error)) {
 				const errorMessage = action.payload.detail || action.payload.error;
 				updateState({
+					creatingVersion: false,
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
@@ -9270,6 +9289,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			updateState({
+				creatingVersion: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9315,6 +9335,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			updateState({
+				creatingVersion: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
