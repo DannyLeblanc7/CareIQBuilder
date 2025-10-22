@@ -11258,11 +11258,14 @@ createCustomElement('cadal-careiq-builder', {
 				// Look for it in the current action or extract from stored state
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
+				} else if (state.relationshipPanelOpen && state.relationshipModalAnswerId) {
+					// Fallback: Use the currently opened relationship modal answer ID
+					answerId = state.relationshipModalAnswerId;
 				} else {
-					// Fallback: look for the currently opened relationship panel
+					// Last resort: look for the first answer in relationships (may be wrong!)
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
-						answerId = openPanels[0]; // Use the first open panel
+						answerId = openPanels[0];
 					}
 				}
 			} catch (e) {
@@ -11361,11 +11364,14 @@ createCustomElement('cadal-careiq-builder', {
 				// The answerId should be in the original request that triggered this success
 				if (action.meta && action.meta.answerId) {
 					answerId = action.meta.answerId;
+				} else if (state.relationshipPanelOpen && state.relationshipModalAnswerId) {
+					// Fallback: Use the currently opened relationship modal answer ID
+					answerId = state.relationshipModalAnswerId;
 				} else {
-					// Fallback: look for the currently opened relationship panel
+					// Last resort: look for the first answer in relationships (may be wrong!)
 					const openPanels = Object.keys(state.answerRelationships || {});
 					if (openPanels.length > 0) {
-						answerId = openPanels[0]; // Use the first open panel
+						answerId = openPanels[0];
 					}
 				}
 			} catch (e) {
@@ -20675,12 +20681,12 @@ createCustomElement('cadal-careiq-builder', {
 				pendingSectionSave: null                // Store pending section save data
 			});
 
-			// Auto-load relationships if they don't exist yet
-			if (answerId && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
+			// ALWAYS reload relationships when opening modal to ensure fresh data
+			// This is critical after deleting questions that were triggered by this answer
+			if (answerId) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
-			} else {
 			}
 		},
 
