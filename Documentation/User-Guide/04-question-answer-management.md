@@ -32,7 +32,9 @@ CareIQ Builder supports five question types:
 
 ---
 
-**Screenshot Placeholder 23**: Examples of each question type
+![CareIQ Builder](Screenshots/textDateNumericQuestion.png "Text, Date, Numeric Question")
+![CareIQ Builder](Screenshots/singleSelectQuestion.png "Single Select Question")
+![CareIQ Builder](Screenshots/multiSelectQuestion.png "Multiselect Question")
 
 ---
 
@@ -66,7 +68,7 @@ The voice indicates who asks or answers the question:
 
 ---
 
-**Screenshot Placeholder 24**: Add Question button location
+![CareIQ Builder](Screenshots/addQuestion.png "Add Question")
 
 ---
 
@@ -79,11 +81,6 @@ The voice indicates who asks or answers the question:
 4. **Edit the Question Label**
    - Click in the question label field
    - Type your question text
-   - Or double-click to open a larger text editor modal
-
----
-
-**Screenshot Placeholder 25**: New question with editable label field
 
 ---
 
@@ -117,7 +114,7 @@ You can search and use pre-built questions from the CareIQ library:
 
 ---
 
-**Screenshot Placeholder 26**: Question typeahead dropdown with library results
+![CareIQ Builder](Screenshots/questionTypeahead.png "Question Typeahead")
 
 ---
 
@@ -155,20 +152,10 @@ Tooltips provide additional help or clarification:
 
 ### Edit Question Label
 
-**Option 1: Inline Editing**
+**Inline Editing**
 1. Click in the question label field
 2. Edit the text directly
 3. Changes are tracked (Save/Cancel buttons appear)
-
-**Option 2: Modal Editor** (for long questions)
-1. Double-click the question label
-2. A modal with larger text area opens
-3. Edit the text
-4. Click **"Save"** to confirm or **"Cancel"** to discard
-
----
-
-**Screenshot Placeholder 27**: Question editor modal for long text
 
 ---
 
@@ -211,7 +198,7 @@ After editing a question:
 
 ---
 
-**Screenshot Placeholder 28**: Question with unsaved changes and Save/Cancel buttons
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -242,6 +229,7 @@ After editing a question:
 ---
 
 **Screenshot Placeholder 29**: Delete question confirmation dialog
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -285,6 +273,7 @@ You can move questions from one section to another:
 ---
 
 **Screenshot Placeholder 30**: Move question dialog with section selector
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -344,6 +333,7 @@ Some answers require additional information:
 ---
 
 **Screenshot Placeholder 31**: Add Answer button location
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -366,6 +356,7 @@ Some answers require additional information:
 ---
 
 **Screenshot Placeholder 32**: Answer typeahead dropdown
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -398,6 +389,7 @@ For answers requiring additional information:
 ---
 
 **Screenshot Placeholder 33**: Secondary input type selector
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -490,6 +482,7 @@ Answer deletion uses a **Save & Delete** pattern:
 ---
 
 **Screenshot Placeholder 34**: Answer marked for deletion
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 
@@ -534,6 +527,7 @@ Answers with triggered questions show an indicator:
 ---
 
 **Screenshot Placeholder 35**: Answer with triggered question indicator
+![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
 
 ---
 

@@ -132,6 +132,16 @@ const view = (state, {updateState, dispatch}) => {
 				<LoadingOverlay message="Moving question..." isModal={true} />
 			)}
 
+			{/* Global modal loading overlay for creating version */}
+			{state.creatingVersion && (
+				<LoadingOverlay message="Creating new version..." isModal={true} />
+			)}
+
+			{/* Global modal loading overlay for publishing assessment */}
+			{state.publishingAssessment && (
+				<LoadingOverlay message="Publishing assessment..." isModal={true} />
+			)}
+
 			<h1>CareIQ Builder</h1>
 
 			{/* Ticker-Style System Messages */}
@@ -468,6 +478,9 @@ const view = (state, {updateState, dispatch}) => {
 													</p>
 													<p className="assessment-usage">Usage: {assessment.usage}</p>
 													<p className="assessment-version">Version: {assessment.version}</p>
+													{assessment.version_name && (
+														<p className="assessment-version-name">{assessment.version_name}</p>
+													)}
 													<p className="assessment-dates">
 														Created: {new Date(assessment.created_date).toLocaleDateString()}
 													</p>
@@ -492,6 +505,9 @@ const view = (state, {updateState, dispatch}) => {
 																</span>
 															</div>
 															<div className="version-body">
+																{version.version_name && (
+																	<p className="version-name">{version.version_name}</p>
+																)}
 																<p>Created: {new Date(version.created_date).toLocaleDateString()}</p>
 																{version.end_date && (
 																	<p>Ended: {new Date(version.end_date).toLocaleDateString()}</p>
@@ -671,27 +687,96 @@ const view = (state, {updateState, dispatch}) => {
 							color: '#1976d2',
 							display: 'flex',
 							alignItems: 'center',
-							justifyContent: 'space-between'
+							justifyContent: 'space-between',
+							position: 'relative'
 						}}>
-							<span>📊 Now editing: {state.selectedScoringModel.label}</span>
-							<button
-								className="exit-scoring-btn"
-								onclick={() => dispatch('EXIT_SCORING_MODE')}
-								title="Exit scoring mode"
-								style={{
-									background: 'none',
-									border: 'none',
-									color: '#1976d2',
-									cursor: 'pointer',
-									padding: '2px',
-									borderRadius: '2px',
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'center'
-								}}
-							>
-								<XIcon />
-							</button>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+								<span>📊 Now editing: {state.selectedScoringModel.label}</span>
+								{Object.keys(state.scoringChanges || {}).length > 0 && (
+									<span style={{
+										fontSize: '12px',
+										color: '#f57c00',
+										fontWeight: '600',
+										background: '#fff3e0',
+										padding: '2px 8px',
+										borderRadius: '3px',
+										border: '1px solid #ffb74d'
+									}}>
+										Unsaved changes
+									</span>
+								)}
+							</div>
+							<div style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px'
+							}}>
+								{Object.keys(state.scoringChanges || {}).length > 0 && (
+									<button
+										onclick={() => dispatch('SAVE_SCORING_CHANGES')}
+										title="Save all scoring changes"
+										disabled={state.savingScoringChanges}
+										style={{
+											background: state.savingScoringChanges ? '#90caf9' : '#1976d2',
+											border: 'none',
+											color: 'white',
+											cursor: state.savingScoringChanges ? 'wait' : 'pointer',
+											padding: '6px 12px',
+											borderRadius: '4px',
+											fontSize: '13px',
+											fontWeight: '500',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '4px',
+											opacity: state.savingScoringChanges ? 0.7 : 1
+										}}
+									>
+										{state.savingScoringChanges ? '⏳ Saving...' : '💾 Save'}
+									</button>
+								)}
+								<button
+									onclick={() => dispatch('CANCEL_SCORING_CHANGES')}
+									title="Cancel scoring changes"
+									disabled={state.savingScoringChanges}
+									style={{
+										background: '#f5f5f5',
+										border: '1px solid #d1d5db',
+										color: '#666',
+										cursor: state.savingScoringChanges ? 'not-allowed' : 'pointer',
+										padding: '6px 12px',
+										borderRadius: '4px',
+										fontSize: '13px',
+										fontWeight: '500',
+										display: 'flex',
+										alignItems: 'center',
+										gap: '4px',
+										opacity: state.savingScoringChanges ? 0.5 : 1
+									}}
+								>
+									↶ Cancel
+								</button>
+								<button
+									className="exit-scoring-btn"
+									onclick={() => dispatch('EXIT_SCORING_MODE')}
+									title="Exit scoring mode"
+									style={{
+										background: 'none',
+										border: 'none',
+										color: '#1976d2',
+										cursor: 'pointer',
+										padding: '2px',
+										borderRadius: '2px',
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'center'
+									}}
+								>
+									<XIcon />
+								</button>
+							</div>
+							{state.savingScoringChanges && (
+								<LoadingOverlay message="Saving scores..." />
+							)}
 						</div>
 					)}
 
@@ -703,11 +788,11 @@ const view = (state, {updateState, dispatch}) => {
 					
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
 						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''} ${state.questionsPanelExpanded ? 'questions-expanded' : ''}`}>
-							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`} style={{position: "relative"}}>
+							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`}>
 
 								<div className="sections-header">
 									<div className="sections-title-container">
-										<button 
+										<button
 											className="expand-sections-btn"
 											onclick={() => dispatch('TOGGLE_SECTIONS_PANEL')}
 											title={state.sectionsPanelExpanded ? 'Collapse sections panel' : 'Expand sections panel'}
@@ -716,15 +801,26 @@ const view = (state, {updateState, dispatch}) => {
 										</button>
 										<h3>Sections</h3>
 									</div>
-									{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
-										<button
-											className="add-section-btn"
-											onclick={() => dispatch('ADD_SECTION')}
-											title="Add new section"
-										>
-											+
-										</button>
-									)}
+									<div className="header-right-buttons">
+										{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
+											<button
+												className="add-section-btn"
+												onclick={() => dispatch('ADD_SECTION')}
+												title="Add new parent section"
+											>
+												+
+											</button>
+										)}
+										{state.sectionsPanelExpanded && (
+											<button
+												className="btn-cancel"
+												onclick={() => dispatch('TOGGLE_SECTIONS_PANEL')}
+												title="Close panel"
+											>
+												<XIcon />
+											</button>
+										)}
+									</div>
 								</div>
 								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
 									<div className="sections-list">
@@ -886,7 +982,7 @@ const view = (state, {updateState, dispatch}) => {
 																		}}
 																		title="Delete section"
 																		style={{
-																			backgroundColor: '#dc3545',
+																			backgroundColor: '#6b7280',
 																			color: 'white',
 																			border: 'none',
 																			borderRadius: '3px',
@@ -1204,6 +1300,15 @@ const view = (state, {updateState, dispatch}) => {
 											}
 										</h3>
 									</div>
+									{state.questionsPanelExpanded && (
+										<button
+											className="btn-cancel"
+											onclick={() => dispatch('TOGGLE_QUESTIONS_PANEL')}
+											title="Close panel"
+										>
+											<XIcon />
+										</button>
+									)}
 								</div>
 
 
@@ -1413,13 +1518,6 @@ const view = (state, {updateState, dispatch}) => {
 																		value={question.label}
 																		placeholder="Enter question text..."
 																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
-																		ondblclick={() => {
-																			dispatch('OPEN_EDIT_MODAL', {
-																				type: 'question',
-																				itemId: question.ids.id,
-																				text: question.label
-																			});
-																		}}
 																		oninput={(e) => {
 																			const newValue = e.target.value;
 																			// Update the question label locally
@@ -1428,7 +1526,7 @@ const view = (state, {updateState, dispatch}) => {
 																				newLabel: newValue
 																			});
 																			// Trigger typeahead search if length >= 3
-																			if (newValue.length >= 3) {
+																			if (newValue.length >= 2) {
 																				dispatch('QUESTION_TYPEAHEAD_INPUT_CHANGE', {
 																					searchText: newValue,
 																					questionId: question.ids.id
@@ -1493,7 +1591,7 @@ const view = (state, {updateState, dispatch}) => {
 																					<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																				</div>
 																			))
-																		) : state.questionTypeaheadQuery.length >= 3 && !state.questionTypeaheadLoading ? (
+																		) : state.questionTypeaheadQuery.length >= 2 && !state.questionTypeaheadLoading ? (
 																			<div className="typeahead-item no-results">
 																				No matching questions found for "{state.questionTypeaheadQuery}"
 																			</div>
@@ -1660,7 +1758,9 @@ const view = (state, {updateState, dispatch}) => {
 																		minWidth: '40px',
 																		marginBottom: '0.5rem'
 																	} : {}}
-																	onclick={() => {
+																	onclick={(e) => {
+																		e.stopPropagation();
+																		e.preventDefault();
 																		dispatch('DELETE_QUESTION', {
 																			questionId: question.ids.id
 																		});
@@ -1668,7 +1768,7 @@ const view = (state, {updateState, dispatch}) => {
 																>
 																	🗑️
 																</button>
-																{(question.type === 'Single Select' || question.type === 'Multiselect') && (
+																{question.isUnsaved && (question.type === 'Single Select' || question.type === 'Multiselect') && (
 																	<button
 																		className="save-bundle-btn"
 																		title="Click to save the question bundle"
@@ -1708,18 +1808,6 @@ const view = (state, {updateState, dispatch}) => {
 															<div className="question-meta">
 																<span className="question-type">{question.type}</span>
 																{question.hidden && <span className="hidden-indicator">Hidden</span>}
-																{question.isLibraryQuestion && (
-																	<span className="library-indicator" style={{
-																		backgroundColor: '#17a2b8',
-																		color: 'white',
-																		padding: '2px 6px',
-																		borderRadius: '10px',
-																		fontSize: '11px',
-																		fontWeight: 'bold'
-																	}}>
-																		📚 LIBRARY
-																	</span>
-																)}
 															</div>
 														</div>
 													)}
@@ -1821,39 +1909,17 @@ const view = (state, {updateState, dispatch}) => {
 																			</div>
 																		) : null}
 																	{isEditable ? (
-																		<div className="answer-edit">
+																		<div className="answer-edit" style={answer.isDeleted ? {opacity: 0.5, backgroundColor: '#fee2e2'} : {}}>
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
-																				<span 
-																					className="edit-icon"
-																					title="Edit answer text"
-																					style={{
-																						cursor: 'pointer',
-																						marginRight: '6px',
-																						padding: '1px 3px',
-																						backgroundColor: '#f0f0f0',
-																						borderRadius: '3px',
-																						fontSize: '11px',
-																						display: 'inline-block',
-																						border: '1px solid #ccc'
-																					}}
-																					onclick={() => {
-																						dispatch('OPEN_EDIT_MODAL', {
-																							type: 'answer',
-																							itemId: answer.ids.id,
-																							text: answer.label
-																						});
-																					}}
-																				>
-																					🔍
-																				</span>
 																				<div className="typeahead-container">
 																					<input
 																						type="text"
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -1862,7 +1928,7 @@ const view = (state, {updateState, dispatch}) => {
 																								newLabel: newValue
 																							});
 																							// Trigger typeahead search if length >= 3
-																							if (newValue.length >= 3) {
+																							if (newValue.length >= 2) {
 																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
 																									searchText: newValue,
 																									answerId: answer.ids.id
@@ -1919,7 +1985,7 @@ const view = (state, {updateState, dispatch}) => {
 																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																									</div>
 																								))
-																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 2 && !state.answerTypeaheadLoading ? (
 																								<div className="typeahead-item no-results">
 																									No matching answers found for "{state.answerTypeaheadQuery}"
 																								</div>
@@ -1964,14 +2030,6 @@ const view = (state, {updateState, dispatch}) => {
 																									score: score
 																								});
 																							}}
-																							onblur={(e) => {
-																								// Auto-save the score when user finishes editing
-																								const score = e.target.value;
-																								dispatch('SAVE_ANSWER_SCORE', {
-																									answerId: answer.ids.id,
-																									score: score
-																								});
-																							}}
 																							onclick={(e) => {
 																								e.stopPropagation();
 																							}}
@@ -2004,19 +2062,6 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				{answer.isLibraryAnswer && (
-																					<span className="answer-library-indicator" style={{
-																						backgroundColor: '#17a2b8',
-																						color: 'white',
-																						padding: '1px 4px',
-																						borderRadius: '8px',
-																						fontSize: '9px',
-																						fontWeight: 'bold',
-																						marginLeft: '4px'
-																					}}>
-																						📚 LIB
-																					</span>
-																				)}
 																				<span
 																					className="custom-attributes-icon"
 																					title="Click to add, remove or change custom attributes"
@@ -2046,7 +2091,8 @@ const view = (state, {updateState, dispatch}) => {
 																				} : {}}>
 																					<select
 																						className="secondary-input-select"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2065,7 +2111,8 @@ const view = (state, {updateState, dispatch}) => {
 																					<button
 																						className="delete-answer-btn"
 																						title="Delete Answer"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2144,7 +2191,7 @@ const view = (state, {updateState, dispatch}) => {
 																									</span>
 																									{isEditable && (
 																										<button 
-																											className="remove-trigger-btn remove-guideline-btn"
+																											className="cancel-relationship-btn"
 																											onclick={(e) => {
 																												e.stopPropagation();
 																												dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
@@ -2156,10 +2203,9 @@ const view = (state, {updateState, dispatch}) => {
 																											title="Remove guideline relationship"
 																											style={{
 																												display: isEditable ? 'flex' : 'none',
-																												backgroundColor: isEditable ? '#fee2e2' : 'gray'
 																											}}
 																										>
-																											🗑️
+																											<XIcon />
 																										</button>
 																									)}
 																								</div>
@@ -2735,39 +2781,17 @@ const view = (state, {updateState, dispatch}) => {
 																			</div>
 																		) : null}
 																	{isEditable ? (
-																		<div className="answer-edit">
+																		<div className="answer-edit" style={answer.isDeleted ? {opacity: 0.5, backgroundColor: '#fee2e2'} : {}}>
 																			<div className="answer-single-line">
 																				<span className="answer-number">{aIndex + 1}.</span>
-																				<span 
-																					className="edit-icon"
-																					title="Edit answer text"
-																					style={{
-																						cursor: 'pointer',
-																						marginRight: '6px',
-																						padding: '1px 3px',
-																						backgroundColor: '#f0f0f0',
-																						borderRadius: '3px',
-																						fontSize: '11px',
-																						display: 'inline-block',
-																						border: '1px solid #ccc'
-																					}}
-																					onclick={() => {
-																						dispatch('OPEN_EDIT_MODAL', {
-																							type: 'answer',
-																							itemId: answer.ids.id,
-																							text: answer.label
-																						});
-																					}}
-																				>
-																					🔍
-																				</span>
 																				<div className="typeahead-container">
 																					<input
 																						type="text"
 																						className="answer-label-input"
 																						value={answer.label}
 																						placeholder="Enter answer text..."
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						oninput={(e) => {
 																							const newValue = e.target.value;
 																							// Update the answer label locally
@@ -2776,7 +2800,7 @@ const view = (state, {updateState, dispatch}) => {
 																								newLabel: newValue
 																							});
 																							// Trigger typeahead search if length >= 3
-																							if (newValue.length >= 3) {
+																							if (newValue.length >= 2) {
 																								dispatch('ANSWER_TYPEAHEAD_INPUT_CHANGE', {
 																									searchText: newValue,
 																									answerId: answer.ids.id
@@ -2833,7 +2857,7 @@ const view = (state, {updateState, dispatch}) => {
 																										<div className={`typeahead-item-title ${result.exact_match ? 'exact-match' : ''}`}>{result.name}</div>
 																									</div>
 																								))
-																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 3 && !state.answerTypeaheadLoading ? (
+																							) : state.answerTypeaheadQuery && state.answerTypeaheadQuery.length >= 2 && !state.answerTypeaheadLoading ? (
 																								<div className="typeahead-item no-results">
 																									No matching answers found for "{state.answerTypeaheadQuery}"
 																								</div>
@@ -2878,14 +2902,6 @@ const view = (state, {updateState, dispatch}) => {
 																									score: score
 																								});
 																							}}
-																							onblur={(e) => {
-																								// Auto-save the score when user finishes editing
-																								const score = e.target.value;
-																								dispatch('SAVE_ANSWER_SCORE', {
-																									answerId: answer.ids.id,
-																									score: score
-																								});
-																							}}
 																							onclick={(e) => {
 																								e.stopPropagation();
 																							}}
@@ -2918,19 +2934,6 @@ const view = (state, {updateState, dispatch}) => {
 																						ⓘ
 																					</span>
 																				</div>
-																				{answer.isLibraryAnswer && (
-																					<span className="answer-library-indicator" style={{
-																						backgroundColor: '#17a2b8',
-																						color: 'white',
-																						padding: '1px 4px',
-																						borderRadius: '8px',
-																						fontSize: '9px',
-																						fontWeight: 'bold',
-																						marginLeft: '4px'
-																					}}>
-																						📚 LIB
-																					</span>
-																				)}
 																				<span
 																					className="custom-attributes-icon"
 																					title="Click to add, remove or change custom attributes"
@@ -2979,7 +2982,8 @@ const view = (state, {updateState, dispatch}) => {
 																					</label>
 																					<select
 																						className="secondary-input-select"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -2998,7 +3002,8 @@ const view = (state, {updateState, dispatch}) => {
 																					<button
 																						className="delete-answer-btn"
 																						title="Delete Answer"
-																						disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																						disabled={answer.isDeleted || (hasAnyUnsavedChanges(state) && !question.isUnsaved)}
+																						style={answer.isDeleted ? {textDecoration: 'line-through'} : {}}
 																						style={state.isMobileView ? {
 																							flexShrink: '0'
 																						} : {}}
@@ -3676,15 +3681,15 @@ const view = (state, {updateState, dispatch}) => {
 			{state.editingTooltip && (
 				<div className="modal-overlay" onclick={(e) => {
 					if (e.target.className === 'modal-overlay') {
-						dispatch('CANCEL_TOOLTIP_EDIT');
+						dispatch('SAVE_TOOLTIP_EDIT');
 					}
 				}}>
 					<div className="tooltip-modal">
 						<div className="modal-header">
 							<h3>Edit Tooltip</h3>
-							<button 
+							<button
 								className="modal-close"
-								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
+								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
 							>
 								×
 							</button>
@@ -3702,17 +3707,11 @@ const view = (state, {updateState, dispatch}) => {
 							></textarea>
 						</div>
 						<div className="modal-footer">
-							<button 
-								className="btn-cancel"
-								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
-							>
-								Cancel
-							</button>
-							<button 
+							<button
 								className="btn-save"
 								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
 							>
-								Save
+								Done
 							</button>
 						</div>
 					</div>
@@ -3984,20 +3983,27 @@ const view = (state, {updateState, dispatch}) => {
 										{state.assessmentDetailsPanel.isEditable ? (
 											<select
 												className="form-input"
-												value={state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}
 												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
 													field: 'responseLogging',
 													value: e.target.value
 												})}
 											>
-												<option value="Use Org Default">Use Org Default</option>
-												<option value="Disabled">Disabled</option>
-												<option value="Autosave, Draft and Submit">Autosave, Draft and Submit</option>
-												<option value="Save as Draft and Submit">Save as Draft and Submit</option>
-												<option value="Submit Only">Submit Only</option>
+												<option value="use_default" selected={state.assessmentDetailsPanel.responseLogging === 'use_default'}>Use Org Default</option>
+												<option value="disabled" selected={state.assessmentDetailsPanel.responseLogging === 'disabled'}>Disabled</option>
+												<option value="draft" selected={state.assessmentDetailsPanel.responseLogging === 'draft'}>Save as Draft and Submit</option>
+												<option value="submit" selected={state.assessmentDetailsPanel.responseLogging === 'submit'}>Submit Only</option>
 											</select>
 										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}</div>
+											<div className="readonly-field">{
+												(() => {
+													const value = state.assessmentDetailsPanel.responseLogging;
+													if (value === 'use_default') return 'Use Org Default';
+													if (value === 'disabled') return 'Disabled';
+													if (value === 'draft') return 'Save as Draft and Submit';
+													if (value === 'submit') return 'Submit Only';
+													return 'Use Org Default';
+												})()
+											}</div>
 										)}
 									</div>
 
@@ -4172,99 +4178,6 @@ const view = (state, {updateState, dispatch}) => {
 								disabled={!state.publishPanel.effectiveDate}
 							>
 								Publish
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* Edit Modal */}
-			{state.modalOpen && (
-				<div className="modal-overlay" style={{
-					position: 'fixed',
-					top: '0',
-					left: '0',
-					width: '100%',
-					height: '100%',
-					backgroundColor: 'rgba(0,0,0,0.5)',
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					zIndex: '1000000'
-				}}>
-					<div className="modal-content" style={{
-						backgroundColor: 'white',
-						padding: '20px',
-						borderRadius: '8px',
-						width: '500px',
-						maxWidth: '90vw',
-						boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-						position: 'relative',
-						zIndex: '1000001'
-					}}>
-						<h3 className="modal-title">
-							Edit {state.modalType === 'question' ? 'Question' : state.modalType === 'answer' ? 'Answer' : 'Section'}
-						</h3>
-						<textarea
-							className="modal-textarea"
-							value={state.modalText}
-							oninput={(e) => {
-								dispatch('UPDATE_MODAL_TEXT', {
-									text: e.target.value
-								});
-							}}
-							placeholder={`Enter ${state.modalType === 'question' ? 'question' : state.modalType === 'answer' ? 'answer' : 'section'} text...`}
-							rows="8"
-							style={{
-								width: '100%',
-								minHeight: '200px',
-								resize: 'vertical',
-								fontFamily: 'inherit',
-								fontSize: '14px',
-								padding: '10px',
-								border: '1px solid #ccc',
-								borderRadius: '4px'
-							}}
-						></textarea>
-						<div className="modal-buttons" style={{
-							marginTop: '15px',
-							display: 'flex',
-							gap: '10px',
-							justifyContent: 'flex-end'
-						}}>
-							<button 
-								className="modal-save-btn"
-								style={{
-									backgroundColor: '#28a745',
-									color: 'white',
-									border: 'none',
-									padding: '8px 16px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px'
-								}}
-								onclick={() => {
-									dispatch('SAVE_MODAL_TEXT');
-								}}
-							>
-								<CheckIcon /> Save
-							</button>
-							<button 
-								className="modal-cancel-btn"
-								style={{
-									backgroundColor: '#6c757d',
-									color: 'white',
-									border: 'none',
-									padding: '8px 16px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px'
-								}}
-								onclick={() => {
-									dispatch('CLOSE_MODAL');
-								}}
-							>
-								✗ Cancel
 							</button>
 						</div>
 					</div>
@@ -4528,11 +4441,10 @@ const view = (state, {updateState, dispatch}) => {
 										boxSizing: 'border-box'
 									}}
 								>
-									<option value="Use Org Default">Use Org Default</option>
-									<option value="Disabled">Disabled</option>
-									<option value="Auto-save, Draft and Submit">Auto-save, Draft and Submit</option>
-									<option value="Save as Draft and Submit">Save as Draft and Submit</option>
-									<option value="Submit only">Submit only</option>
+									<option value="use_default">Use Org Default</option>
+									<option value="disabled">Disabled</option>
+									<option value="draft">Save as Draft and Submit</option>
+									<option value="submit">Submit Only</option>
 								</select>
 							</div>
 
@@ -4545,6 +4457,18 @@ const view = (state, {updateState, dispatch}) => {
 										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'allowMcgContent', value: e.target.checked})}
 									/>
 									Allow MCG Content
+								</label>
+							</div>
+
+							{/* Enable "Select All PGI Elements" */}
+							<div className="form-field">
+								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500'}}>
+									<input
+										type="checkbox"
+										checked={state.newAssessmentForm.selectAllEnabled}
+										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'selectAllEnabled', value: e.target.checked})}
+									/>
+									Enable "Select All PGI Elements"
 								</label>
 							</div>
 						</div>
@@ -4606,7 +4530,13 @@ const view = (state, {updateState, dispatch}) => {
 					justifyContent: 'center',
 					zIndex: '99999',
 					isolation: 'isolate'
-				}}>
+				}}
+				onclick={(e) => {
+					if (e.target.className === 'modal-overlay') {
+						dispatch('SAVE_CUSTOM_ATTRIBUTES');
+					}
+				}}
+				>
 					<div className="modal-content" style={{
 						backgroundColor: 'white',
 						padding: '20px',
@@ -4619,9 +4549,25 @@ const view = (state, {updateState, dispatch}) => {
 						zIndex: '10000',
 						position: 'relative'
 					}}>
-						<h3 className="modal-title" style={{marginTop: '0', marginBottom: '20px'}}>
-							Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
-						</h3>
+						<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+							<h3 className="modal-title" style={{marginTop: '0', marginBottom: '0'}}>
+								Custom Attributes - {state.customAttributesItemType === 'question' ? 'Question' : 'Answer'}
+							</h3>
+							<button
+								className="modal-close"
+								onclick={() => dispatch('SAVE_CUSTOM_ATTRIBUTES')}
+								style={{
+									background: 'none',
+									border: 'none',
+									fontSize: '24px',
+									cursor: 'pointer',
+									padding: '0',
+									lineHeight: '1'
+								}}
+							>
+								×
+							</button>
+						</div>
 
 						{/* Validation Error Message */}
 						{state.customAttributesValidationError && (
@@ -4696,7 +4642,7 @@ const view = (state, {updateState, dispatch}) => {
 												dispatch('REMOVE_CUSTOM_ATTRIBUTE_ROW', {index: index});
 											}}
 											style={{
-												background: '#dc3545',
+												background: '#6b7280',
 												color: 'white',
 												border: 'none',
 												padding: '8px',
@@ -4762,24 +4708,7 @@ const view = (state, {updateState, dispatch}) => {
 								}}
 								onclick={() => dispatch('SAVE_CUSTOM_ATTRIBUTES')}
 							>
-								💾 Save
-							</button>
-							<button
-								className="modal-cancel-btn"
-								style={{
-									backgroundColor: '#6c757d',
-									color: 'white',
-									border: 'none',
-									padding: '10px 20px',
-									borderRadius: '4px',
-									cursor: 'pointer',
-									fontSize: '14px',
-									zIndex: '10001',
-									position: 'relative'
-								}}
-								onclick={() => dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL')}
-							>
-								✗ Cancel
+								Done
 							</button>
 						</div>
 					</div>
@@ -4791,20 +4720,13 @@ const view = (state, {updateState, dispatch}) => {
 				<div className={`relationship-panel expanded`}>
 					<div className="relationship-header">
 						<div className="relationship-title-container">
-							<button
-								className="expand-relationship-btn"
-								onclick={() => dispatch('TOGGLE_RELATIONSHIP_PANEL')}
-								title="Collapse relationship panel"
-							>
-								<span className="expand-icon expanded">⤢</span>
-							</button>
 							<h3>Manage Answer Relationships</h3>
 						</div>
 						<button
 							className="btn-cancel"
 							onclick={() => dispatch('CLOSE_RELATIONSHIP_MODAL')}
 						>
-							✗
+							<XIcon />
 						</button>
 					</div>
 
@@ -5089,7 +5011,11 @@ const view = (state, {updateState, dispatch}) => {
 							<div className="modal-body">
 								{/* Guidelines Tab */}
 								{state.relationshipModalActiveTab === 'guidelines' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for guideline operations */}
+										{state.savingGuidelineRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Guidelines</h4>
 
 										{/* Existing Guidelines */}
@@ -5104,7 +5030,7 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{guideline.label}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('REMOVE_GUIDELINE_RELATIONSHIP', {
 																			answerId: answerId,
@@ -5112,8 +5038,9 @@ const view = (state, {updateState, dispatch}) => {
 																			guidelineName: guideline.label
 																		})
 																	}}
+																	title="Delete guideline"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -5199,7 +5126,7 @@ const view = (state, {updateState, dispatch}) => {
 															style={{
 																fontSize: '14px',
 																padding: '10px 16px',
-																backgroundColor: '#ef4444',
+																backgroundColor: '#6b7280',
 																color: 'white',
 																border: 'none',
 																borderRadius: '6px',
@@ -5215,7 +5142,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Cancel"
 														>
-															✗
+															<XIcon />
 														</button>
 													</div>
 												)}
@@ -5255,7 +5182,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Questions Tab */}
 								{state.relationshipModalActiveTab === 'questions' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for question operations */}
+										{state.savingQuestionRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Questions</h4>
 
 										{/* Existing Questions */}
@@ -5269,7 +5200,7 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{question.label}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('DELETE_BRANCH_QUESTION', {
 																			answerId: answerId,
@@ -5277,8 +5208,9 @@ const view = (state, {updateState, dispatch}) => {
 																			questionLabel: question.label
 																		})
 																	}}
+																	title="Delete question"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -5363,7 +5295,7 @@ const view = (state, {updateState, dispatch}) => {
 															style={{
 																fontSize: '14px',
 																padding: '10px 16px',
-																backgroundColor: '#ef4444',
+																backgroundColor: '#6b7280',
 																color: 'white',
 																border: 'none',
 																borderRadius: '6px',
@@ -5379,7 +5311,7 @@ const view = (state, {updateState, dispatch}) => {
 															}}
 															title="Cancel"
 														>
-															✗
+															<XIcon />
 														</button>
 													</div>
 												)}
@@ -5433,7 +5365,7 @@ const view = (state, {updateState, dispatch}) => {
 												</div>
 											)}
 
-											{state.relationshipTypeaheadText && state.relationshipTypeaheadText.length >= 3 &&
+											{state.relationshipTypeaheadText && state.relationshipTypeaheadText.length >= 2 &&
 											 state.relationshipTypeaheadResults.length === 0 &&
 											 !state.selectedQuestion && (
 												<div className="typeahead-dropdown">
@@ -5448,7 +5380,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Problems Tab */}
 								{state.relationshipModalActiveTab === 'problems' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for problem add operations */}
+										{state.savingProblem && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Problems</h4>
 
 										{/* Existing Problems */}
@@ -5627,7 +5563,7 @@ const view = (state, {updateState, dispatch}) => {
 																										});
 																									}}
 																									style={{
-																										background: '#dc3545',
+																										background: '#6b7280',
 																										color: 'white',
 																										border: 'none',
 																										padding: '6px 8px',
@@ -5704,7 +5640,7 @@ const view = (state, {updateState, dispatch}) => {
 																			style={{
 																				fontSize: '14px',
 																				padding: '8px 12px',
-																				backgroundColor: '#ef4444',
+																				backgroundColor: '#6b7280',
 																				color: 'white',
 																				border: 'none',
 																				borderRadius: '4px',
@@ -5753,23 +5689,6 @@ const view = (state, {updateState, dispatch}) => {
 																		>
 																			{problem.label || problem.name}
 																		</span>,
-																	<button
-																		className="confirm-relationship-btn"
-																		onclick={() => {
-																			dispatch('FETCH_PROBLEM_DETAILS', {
-																				problemId: problem.id,
-																				fallbackData: {
-																					label: problem.label || problem.name,
-																					alternative_wording: problem.alternative_wording || '',
-																					tooltip: problem.tooltip || ''
-																				}
-																			});
-																		}}
-																		title="Edit problem"
-																		style={{marginLeft: '8px'}}
-																	>
-																		<CheckIcon />
-																	</button>,
 																	<button
 																		className="cancel-relationship-btn"
 																		onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
@@ -6002,7 +5921,7 @@ const view = (state, {updateState, dispatch}) => {
 																																	});
 																																}}
 																																style={{
-																																	background: '#dc3545',
+																																	background: '#6b7280',
 																																	color: 'white',
 																																	border: 'none',
 																																	padding: '6px 8px',
@@ -6077,7 +5996,7 @@ const view = (state, {updateState, dispatch}) => {
 																											style={{
 																												fontSize: '14px',
 																												padding: '8px 12px',
-																												backgroundColor: '#ef4444',
+																												backgroundColor: '#6b7280',
 																												color: 'white',
 																												border: 'none',
 																												borderRadius: '4px',
@@ -6164,7 +6083,42 @@ const view = (state, {updateState, dispatch}) => {
 																										if (goalInterventions && goalInterventions.length > 0) {
 																											return (
 																												<div className="existing-interventions" style={{marginBottom: '12px'}}>
-																													{goalInterventions.map((intervention, interventionIndex) => {
+																											{(() => {
+																												// Group interventions by category
+																												const groupedByCategory = {};
+																												goalInterventions.forEach(intervention => {
+																													const category = intervention.category || 'Uncategorized';
+																													if (!groupedByCategory[category]) {
+																														groupedByCategory[category] = [];
+																													}
+																													groupedByCategory[category].push(intervention);
+																												});
+
+																												// Sort categories alphabetically
+																												const sortedCategories = Object.keys(groupedByCategory).sort();
+
+																												// Sort interventions within each category alphabetically
+																												sortedCategories.forEach(category => {
+																													groupedByCategory[category].sort((a, b) => {
+																														const labelA = (a.label || '').toLowerCase();
+																														const labelB = (b.label || '').toLowerCase();
+																														return labelA.localeCompare(labelB);
+																													});
+																												});
+
+																												return sortedCategories.map(category => (
+																													<div key={category} style={{marginBottom: '16px'}}>
+																														<div style={{
+																															fontSize: '13px',
+																															fontWeight: '600',
+																															color: '#374151',
+																															marginBottom: '8px',
+																															paddingBottom: '4px',
+																															borderBottom: '2px solid #e5e7eb'
+																														}}>
+																															{category}
+																														</div>
+																														{groupedByCategory[category].map((intervention, interventionIndex) => {
 																														// Check if this intervention is being edited
 																														const isEditing = state.editingInterventionId === intervention.id;
 																														const isLoading = state.interventionDetailsLoading === intervention.id;
@@ -6359,7 +6313,7 @@ const view = (state, {updateState, dispatch}) => {
 																																								});
 																																							}}
 																																							style={{
-																																								background: '#dc3545',
+																																								background: '#6b7280',
 																																								color: 'white',
 																																								border: 'none',
 																																								padding: '6px 8px',
@@ -6503,6 +6457,7 @@ const view = (state, {updateState, dispatch}) => {
 																																	style={{
 																																		marginLeft: '12px',
 																																		fontSize: '12px',
+																																		fontWeight: 'normal',
 																																		padding: '4px 8px',
 																																		opacity: state.deletingInterventions[intervention.id] ? 0.6 : 1,
 																																		cursor: state.deletingInterventions[intervention.id] ? 'not-allowed' : 'pointer'
@@ -6520,11 +6475,14 @@ const view = (state, {updateState, dispatch}) => {
 																																		}
 																																	}}
 																																>
-																																	{state.deletingInterventions[intervention.id] ? '🔄' : <XIcon />}
+																																	{state.deletingInterventions[intervention.id] ? '🔄' : 'X'}
 																																</button>
 																															</div>
 																														);
-																													})}
+																														})}
+																													</div>
+																												));
+																											})()}
 																												</div>
 																											);
 																										}
@@ -6549,8 +6507,8 @@ const view = (state, {updateState, dispatch}) => {
 																									{/* Add New Intervention */}
 																									<div className="add-intervention" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																										{/* Loading overlay for intervention save */}
-																										{false && (
-																											<LoadingOverlay message="Saving intervention..." />
+																										{state.savingInterventions[goal.id] && (
+																											<LoadingOverlay message="Processing..." />
 																										)}
 																										<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
 																											Add New Intervention
@@ -6583,7 +6541,7 @@ const view = (state, {updateState, dispatch}) => {
 																																});
 
 																																// Trigger search if 3+ characters
-																																if (value.length >= 3) {
+																																if (value.length >= 2) {
 																																	dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																																		searchText: value,
 																																		type: 'intervention',
@@ -6754,7 +6712,7 @@ const view = (state, {updateState, dispatch}) => {
 																													style={{
 																														fontSize: '14px',
 																														padding: '10px 16px',
-																														backgroundColor: '#ef4444',
+																														backgroundColor: '#6b7280',
 																														color: 'white',
 																														border: 'none',
 																														borderRadius: '6px',
@@ -6819,8 +6777,8 @@ const view = (state, {updateState, dispatch}) => {
 																	{/* Add New Goal */}
 																	<div className="add-goal" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																		{/* Loading overlay for goal save */}
-																		{false && (
-																			<LoadingOverlay message="Saving goal..." />
+																		{state.savingGoals[problem.id] && (
+																			<LoadingOverlay message="Processing..." />
 																		)}
 																		<div style={{marginBottom: '8px', fontSize: '13px', color: '#6b7280', fontWeight: '500'}}>
 																			Add New Goal
@@ -6852,7 +6810,7 @@ const view = (state, {updateState, dispatch}) => {
 																							});
 
 																							// Trigger search if 3+ characters
-																							if (value.length >= 3) {
+																							if (value.length >= 2) {
 																								dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																									searchText: value,
 																									type: 'goal',
@@ -6961,20 +6919,6 @@ const view = (state, {updateState, dispatch}) => {
 																						})}
 																					</div>
 																				)}
-
-																				{/* Loading indicator */}
-																				{state.goalTypeaheadLoading[problem.id] && (
-																					<div style={{
-																						position: 'absolute',
-																						right: '12px',
-																						top: '50%',
-																						transform: 'translateY(-50%)',
-																						fontSize: '12px',
-																						color: '#6b7280'
-																					}}>
-																						Loading...
-																					</div>
-																				)}
 																			</div>
 																			<button
 																				className="confirm-relationship-btn"
@@ -7013,7 +6957,7 @@ const view = (state, {updateState, dispatch}) => {
 																				style={{
 																					fontSize: '14px',
 																					padding: '10px 16px',
-																					backgroundColor: '#ef4444',
+																					backgroundColor: '#6b7280',
 																					color: 'white',
 																					border: 'none',
 																					borderRadius: '6px',
@@ -7076,7 +7020,7 @@ const view = (state, {updateState, dispatch}) => {
 															const value = e.target.value;
 															updateState({relationshipTypeaheadText: value});
 
-															if (value.length >= 3) {
+															if (value.length >= 2) {
 																// Use generic typeahead for problems
 																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																	searchText: value,
@@ -7144,7 +7088,7 @@ const view = (state, {updateState, dispatch}) => {
 													style={{
 														fontSize: '14px',
 														padding: '10px 16px',
-														backgroundColor: '#ef4444',
+														backgroundColor: '#6b7280',
 														color: 'white',
 														border: 'none',
 														borderRadius: '6px',
@@ -7160,7 +7104,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✗
+													<XIcon />
 												</button>
 											</div>
 
@@ -7218,7 +7162,11 @@ const view = (state, {updateState, dispatch}) => {
 
 								{/* Barriers Tab */}
 								{state.relationshipModalActiveTab === 'barriers' && (
-									<div className="tab-content">
+									<div className="tab-content" style={{position: 'relative'}}>
+										{/* Loading overlay for barrier operations */}
+										{state.savingBarrierRelationship && (
+											<LoadingOverlay message="Processing..." />
+										)}
 										<h4>Barriers</h4>
 
 										{/* Existing Barriers */}
@@ -7232,15 +7180,16 @@ const view = (state, {updateState, dispatch}) => {
 															<div key={index} className="relationship-item">
 																<span className="relationship-label">{barrier.label || barrier.name}</span>
 																<button
-																	className="remove-relationship-btn"
+																	className="cancel-relationship-btn"
 																	on={{
 																		click: () => dispatch('REMOVE_BARRIER_RELATIONSHIP', {
 																			answerId: answerId,
 																			barrierId: barrier.id
 																		})
 																	}}
+																	title="Delete barrier"
 																>
-																	✗
+																	<XIcon />
 																</button>
 															</div>
 														))}
@@ -7271,7 +7220,7 @@ const view = (state, {updateState, dispatch}) => {
 															const value = e.target.value;
 															updateState({relationshipTypeaheadText: value});
 
-															if (value.length >= 3) {
+															if (value.length >= 2) {
 																// Use generic typeahead for barriers
 																dispatch('GENERIC_TYPEAHEAD_SEARCH', {
 																	searchText: value,
@@ -7339,7 +7288,7 @@ const view = (state, {updateState, dispatch}) => {
 													style={{
 														fontSize: '14px',
 														padding: '10px 16px',
-														backgroundColor: '#ef4444',
+														backgroundColor: '#6b7280',
 														color: 'white',
 														border: 'none',
 														borderRadius: '6px',
@@ -7355,7 +7304,7 @@ const view = (state, {updateState, dispatch}) => {
 													}}
 													title="Cancel"
 												>
-													✗
+													<XIcon />
 												</button>
 											</div>
 
@@ -7514,7 +7463,11 @@ const view = (state, {updateState, dispatch}) => {
 								<div>
 									{/* Guidelines Section */}
 									{relationships.guidelines && relationships.guidelines.guidelines && relationships.guidelines.guidelines.length > 0 ? (
-										<div style={{marginBottom: '24px'}}>
+										<div style={{marginBottom: '24px', position: 'relative'}}>
+											{/* Loading overlay for guideline operations */}
+											{state.savingGuidelineRelationship && (
+												<LoadingOverlay message="Processing..." />
+											)}
 											<h4 style={{
 												fontSize: '16px',
 												fontWeight: '600',
@@ -7862,7 +7815,7 @@ const view = (state, {updateState, dispatch}) => {
 								onclick={() => dispatch('CONFIRM_DIALOG_ACTION')}
 								style={{
 									padding: '8px 16px',
-									backgroundColor: '#dc2626',
+									backgroundColor: '#6b7280',
 									color: 'white',
 									border: 'none',
 									borderRadius: '4px',
@@ -8102,7 +8055,7 @@ const view = (state, {updateState, dispatch}) => {
 							</button>
 							<button
 								style={{
-									backgroundColor: '#dc3545',
+									backgroundColor: '#6b7280',
 									color: 'white',
 									border: 'none',
 									padding: '10px 20px',
@@ -8248,6 +8201,12 @@ createCustomElement('cadal-careiq-builder', {
 		isMobileView: false, // Track if window is mobile-sized for responsive inline styles
 		sectionsPanelExpanded: false, // Toggle for expanded sections panel
 		questionsPanelExpanded: false, // Toggle for expanded questions panel
+		scoringChanges: {}, // Track unsaved scoring changes { answerId: { modelId: score } }
+		savingScoringChanges: false, // Loading state for saving scoring changes
+		pendingScoringChanges: 0, // Count of pending save requests
+		savingGuidelineRelationship: false, // Loading state for adding/deleting guideline relationships
+		savingQuestionRelationship: false, // Loading state for adding/deleting question relationships
+		savingBarrierRelationship: false, // Loading state for adding/deleting barrier relationships
 		relationshipPanelOpen: false, // Controls relationship panel visibility (converted from modal)
 		pgiModalOpen: false, // Controls PGI preview modal visibility
 		pgiModalAnswerId: null, // Answer ID for PGI modal
@@ -8268,12 +8227,6 @@ createCustomElement('cadal-careiq-builder', {
 		selectedQuestionLibraryId: null,
 		pendingLibraryQuestionReplacementId: null,
 		libraryQuestionLoading: null,
-		// Modal state for editing long text
-		modalOpen: false,
-		modalType: null, // 'question' or 'answer'
-		modalItemId: null,
-		modalText: '',
-		modalOriginalText: '',
 		// New Assessment Modal state
 		newAssessmentModalOpen: false,
 		newAssessmentForm: {
@@ -8310,6 +8263,7 @@ createCustomElement('cadal-careiq-builder', {
 		// Tooltip editing state
 		editingTooltip: null,
 		editingTooltipText: null,
+		editingTooltipOriginalText: null,  // Store original value for comparison
 		editingTooltipQuestionId: null,
 		editingTooltipAnswerId: null,
 		// Typeahead state
@@ -8384,6 +8338,7 @@ createCustomElement('cadal-careiq-builder', {
 		deletingProblems: {},                     // Track which problems are being deleted {problemId: true}
 		updatingProblems: {},                     // Track which problems are being updated {problemId: true}
 		addingProblem: false,                     // Track if a problem is being added
+		savingProblem: false,                     // Loading state for adding problem relationship
 
 		// Goal operation loading states
 		deletingGoals: {},                        // Track which goals are being deleted {goalId: true}
@@ -8409,6 +8364,13 @@ createCustomElement('cadal-careiq-builder', {
 		confirmationDialogOpen: false,            // Is confirmation dialog visible
 		confirmationDialogMessage: '',            // Message to display
 		confirmationDialogPendingAction: null,    // Action to execute if user confirms
+
+		// Loading states for long operations
+		creatingVersion: false,                   // Creating new version loading state
+		publishingAssessment: false,              // Publishing assessment loading state
+
+		// Pending error context for newer GT version name lookup
+		pendingNewerGtError: null,                // {originalMessage, gtId} for "newer GTs available" errors
 
 		// Toast notifications
 		toastNotifications: []                    // Array of {id, type, message, timestamp}
@@ -8598,8 +8560,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: '',
 					reviewDate: '',
 					nextReviewDate: '',
-					responseLogging: 'Use Org Default',
-					allowMcgContent: false
+					responseLogging: 'use_default',
+					allowMcgContent: false,
+					selectAllEnabled: false
 				}
 			});
 		},
@@ -8628,13 +8591,13 @@ createCustomElement('cadal-careiq-builder', {
 			// Validate required fields
 			const form = state.newAssessmentForm;
 
-			if (!form.guidelineName || !form.useCaseCategory || !form.effectiveDate) {
+			if (!form.guidelineName || !form.useCaseCategory) {
 				updateState({
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'error',
-							message: 'Please fill in all required fields (Guideline Name, Use Case Category, and Effective Date)',
+							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -8702,23 +8665,25 @@ createCustomElement('cadal-careiq-builder', {
 				external_id: assessmentData.external_id || '',
 				custom_attributes: assessmentData.custom_attributes || {},
 				tags: assessmentData.tags || [],
-				effective_date: assessmentData.effectiveDate, // Required - already validated
 				tooltip: assessmentData.tooltip || '',
 				alternative_wording: assessmentData.alternative_wording || '',
 				available: assessmentData.available || false,
 				policy_number: assessmentData.codePolicyNumber || '',
 				use_case_category_id: useCaseCategoryId, // Use mapped UUID instead of display name
 				quality_measures: assessmentData.quality_measures || {},
-				settings: assessmentData.settings || {
-					store_responses: "use_default"
+				settings: {
+					store_responses: assessmentData.responseLogging || "use_default"
 				},
 				usage: assessmentData.usage || 'Care Planning',
 				mcg_content_enabled: assessmentData.allowMcgContent || false,
-				select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
+				select_all_enabled: assessmentData.selectAllEnabled || false,
 				multi_tenant_default: assessmentData.multi_tenant_default || false
 			};
 
-			// Only add optional date fields if they are not empty
+			// Only add date fields if they are not empty
+			if (assessmentData.effectiveDate && assessmentData.effectiveDate.trim() !== '') {
+				payload.effective_date = assessmentData.effectiveDate;
+			}
 			if (assessmentData.endDate && assessmentData.endDate.trim() !== '') {
 				payload.end_date = assessmentData.endDate;
 			}
@@ -8931,8 +8896,9 @@ createCustomElement('cadal-careiq-builder', {
 			const {updateState, state, dispatch} = coeffects;
 			const modalData = state.createVersionModal;
 
-			// Close modal and show loading message
+			// Close modal, show loading message, and set loading state
 			updateState({
+				creatingVersion: true,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -8964,6 +8930,10 @@ createCustomElement('cadal-careiq-builder', {
 		'OPEN_ASSESSMENT_DETAILS': (coeffects) => {
 			const {updateState, state} = coeffects;
 
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.select_all_enabled:', state.currentAssessment?.select_all_enabled);
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.settings:', state.currentAssessment?.settings);
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.settings.store_responses:', state.currentAssessment?.settings?.store_responses);
+
 			// Open the details panel with current assessment data
 			updateState({
 				assessmentDetailsPanel: {
@@ -8980,9 +8950,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: state.currentAssessment?.end_date || '',
 					reviewDate: state.currentAssessment?.review_date || '',
 					nextReviewDate: state.currentAssessment?.next_review_date || '',
-					responseLogging: state.currentAssessment?.response_logging || 'Use Org Default',  // Changed to string
-					allowMcgContent: state.currentAssessment?.allow_mcg_content || false,
-					enableSelectAllPgi: state.currentAssessment?.enable_select_all_pgi || false,  // NEW
+					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default',
+					allowMcgContent: state.currentAssessment?.mcg_content_enabled || false,
+					enableSelectAllPgi: state.currentAssessment?.select_all_enabled || false,
 					isEditable: state.currentAssessment?.status === 'draft'
 				}
 			});
@@ -9006,7 +8976,7 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: '',
 					reviewDate: '',
 					nextReviewDate: '',
-					responseLogging: 'Use Org Default',  // Changed to string
+					responseLogging: 'use_default',
 					allowMcgContent: false,
 					enableSelectAllPgi: false,  // NEW
 					isEditable: false
@@ -9017,6 +8987,8 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ASSESSMENT_DETAIL_FIELD': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {field, value} = action.payload;
+
+			console.log('UPDATE_ASSESSMENT_DETAIL_FIELD - field:', field, 'value:', value);
 
 			updateState({
 				assessmentDetailsPanel: {
@@ -9029,6 +9001,8 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_ASSESSMENT_DETAILS': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const panelData = state.assessmentDetailsPanel;
+
+			console.log('SAVE_ASSESSMENT_DETAILS - panelData.enableSelectAllPgi:', panelData.enableSelectAllPgi);
 
 			// Close panel and show saving message
 			updateState({
@@ -9047,7 +9021,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Make API call to save assessment details
-			const requestBody = JSON.stringify({
+			const payload = {
 				assessmentId: state.currentAssessmentId,
 				versionName: panelData.versionName,
 				useCaseCategory: panelData.useCaseCategory,
@@ -9060,9 +9034,12 @@ createCustomElement('cadal-careiq-builder', {
 				nextReviewDate: panelData.nextReviewDate,
 				responseLogging: panelData.responseLogging,
 				allowMcgContent: panelData.allowMcgContent,
-				enableSelectAllPgi: panelData.enableSelectAllPgi  // NEW
-			});
+				select_all_enabled: panelData.enableSelectAllPgi
+			};
 
+			console.log('SAVE_ASSESSMENT_DETAILS - Full payload:', payload);
+
+			const requestBody = JSON.stringify(payload);
 			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
 		},
 
@@ -9117,8 +9094,9 @@ createCustomElement('cadal-careiq-builder', {
 		'SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const publishData = state.publishPanel;
-			// Close panel and show publishing message
+			// Close panel, show publishing message, and set loading state
 			updateState({
+				publishingAssessment: true,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9157,8 +9135,9 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			// Extract the new assessment ID from response
 			const newAssessmentId = action.payload?.id || action.payload?.data?.id;
-			// Show success message
+			// Show success message and clear loading state
 			updateState({
+				publishingAssessment: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9202,6 +9181,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			updateState({
+				publishingAssessment: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9215,6 +9195,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('UPDATE_ASSESSMENT_SUCCESS - response payload:', action.payload);
 
 			// Show success message
 			updateState({
@@ -9307,11 +9289,40 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_VERSION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			// Debug logging to see the actual response structure
 			// Check if this is actually an error response disguised as success
 			if (action.payload && (action.payload.detail || action.payload.error)) {
 				const errorMessage = action.payload.detail || action.payload.error;
+
+				// Check if this is a "newer GTs available" error
+				if (errorMessage && errorMessage.includes('newer GTs available')) {
+					// Extract the GT ID using regex
+					const idMatch = errorMessage.match(/newer GTs available:\s*([a-f0-9-]+)/i);
+
+					if (idMatch && idMatch[1]) {
+						const newerGtId = idMatch[1];
+
+						// Store the original error message and GT ID for later use
+						updateState({
+							creatingVersion: false,
+							pendingNewerGtError: {
+								originalMessage: errorMessage,
+								gtId: newerGtId
+							}
+						});
+
+						// Make API call to get the version name using the correct parameter
+						const requestBody = JSON.stringify({
+							assessmentId: newerGtId
+						});
+
+						dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody});
+						return;
+					}
+				}
+
+				// Regular error - just display it
 				updateState({
+					creatingVersion: false,
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
@@ -9331,6 +9342,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			updateState({
+				creatingVersion: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9363,19 +9375,60 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'CREATE_VERSION_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 
-			// Extract error message from backend response
+			// Extract error message from backend response - check all possible locations
 			let errorMessage = 'Failed to create new version';
-			if (action.payload?.data?.error) {
+			let detailMessage = null;
+
+			// Check various possible locations for the detail/error message
+			if (action.payload?.detail) {
+				detailMessage = action.payload.detail;
+				errorMessage = detailMessage;
+			} else if (action.payload?.data?.detail) {
+				detailMessage = action.payload.data.detail;
+				errorMessage = detailMessage;
+			} else if (action.payload?.data?.error) {
 				errorMessage = action.payload.data.error;
+				detailMessage = action.payload.data.error;
 			} else if (action.payload?.error) {
 				errorMessage = action.payload.error;
+				detailMessage = action.payload.error;
 			} else if (action.payload?.message) {
 				errorMessage = action.payload.message;
+				detailMessage = action.payload.message;
 			}
 
+			// Check if this is a "newer GTs available" error
+			if (detailMessage && detailMessage.includes('newer GTs available')) {
+				// Extract the GT ID using regex: "newer GTs available: <ID>"
+				const idMatch = detailMessage.match(/newer GTs available:\s*([a-f0-9-]+)/i);
+
+				if (idMatch && idMatch[1]) {
+					const newerGtId = idMatch[1];
+
+					// Store the original error message and GT ID for later use
+					updateState({
+						creatingVersion: false,
+						pendingNewerGtError: {
+							originalMessage: errorMessage,
+							gtId: newerGtId
+						}
+					});
+
+					// Make API call to get the version name using the existing assessment details endpoint
+					const requestBody = JSON.stringify({
+						assessmentId: newerGtId
+					});
+
+					dispatch('MAKE_ASSESSMENT_DETAILS_REQUEST', {requestBody});
+					return;
+				}
+			}
+
+			// Regular error - just display it
 			updateState({
+				creatingVersion: false,
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -9580,6 +9633,7 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: null,
 				editingTooltip: null,
 				editingTooltipText: null,
+				editingTooltipOriginalText: null,
 				editingTooltipQuestionId: null,
 				editingTooltipAnswerId: null,
 				// Clear answer selection state
@@ -9654,6 +9708,7 @@ createCustomElement('cadal-careiq-builder', {
 				editingSectionName: null,
 				editingTooltip: null,
 				editingTooltipText: null,
+				editingTooltipOriginalText: null,
 				editingTooltipQuestionId: null,
 				editingTooltipAnswerId: null,
 				// Clear answer selection state
@@ -9701,8 +9756,29 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ASSESSMENT_DETAILS_SUCCESS': (coeffects) => {
 			const {action, updateState, dispatch, state} = coeffects;
-			//
-			
+			// Check if this is a response for a "newer GT available" error
+			if (state.pendingNewerGtError) {
+				const versionName = action.payload?.version_name || 'Unknown Version';
+				const gtId = state.pendingNewerGtError.gtId;
+
+				// Update the error message with the version name
+				const enhancedMessage = `There are already newer GTs available: ${versionName} (${gtId})`;
+
+				updateState({
+					pendingNewerGtError: null,
+					assessmentDetailsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: enhancedMessage,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
 			// Debug section sort_order values
 			if (action.payload?.sections) {
 				action.payload.sections.forEach(section => {
@@ -9712,11 +9788,12 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
-			
+
 			// Check if we need to re-select a section after save
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
-			
+
+			console.log('ASSESSMENT_DETAILS_SUCCESS - select_all_enabled from backend:', action.payload?.select_all_enabled);
 
 			updateState({
 				currentAssessment: action.payload,
@@ -9750,7 +9827,7 @@ createCustomElement('cadal-careiq-builder', {
 			// Re-select the section we were editing, or auto-select first section
 			let sectionToSelect = null;
 			let sectionLabelToSelect = null;
-			
+
 			if (pendingReselection && pendingReselectionLabel) {
 				sectionToSelect = pendingReselection;
 				sectionLabelToSelect = pendingReselectionLabel;
@@ -9760,13 +9837,13 @@ createCustomElement('cadal-careiq-builder', {
 				const firstSection = sortedSections[0];
 				const sortedSubsections = firstSection?.subsections?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 				const firstSubsection = sortedSubsections?.[0];
-				
+
 				if (firstSubsection) {
 					sectionToSelect = firstSubsection.id;
 					sectionLabelToSelect = firstSubsection.label;
 				}
 			}
-			
+
 			if (sectionToSelect && sectionLabelToSelect) {
 				dispatch('SELECT_SECTION', {
 					sectionId: sectionToSelect,
@@ -9778,6 +9855,26 @@ createCustomElement('cadal-careiq-builder', {
 		'ASSESSMENT_DETAILS_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			console.error('ASSESSMENT_DETAILS_ERROR - Full Response:', action.payload);
+
+			// Check if this was a failed attempt to fetch newer GT version name
+			if (state.pendingNewerGtError) {
+				// Fallback to showing the original error without the version name
+				const originalMessage = state.pendingNewerGtError.originalMessage;
+
+				updateState({
+					pendingNewerGtError: null,
+					assessmentDetailsLoading: false,
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: originalMessage,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
 
 			const errorMessage = action.payload?.message ||
 							   action.payload?.error ||
@@ -9945,7 +10042,8 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadResults: [],
 				editingAnswerId: null,
 				// Clear question operation loading states
-				cancelingQuestions: {}
+				cancelingQuestions: {},
+				savingQuestions: {} // Clear all saving spinners after refresh
 			};
 
 			// If this was after a question move, clear modal, switch to target section, and show success message
@@ -10342,6 +10440,7 @@ createCustomElement('cadal-careiq-builder', {
 				required: false,
 				hidden: false,
 				tooltip: '',
+				voice: 'CaseManager', // Set default voice for new questions
 				sort_order: nextSortOrder,
 				answers: [
 					{
@@ -10609,20 +10708,25 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_ANSWER': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {answerId, questionId} = action.payload;
 			if (!state.currentQuestions?.questions) {
 				return;
 			}
 
-			// Check if this is a temp answer (never saved to backend)
-			if (answerId.startsWith('temp_')) {
+			// Check if this is a temp answer that has never been saved
+			// An answer is only truly unsaved if it has temp_ ID AND is tracked in answerChanges with action 'add'
+			const isUnsavedTempAnswer = answerId.startsWith('temp_') &&
+				state.answerChanges?.[answerId]?.action === 'add';
+
+			if (isUnsavedTempAnswer) {
 				// Just remove from UI, no API call needed
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === questionId) {
 						return {
 							...question,
-							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
+							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || [],
+							isUnsaved: true // Mark question as unsaved to show save/cancel buttons
 						};
 					}
 					return question;
@@ -10640,27 +10744,42 @@ createCustomElement('cadal-careiq-builder', {
 					answerChanges: updatedAnswerChanges
 				});
 			} else {
-				// Real answer - remove from UI immediately and call API
+				// Real answer - mark for deletion, don't remove from UI yet
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === questionId) {
 						return {
 							...question,
-							answers: question.answers?.filter(answer => answer.ids.id !== answerId) || []
-							// NO isUnsaved flag - immediate delete
+							answers: question.answers?.map(answer => {
+								if (answer.ids.id === answerId) {
+									return {
+										...answer,
+										isDeleted: true // Mark answer as deleted
+									};
+								}
+								return answer;
+							}) || [],
+							isUnsaved: true // Mark question as unsaved to show save/cancel buttons
 						};
 					}
 					return question;
 				});
 
+				// Track the deletion in answerChanges
+				const updatedAnswerChanges = {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'delete',
+						questionId: questionId
+					}
+				};
+
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					}
+					},
+					answerChanges: updatedAnswerChanges
 				});
-
-				// Call API immediately to delete from backend
-				dispatch('DELETE_ANSWER_API', {answerId: answerId});
 			}
 		},
 
@@ -10792,6 +10911,7 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 			const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+
 			if (!question) {
 				console.error('Question not found for saving:', questionId);
 				// Clear saving state on error
@@ -10944,12 +11064,15 @@ createCustomElement('cadal-careiq-builder', {
 				// New question - use new 2-step process
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
+					// Get the most current voice value from questionChanges if available
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
 					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
+						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
 						custom_attributes: {},
@@ -10972,12 +11095,23 @@ createCustomElement('cadal-careiq-builder', {
 					if (question.isLibraryQuestion) {
 					}
 
+					// DEBUG: Log what we're checking for voice
+					console.log('SAVE_QUESTION_IMMEDIATELY - questionId:', questionId);
+					console.log('SAVE_QUESTION_IMMEDIATELY - question.voice:', question.voice);
+					console.log('SAVE_QUESTION_IMMEDIATELY - questionChanges voice:', state.questionChanges?.[questionId]?.voice);
+					console.log('SAVE_QUESTION_IMMEDIATELY - Full questionChanges:', state.questionChanges?.[questionId]);
+
+					// Get the most current voice value from questionChanges if available
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
+					console.log('SAVE_QUESTION_IMMEDIATELY - Final currentVoice:', currentVoice);
+
 					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
+						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
 						custom_attributes: {},
@@ -11074,6 +11208,9 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 
+				// Get the most current voice value - check questionChanges first, then question object
+				const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+
 				dispatch('UPDATE_QUESTION_API', {
 					questionData: {
 						questionId: questionId,
@@ -11081,9 +11218,10 @@ createCustomElement('cadal-careiq-builder', {
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
-						sort_order: question.sort_order,
-						answers: question.answers || []
+						alternative_wording: question.alternative_wording || '',
+						custom_attributes: question.custom_attributes || {},
+						voice: currentVoice,
+						sort_order: question.sort_order
 					}
 				});
 			}
@@ -11228,7 +11366,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingGuidelineRelationship: false
 			});
 
 			// Immediate auto-refresh since backend has already committed
@@ -11241,14 +11380,14 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_GUIDELINE_RELATIONSHIP_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			
+
 			console.error('=== ADD_GUIDELINE_RELATIONSHIP_ERROR ===');
 			console.error('Error adding guideline relationship:', action.payload);
-			
-			const errorMessage = action.payload?.error || 
-							   action.payload?.message || 
+
+			const errorMessage = action.payload?.error ||
+							   action.payload?.message ||
 							   'Unknown error occurred while adding guideline relationship';
-			
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
@@ -11257,7 +11396,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to add guideline relationship: ${errorMessage}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 		},
 
@@ -11292,7 +11432,8 @@ createCustomElement('cadal-careiq-builder', {
 						modalSystemMessages: state.relationshipPanelOpen ? [
 							...(state.modalSystemMessages || []),
 							errorMessage
-						] : state.modalSystemMessages
+						] : state.modalSystemMessages,
+						savingQuestionRelationship: false
 					});
 					return; // Stop here, don't refresh
 				}
@@ -11334,7 +11475,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 
 			// Immediate auto-refresh since backend has already committed (same as guidelines)
@@ -11366,15 +11508,17 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 		},
 		'DELETE_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
 
-			// Store deletion context in state for success handler (meta params don't work reliably)
+			// Set loading state and store deletion context for success handler (meta params don't work reliably)
 			updateState({
+				savingQuestionRelationship: true,
 				lastDeletedQuestionContext: {
 					answerId: answerId,
 					questionId: questionId,
@@ -11617,7 +11761,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newSystemMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingQuestionRelationship: false
 			});
 			
 			// Only refresh the specific answer relationships, not the entire assessment
@@ -11642,7 +11787,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to delete triggered question: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingQuestionRelationship: false
 			});
 		},
 
@@ -11663,7 +11809,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Successfully deleted guideline relationship "${guidelineName}"! Refreshing data...`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11695,7 +11842,8 @@ createCustomElement('cadal-careiq-builder', {
 						message: `Failed to delete guideline relationship: ${action.payload?.error || 'Unknown error'}`,
 						timestamp: new Date().toISOString()
 					}
-				]
+				],
+				savingGuidelineRelationship: false
 			});
 		},
 
@@ -11739,7 +11887,9 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedBarrierData: null
+				selectedBarrierData: null,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11776,7 +11926,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 		},
 
@@ -11824,7 +11976,8 @@ createCustomElement('cadal-careiq-builder', {
 				// Clear typeahead state
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
-				selectedProblemData: null
+				selectedProblemData: null,
+				savingProblem: false
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -11875,7 +12028,8 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessageObj
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				savingProblem: false
 			});
 		},
 
@@ -11892,7 +12046,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					successMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 
 			// Refresh the modal answer relationships to show updated data
@@ -11922,7 +12078,9 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					errorMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear loading state
+				savingBarrierRelationship: false
 			});
 		},
 
@@ -11933,6 +12091,12 @@ createCustomElement('cadal-careiq-builder', {
 			const relationships = state.answerRelationships?.[answerId];
 			const barrier = relationships?.barriers?.barriers?.find(b => b.id === barrierId);
 			const barrierName = barrier?.label || barrier?.name || 'Unknown Barrier';
+
+			// Set loading state
+			updateState({
+				savingBarrierRelationship: true
+			});
+
 			// AUTO-DELETE: Immediately call API
 			const requestBody = JSON.stringify({
 				barrierId: barrierId
@@ -12404,34 +12568,81 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SAVE_SCORING_MODEL_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			const originalRequest = action.payload?.originalRequest || {};
+			const {action, updateState, state, dispatch} = coeffects;
 
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: 'Score saved successfully',
-						timestamp: new Date().toISOString()
-					}
-				]
+			console.log('SAVE_SCORING_MODEL_SUCCESS called:', {
+				savingScoringChanges: state.savingScoringChanges,
+				pendingScoringChanges: state.pendingScoringChanges,
+				actionPayload: action.payload
 			});
+
+			// Only process when we're in a batch save operation
+			if (state.savingScoringChanges && state.pendingScoringChanges > 0) {
+				const remainingCount = state.pendingScoringChanges - 1;
+
+				console.log('Processing batch save, remainingCount:', remainingCount);
+
+				// If this is the last save, show message and reload
+				if (remainingCount <= 0) {
+					console.log('Last save completed, clearing loading state');
+					updateState({
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Scores saved successfully',
+								timestamp: new Date().toISOString()
+							}
+						],
+						savingScoringChanges: false,
+						pendingScoringChanges: 0
+					});
+
+					// Reload assessment data after all saves complete (stay in scoring mode)
+					if (state.currentAssessmentId) {
+						dispatch('FETCH_ASSESSMENT_DETAILS', {
+							assessmentId: state.currentAssessmentId
+						});
+					}
+				} else {
+					// Decrement the counter
+					console.log('Decrementing counter to:', remainingCount);
+					updateState({
+						pendingScoringChanges: remainingCount
+					});
+				}
+			}
 		},
 
 		'SAVE_SCORING_MODEL_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
+			// Always clear loading state on error during batch saves
+			if (state.savingScoringChanges) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
+							timestamp: new Date().toISOString()
+						}
+					],
+					savingScoringChanges: false,
+					pendingScoringChanges: 0
+				});
+			} else {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Failed to save score: ' + (action.payload?.error || 'Unknown error'),
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+			}
 		},
 
 		'SELECT_SCORING_MODEL': (coeffects) => {
@@ -12515,7 +12726,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 			
 			// Filter questions from current section based on input text
-			if (text.length >= 3 && state.currentQuestions?.questions) {
+			if (text.length >= 2 && state.currentQuestions?.questions) {
 				// Find the current answer to check its existing triggered questions
 				let currentAnswer = null;
 				for (const question of state.currentQuestions.questions) {
@@ -12589,7 +12800,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Only search after 3 characters
-			if (text && text.length >= 3) {
+			if (text && text.length >= 2) {
 				dispatch('SEARCH_GUIDELINES', {
 					searchText: text,
 					answerId: answerId
@@ -13198,11 +13409,17 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// Get original data from meta
+			// Get original data from meta, with fallback to stored state
 			const meta = action.meta || {};
-			const {answerId, interventionText, goalId} = meta;
+			let {answerId, interventionText, goalId} = meta;
+
+			// Fallback: Use stored goalId if meta doesn't have it (meta params unreliable in ServiceNow)
+			if (!goalId) {
+				goalId = state.lastAddedInterventionGoalId;
+			}
+
 			// Show success or backend message
-			let systemMessage = `Intervention "${interventionText}" processed! Refreshing data...`;
+			let systemMessage = interventionText ? `Intervention "${interventionText}" processed! Refreshing data...` : 'Intervention created successfully! Refreshing data...';
 			let messageType = 'success';
 
 			// ALWAYS surface backend detail messages to user (duplicates, errors, warnings, etc)
@@ -13239,7 +13456,22 @@ createCustomElement('cadal-careiq-builder', {
 				modalSystemMessages: state.relationshipPanelOpen ? [
 					...(state.modalSystemMessages || []),
 					newMessage
-				] : state.modalSystemMessages
+				] : state.modalSystemMessages,
+				// Clear typeahead state after successful intervention creation
+				interventionTypeaheadText: goalId ? {
+					...state.interventionTypeaheadText,
+					[goalId]: ''
+				} : state.interventionTypeaheadText,
+				interventionTypeaheadResults: goalId ? {
+					...state.interventionTypeaheadResults,
+					[goalId]: []
+				} : state.interventionTypeaheadResults,
+				selectedInterventionData: goalId ? {
+					...state.selectedInterventionData,
+					[goalId]: null
+				} : state.selectedInterventionData,
+				// Clear stored goalId after use
+				lastAddedInterventionGoalId: null
 			});
 
 			// If we're in a modal context, refresh the relationships for immediate feedback
@@ -13247,15 +13479,14 @@ createCustomElement('cadal-careiq-builder', {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
+			}
 
-				// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
-				// This follows the same pattern as goal editing success
-				if (goalId && state.currentAssessmentId) {
-					dispatch('LOAD_GOAL_INTERVENTIONS', {
-						goalId: goalId,
-						guidelineTemplateId: state.currentAssessmentId
-					});
-				}
+			// CRITICAL: Refresh interventions for the SPECIFIC goal that was just updated
+			if (goalId && state.currentAssessmentId) {
+				dispatch('LOAD_GOAL_INTERVENTIONS', {
+					goalId: goalId,
+					guidelineTemplateId: state.currentAssessmentId
+				});
 			}
 
 			// Also refresh section questions to update badge counts
@@ -13567,7 +13798,7 @@ createCustomElement('cadal-careiq-builder', {
 		'GENERIC_TYPEAHEAD_SEARCH': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {searchText, type, problemId, goalId, isPreSaveCheck} = action.payload;
-			if (!searchText || (searchText.length < 3 && !isPreSaveCheck)) {
+			if (!searchText || (searchText.length < 2 && !isPreSaveCheck)) {
 				if (type === 'goal' && problemId) {
 					// Clear goal typeahead results for specific problem
 					updateState({
@@ -14917,7 +15148,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				// Only search after 3 characters
-				if (text && text.length >= 3) {
+				if (text && text.length >= 2) {
 					// Get current section questions
 					const allQuestions = state.currentQuestions?.questions || [];
 					// Find the current question (the one this answer belongs to)
@@ -14959,7 +15190,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				// Only search after 3 characters
-				if (text && text.length >= 3) {
+				if (text && text.length >= 2) {
 					dispatch('SEARCH_QUESTIONS', {
 						searchText: text,
 						sectionId: sectionId
@@ -15039,7 +15270,7 @@ createCustomElement('cadal-careiq-builder', {
 		'RELATIONSHIP_QUESTION_SEARCH': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {searchText, answerId} = action.payload;
-			if (searchText.length >= 3) {
+			if (searchText.length >= 2) {
 				// Start loading state
 				updateState({
 					relationshipTypeaheadLoading: true
@@ -15251,6 +15482,12 @@ createCustomElement('cadal-careiq-builder', {
 		'REMOVE_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingGuidelineRelationship: true
+			});
+
 			// Call backend API to delete guideline relationship immediately (like DELETE_BRANCH_QUESTION)
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15270,6 +15507,11 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_BRANCH_QUESTION': (coeffects) => {
 			const {action, state, dispatch, updateState} = coeffects;
 			const {answerId, questionId, questionLabel} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingQuestionRelationship: true
+			});
 
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15304,6 +15546,12 @@ createCustomElement('cadal-careiq-builder', {
 		'ADD_GUIDELINE_RELATIONSHIP': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, guidelineId, guidelineName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingGuidelineRelationship: true
+			});
+
 			// AUTO-SAVE: Immediately call API like sections do
 			const requestBody = JSON.stringify({
 				answerId: answerId,
@@ -15340,6 +15588,11 @@ createCustomElement('cadal-careiq-builder', {
 			// Calculate sort_order based on existing barriers
 			const existingBarriers = state.answerRelationships?.[answerId]?.barriers?.barriers || [];
 			const sortOrder = existingBarriers.length + 1;
+
+			// Set loading state
+			updateState({
+				savingBarrierRelationship: true
+			});
 
 			// AUTO-SAVE: Immediately call API
 			const requestBody = JSON.stringify({
@@ -15478,6 +15731,11 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Set loading state
+			updateState({
+				savingProblem: true
+			});
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -15510,6 +15768,12 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
+
+			// Set loading state
+			updateState({
+				savingProblem: true
+			});
+
 			// Show saving message
 			const savingMessage = {
 				type: 'info',
@@ -15560,6 +15824,12 @@ createCustomElement('cadal-careiq-builder', {
 		'CREATE_NEW_PROBLEM_AFTER_CHECK': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {answerId, problemName} = action.payload;
+
+			// Ensure loading state is set (may already be set from CREATE_NEW_PROBLEM)
+			updateState({
+				savingProblem: true
+			});
+
 			// Calculate sort_order based on existing problems
 			const existingProblems = state.answerRelationships?.[answerId]?.problems?.problems || [];
 			const sortOrder = existingProblems.length + 1;
@@ -16102,122 +16372,6 @@ createCustomElement('cadal-careiq-builder', {
 			});
 		},
 
-		'OPEN_EDIT_MODAL': (coeffects) => {
-			const {action, updateState} = coeffects;
-			const {type, itemId, text} = action.payload;
-			updateState({
-				modalOpen: true,
-				modalType: type,
-				modalItemId: itemId,
-				modalText: text,
-				modalOriginalText: text
-			});
-		},
-
-		'UPDATE_MODAL_TEXT': (coeffects) => {
-			const {action, updateState} = coeffects;
-			const {text} = action.payload;
-			
-			updateState({
-				modalText: text
-			});
-		},
-
-		'CLOSE_MODAL': (coeffects) => {
-			const {updateState} = coeffects;
-			
-			updateState({
-				modalOpen: false,
-				modalType: null,
-				modalItemId: null,
-				modalText: '',
-				modalOriginalText: ''
-			});
-		},
-
-		'SAVE_MODAL_TEXT': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-			if (state.modalType === 'question') {
-				// Update question label
-				const updatedQuestions = state.currentQuestions.questions.map(question => 
-					question.ids.id === state.modalItemId 
-						? {...question, label: state.modalText}
-						: question
-				);
-				
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					},
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			} else if (state.modalType === 'answer') {
-				// Update answer label
-				const updatedQuestions = state.currentQuestions.questions.map(question => ({
-					...question,
-					answers: question.answers?.map(answer => 
-						answer.ids.id === state.modalItemId 
-							? {...answer, label: state.modalText}
-							: answer
-					) || []
-				}));
-				
-				updateState({
-					currentQuestions: {
-						...state.currentQuestions,
-						questions: updatedQuestions
-					},
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			} else if (state.modalType === 'section') {
-				// Update section label and mark as changed for saving
-				const updatedSections = state.currentAssessment.sections.map(section => ({
-					...section,
-					subsections: section.subsections?.map(subsection => 
-						subsection.id === state.modalItemId 
-							? {...subsection, label: state.modalText}
-							: subsection
-					) || []
-				}));
-				
-				// Track this section as changed so it gets saved
-				const newSectionChanges = {
-					...state.sectionChanges,
-					[state.modalItemId]: {
-						id: state.modalItemId,
-						label: state.modalText,
-						tooltip: '', // Keep existing or default
-						alternative_wording: '',
-						required: false,
-						custom_attributes: {},
-						sort_order: 0
-					}
-				};
-				
-				updateState({
-					currentAssessment: {
-						...state.currentAssessment,
-						sections: updatedSections
-					},
-					sectionChanges: newSectionChanges,
-					modalOpen: false,
-					modalType: null,
-					modalItemId: null,
-					modalText: '',
-					modalOriginalText: ''
-				});
-			}
-		},
-
 		'ADD_SECTION': (coeffects) => {
 			const {updateState, state} = coeffects;
 			// Get existing sections for sort_order calculation
@@ -16370,13 +16524,13 @@ createCustomElement('cadal-careiq-builder', {
 		'CHECK_SECTION_DUPLICATE': (coeffects) => {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionId, sectionLabel} = action.payload;
-			
+
 			// Check for blank section name
 			if (!sectionLabel || sectionLabel.trim() === '') {
 				updateState({
 					systemMessages: [
 					...(state.systemMessages || []),
-						
+
 						{
 							type: 'error',
 							message: 'Section name cannot be blank. Please enter a section name.',
@@ -16386,38 +16540,78 @@ createCustomElement('cadal-careiq-builder', {
 				});
 				return;
 			}
-			
-			// Check if this section name already exists in the current assessment
-			const existingSections = [];
-			if (state.currentAssessment?.sections) {
-				state.currentAssessment.sections.forEach(section => {
-					if (section.subsections) {
-						section.subsections.forEach(subsection => {
-							// Don't compare with itself
-							if (subsection.id !== sectionId) {
-								existingSections.push(subsection.label.toLowerCase().trim());
-							}
-						});
-					}
-				});
-			}
-			
+
 			const currentSectionName = sectionLabel.toLowerCase().trim();
-			if (existingSections.includes(currentSectionName)) {
-				updateState({
-					systemMessages: [
-					...(state.systemMessages || []),
-						
-						{
-							type: 'error',
-							message: `Section "${sectionLabel}" already exists in this assessment. Please use a different name.`,
-							timestamp: new Date().toISOString()
+
+			// Determine if the section being saved is a parent or child, and find its parent if it's a child
+			let isParentSection = false;
+			let parentSectionId = null;
+
+			if (state.currentAssessment?.sections) {
+				// Check if sectionId is a parent section
+				const parentSection = state.currentAssessment.sections.find(s => s.id === sectionId);
+				if (parentSection) {
+					isParentSection = true;
+				} else {
+					// It's a child section - find which parent it belongs to
+					for (const section of state.currentAssessment.sections) {
+						if (section.subsections) {
+							const childSection = section.subsections.find(sub => sub.id === sectionId);
+							if (childSection) {
+								parentSectionId = section.id;
+								break;
+							}
 						}
-					]
-				});
-				return;
+					}
+				}
 			}
-			
+
+			// Apply validation rules based on whether it's a parent or child section
+			if (isParentSection) {
+				// RULE: Parent sections must have unique names across all parents
+				const duplicateParent = state.currentAssessment.sections.find(section =>
+					section.id !== sectionId && section.label.toLowerCase().trim() === currentSectionName
+				);
+
+				if (duplicateParent) {
+					updateState({
+						systemMessages: [
+						...(state.systemMessages || []),
+
+							{
+								type: 'error',
+								message: `Parent section "${sectionLabel}" already exists. Parent sections must have unique names.`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+					return;
+				}
+			} else {
+				// RULE: Child sections must have unique names only within the same parent
+				const parentSection = state.currentAssessment.sections.find(s => s.id === parentSectionId);
+				if (parentSection && parentSection.subsections) {
+					const duplicateSibling = parentSection.subsections.find(subsection =>
+						subsection.id !== sectionId && subsection.label.toLowerCase().trim() === currentSectionName
+					);
+
+					if (duplicateSibling) {
+						updateState({
+							systemMessages: [
+							...(state.systemMessages || []),
+
+								{
+									type: 'error',
+									message: `Child section "${sectionLabel}" already exists under "${parentSection.label}". Child sections must have unique names within the same parent.`,
+									timestamp: new Date().toISOString()
+								}
+							]
+						});
+						return;
+					}
+				}
+			}
+
 			// No duplicate found, now check for library matches before saving
 			dispatch('CHECK_SECTION_LIBRARY_MATCH', {
 				sectionId,
@@ -16798,9 +16992,10 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, dispatch, state, updateState} = coeffects;
 			const {sectionData} = action.payload;
 
-			// Set loading state
+			// Store the new section label in state so we can use it after the API call
 			updateState({
-				addingSection: true
+				addingSection: true,
+				pendingNewSectionLabel: sectionData.label
 			});
 
 			// Send fields directly - ServiceNow adds data wrapper automatically
@@ -16869,7 +17064,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'DELETE_SECTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
+			const {action, updateState, state, dispatch} = coeffects;
 			const sectionId = action.meta?.sectionId;
 
 			// Clear loading state
@@ -16884,21 +17079,25 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedSectionChanges[sectionId];
 			}
 
-			// The section was already removed locally by DELETE_SECTION handler
-			// Just confirm the backend operation succeeded
 			updateState({
 				deletingSections: updatedDeletingSections,
 				sectionChanges: updatedSectionChanges,
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Section deleted successfully! No refresh needed.',
+						message: 'Section deleted successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
+
+			// Reload assessment data to refresh the section list and reset to first section
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
+				});
+			}
 		},
 
 		'DELETE_SECTION_ERROR': (coeffects) => {
@@ -17250,6 +17449,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
+				editingTooltipOriginalText: currentTooltip,  // Store original for comparison
 				editingTooltipQuestionId: questionId
 			});
 		},
@@ -17268,37 +17468,56 @@ createCustomElement('cadal-careiq-builder', {
 			const questionId = state.editingTooltipQuestionId;
 			const answerId = state.editingTooltipAnswerId;
 			const newTooltip = state.editingTooltipText;
-			
+			const originalTooltip = state.editingTooltipOriginalText;
+
+			// Check if tooltip actually changed
+			const tooltipChanged = newTooltip !== originalTooltip;
+
 			if (questionId) {
-				// Update the question in the current questions data and mark as unsaved
+				// Find the current question to check if it already has unsaved changes
+				const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === questionId);
+				const alreadyUnsaved = currentQuestion?.isUnsaved || false;
+
+				// Update the question in the current questions data
 				const updatedQuestions = {
 					...state.currentQuestions,
 					questions: state.currentQuestions.questions.map(question =>
 						question.ids.id === questionId
-							? {...question, tooltip: newTooltip, isUnsaved: true}
+							? {...question, tooltip: newTooltip, isUnsaved: tooltipChanged ? true : alreadyUnsaved}
 							: question
 					)
 				};
+
+				// Only track changes if tooltip actually changed
+				const updatedQuestionChanges = tooltipChanged ? {
+					...state.questionChanges,
+					[questionId]: {
+						...(state.questionChanges?.[questionId] || {}),
+						action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+						questionId: questionId,
+						tooltip: newTooltip
+					}
+				} : state.questionChanges;
 
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
+					editingTooltipOriginalText: null,
 					editingTooltipQuestionId: null,
 					editingTooltipAnswerId: null,
-					// Track question change for save - preserve 'add' action if it exists
-					questionChanges: {
-						...state.questionChanges,
-						[questionId]: {
-							...(state.questionChanges?.[questionId] || {}),
-							action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
-							questionId: questionId,
-							tooltip: newTooltip
-						}
-					}
+					questionChanges: updatedQuestionChanges
 				});
 			} else if (answerId) {
-				// Update the answer in the current questions data and mark question as unsaved
+				// Find the question containing this answer to check if it already has unsaved changes
+				let parentQuestionAlreadyUnsaved = false;
+				state.currentQuestions.questions.forEach(question => {
+					if (question.answers?.some(answer => answer.ids.id === answerId)) {
+						parentQuestionAlreadyUnsaved = question.isUnsaved || false;
+					}
+				});
+
+				// Update the answer in the current questions data
 				const updatedQuestions = {
 					...state.currentQuestions,
 					questions: state.currentQuestions.questions.map(question => {
@@ -17310,40 +17529,32 @@ createCustomElement('cadal-careiq-builder', {
 									? {...answer, tooltip: newTooltip}
 									: answer
 							) || [],
-							// Mark question as unsaved if it contains the updated answer
-							isUnsaved: hasAnswerToUpdate ? true : question.isUnsaved
+							// Mark question as unsaved only if tooltip changed
+							isUnsaved: hasAnswerToUpdate ? (tooltipChanged ? true : parentQuestionAlreadyUnsaved) : question.isUnsaved
 						};
 					})
 				};
+
+				// Only track changes if tooltip actually changed
+				const updatedAnswerChanges = tooltipChanged ? {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'update',
+						answerId: answerId,
+						tooltip: newTooltip
+					}
+				} : state.answerChanges;
 
 				updateState({
 					currentQuestions: updatedQuestions,
 					editingTooltip: null,
 					editingTooltipText: null,
+					editingTooltipOriginalText: null,
 					editingTooltipQuestionId: null,
 					editingTooltipAnswerId: null,
-					// Track answer change for save
-					answerChanges: {
-						...state.answerChanges,
-						[answerId]: {
-							action: 'update',
-							answerId: answerId,
-							tooltip: newTooltip
-						}
-					}
+					answerChanges: updatedAnswerChanges
 				});
 			}
-		},
-
-		'CANCEL_TOOLTIP_EDIT': (coeffects) => {
-			const {updateState} = coeffects;
-
-			updateState({
-				editingTooltip: null,
-				editingTooltipText: null,
-				editingTooltipQuestionId: null,
-				editingTooltipAnswerId: null
-			});
 		},
 
 		// Custom Attributes Modal Actions
@@ -17359,6 +17570,7 @@ createCustomElement('cadal-careiq-builder', {
 					key: key,
 					value: currentAttributes[key]
 				})),
+				customAttributesOriginalData: currentAttributes || {},  // Store original for comparison
 				customAttributesValidationError: null  // Clear any previous errors
 			});
 		},
@@ -17370,6 +17582,7 @@ createCustomElement('cadal-careiq-builder', {
 				customAttributesItemType: null,
 				customAttributesItemId: null,
 				customAttributesData: [],
+				customAttributesOriginalData: null,  // Clear original data
 				customAttributesValidationError: null  // Clear validation error
 			});
 		},
@@ -17438,6 +17651,27 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
+			const originalAttributes = state.customAttributesOriginalData || {};
+
+			// Helper function to compare two attribute objects
+			const attributesChanged = () => {
+				const newKeys = Object.keys(customAttributes).sort();
+				const oldKeys = Object.keys(originalAttributes).sort();
+
+				// Check if keys are different
+				if (newKeys.length !== oldKeys.length) return true;
+				if (JSON.stringify(newKeys) !== JSON.stringify(oldKeys)) return true;
+
+				// Check if values are different
+				for (let key of newKeys) {
+					if (customAttributes[key] !== originalAttributes[key]) return true;
+				}
+
+				return false;
+			};
+
+			const hasChanges = attributesChanged();
+
 			const itemType = state.customAttributesItemType;
 			const itemId = state.customAttributesItemId;
 
@@ -17446,103 +17680,90 @@ createCustomElement('cadal-careiq-builder', {
 				const currentQuestion = state.currentQuestions.questions.find(q => q.ids.id === itemId);
 				if (!currentQuestion) return;
 
-				// Update question locally first
+				const alreadyUnsaved = currentQuestion?.isUnsaved || false;
+
+				// Update question locally
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === itemId) {
 						return {
 							...question,
-							custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+							custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined,
+							isUnsaved: hasChanges ? true : alreadyUnsaved
 						};
 					}
 					return question;
 				});
 
+				// Only track changes if custom attributes actually changed
+				const updatedQuestionChanges = hasChanges ? {
+					...state.questionChanges,
+					[itemId]: {
+						...(state.questionChanges?.[itemId] || {}),
+						action: state.questionChanges?.[itemId]?.action === 'add' ? 'add' : 'update',
+						questionId: itemId,
+						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+					}
+				} : state.questionChanges;
+
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					}
-				});
-
-				// Immediately save to backend with complete question data
-				dispatch('UPDATE_QUESTION_API', {
-					questionData: {
-						questionId: itemId,
-						label: currentQuestion.label,
-						type: currentQuestion.type,
-						required: currentQuestion.required,
-						tooltip: currentQuestion.tooltip || '',
-						alternative_wording: currentQuestion.alternative_wording || '',
-						voice: currentQuestion.voice || 'CaseManager',
-						sort_order: currentQuestion.sort_order,
-						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
-					}
+					},
+					questionChanges: updatedQuestionChanges
 				});
 
 			} else if (itemType === 'answer') {
-				// Find the current answer data
+				// Find the current answer and parent question
 				let currentAnswer = null;
+				let parentQuestionAlreadyUnsaved = false;
 				state.currentQuestions.questions.forEach(question => {
 					const answer = question.answers?.find(a => a.ids.id === itemId);
 					if (answer) {
 						currentAnswer = answer;
+						parentQuestionAlreadyUnsaved = question.isUnsaved || false;
 					}
 				});
 
 				if (!currentAnswer) return;
 
-				// Update answer locally first
+				// Update answer locally
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
-					const updatedAnswers = question.answers?.map(answer => {
-						if (answer.ids.id === itemId) {
-							return {
-								...answer,
-								custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
-							};
-						}
-						return answer;
-					}) || [];
-
+					const hasAnswerToUpdate = question.answers?.some(answer => answer.ids.id === itemId);
 					return {
 						...question,
-						answers: updatedAnswers
+						answers: question.answers?.map(answer => {
+							if (answer.ids.id === itemId) {
+								return {
+									...answer,
+									custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+								};
+							}
+							return answer;
+						}) || [],
+						// Mark question as unsaved only if custom attributes changed
+						isUnsaved: hasAnswerToUpdate ? (hasChanges ? true : parentQuestionAlreadyUnsaved) : question.isUnsaved
 					};
 				});
+
+				// Only track changes if custom attributes actually changed
+				const updatedAnswerChanges = hasChanges ? {
+					...state.answerChanges,
+					[itemId]: {
+						action: 'update',
+						answerId: itemId,
+						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
+					}
+				} : state.answerChanges;
 
 				updateState({
 					currentQuestions: {
 						...state.currentQuestions,
 						questions: updatedQuestions
-					}
-				});
-
-				// Immediately save to backend with complete answer data
-				dispatch('UPDATE_ANSWER_API', {
-					answerData: {
-						answerId: itemId,
-						label: currentAnswer.label,
-						tooltip: currentAnswer.tooltip || '',
-						alternative_wording: currentAnswer.alternative_wording || '',
-						required: currentAnswer.required || false,
-						sort_order: currentAnswer.sort_order,
-						secondary_input_type: currentAnswer.secondary_input_type || '',
-						mutually_exclusive: currentAnswer.mutually_exclusive || false,
-						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
-					}
+					},
+					answerChanges: updatedAnswerChanges
 				});
 			}
-
-			// Add system message for successful save
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'success',
-						message: 'Custom attributes saved successfully!',
-						timestamp: new Date().toISOString()
-					}
-				]
-			});
 
 			dispatch('CLOSE_CUSTOM_ATTRIBUTES_MODAL');
 		},
@@ -17622,9 +17843,109 @@ createCustomElement('cadal-careiq-builder', {
 				}))
 			};
 
+			// Track the change in scoringChanges state
+			const updatedScoringChanges = {
+				...state.scoringChanges,
+				[answerId]: {
+					...(state.scoringChanges[answerId] || {}),
+					[selectedModelId]: score || null
+				}
+			};
+
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				scoringChanges: updatedScoringChanges
 			});
+		},
+
+		'SAVE_SCORING_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			if (!state.selectedScoringModel) {
+				return;
+			}
+
+			const scoringChanges = state.scoringChanges || {};
+			const selectedModelId = state.selectedScoringModel.id;
+			const selectedModel = state.selectedScoringModel;
+
+			// If no changes, just show message
+			if (Object.keys(scoringChanges).length === 0) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'info',
+							message: 'No changes to save',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// Count how many saves we need to do
+			let saveCount = 0;
+			Object.keys(scoringChanges).forEach(answerId => {
+				const answerChanges = scoringChanges[answerId];
+				if (answerChanges[selectedModelId] !== undefined) {
+					saveCount++;
+				}
+			});
+
+			// Set loading state and pending count
+			updateState({
+				savingScoringChanges: true,
+				pendingScoringChanges: saveCount
+			});
+
+			// Iterate through all scoring changes and save them
+			let completedCount = 0;
+			Object.keys(scoringChanges).forEach(answerId => {
+				const answerChanges = scoringChanges[answerId];
+				if (answerChanges[selectedModelId] !== undefined) {
+					const score = answerChanges[selectedModelId];
+					const scoreString = score ? String(score) : "";
+
+					// Use the exact same format as SAVE_ANSWER_SCORE
+					const requestBody = JSON.stringify({
+						scoring_model_id: selectedModel.id,
+						guideline_template_id: state.currentAssessmentId,
+						label: selectedModel.label,
+						scoring_type: selectedModel.scoring_type,
+						answer_id: answerId,
+						value: scoreString
+					});
+
+					dispatch('MAKE_SAVE_SCORING_MODEL_REQUEST', {
+						requestBody: requestBody,
+						isBatch: true,
+						totalCount: saveCount
+					});
+				}
+			});
+
+			// Clear scoring changes after dispatching all saves
+			updateState({
+				scoringChanges: {}
+			});
+		},
+
+		'CANCEL_SCORING_CHANGES': (coeffects) => {
+			const {updateState, state, dispatch} = coeffects;
+
+			// Clear scoring changes and exit scoring mode
+			updateState({
+				scoringChanges: {},
+				selectedScoringModel: null
+			});
+
+			// Reload assessment data to restore original values
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
+				});
+			}
 		},
 
 		'SAVE_ANSWER_SCORE': (coeffects) => {
@@ -17730,6 +18051,7 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				editingTooltip: true,
 				editingTooltipText: currentTooltip,
+				editingTooltipOriginalText: currentTooltip,  // Store original for comparison
 				editingTooltipAnswerId: answerId
 			});
 		},
@@ -17771,11 +18093,17 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 
-			// Validate all answers for blank text
+			// Validate all answers for blank text (skip deleted answers)
 			if (answerChanges.length > 0) {
 				answerChanges.forEach(answerId => {
 					const answerData = answerChangesData[answerId];
-					if (!answerData.label || answerData.label.trim() === '') {
+					// Skip validation for answers being deleted
+					if (answerData.action === 'delete') {
+						return;
+					}
+					// Only validate label if the label field is actually being changed
+					// (answerData.label will be undefined for partial updates like tooltip or custom_attributes only)
+					if (answerData.hasOwnProperty('label') && (!answerData.label || answerData.label.trim() === '')) {
 						validationErrors.push('Answer text cannot be blank. Please enter answer text.');
 					}
 				});
@@ -17822,6 +18150,10 @@ createCustomElement('cadal-careiq-builder', {
 
 
 						currentQuestion.answers.forEach(answer => {
+							// Skip answers marked for deletion
+							if (answer.isDeleted) {
+								return;
+							}
 							const trimmedLabel = answer.label.toLowerCase().trim();
 							if (answerLabels.includes(trimmedLabel)) {
 								// This is a duplicate within the same question
@@ -17924,13 +18256,21 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Check for duplicate questions - applies to 'add' and 'library_replace' actions
 					if (questionData.action === 'add' || questionData.action === 'library_replace') {
-						// Check if this question already exists in the current section
+						// CRITICAL FIX: Only check against questions that have REAL UUIDs (already persisted to backend)
+						// Skip any questions with temp IDs (they're all new questions in this save batch)
 						const existingQuestions = [];
 						if (state.currentQuestions?.questions) {
 							state.currentQuestions.questions.forEach(existingQuestion => {
-								// Don't compare with itself (in case it's a temp ID)
+								// Don't compare with itself
 								if (existingQuestion.ids.id !== questionId) {
-									existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+									// ONLY include questions with real UUIDs (not temp_*)
+									// These are questions that were already saved in previous operations
+									const hasRealUUID = !existingQuestion.ids.id.startsWith('temp_');
+									const hasNoChanges = !questionChanges.includes(existingQuestion.ids.id) && existingQuestion.isUnsaved !== true;
+
+									if (hasRealUUID && hasNoChanges) {
+										existingQuestions.push(existingQuestion.label.toLowerCase().trim());
+									}
 								}
 							});
 						}
@@ -17948,6 +18288,7 @@ createCustomElement('cadal-careiq-builder', {
 			// If any validation errors, show them and return early (preserve save/cancel buttons)
 			if (validationErrors.length > 0) {
 				updateState({
+					savingQuestions: {}, // Clear all saving spinners
 					systemMessages: [
 						...(state.systemMessages || []),
 						...validationErrors.map(error => ({
@@ -17967,6 +18308,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerChanges: {},
 				relationshipChanges: {},
 				answerDuplicateCheckCompleted: false, // Reset for next save
+				savingQuestions: {}, // Clear all saving spinners
 				// Clear isUnsaved flags from all questions to hide save buttons
 				currentQuestions: state.currentQuestions ? {
 					...state.currentQuestions,
@@ -18083,7 +18425,7 @@ createCustomElement('cadal-careiq-builder', {
 							alternative_wording: '',
 							sort_order: questionData.sort_order,
 							custom_attributes: {},
-							voice: 'CaseManager',
+							voice: currentQuestion?.voice || questionData.voice || 'CaseManager',
 							required: questionData.required || false,
 							available: false,
 							has_quality_measures: false
@@ -18330,7 +18672,7 @@ createCustomElement('cadal-careiq-builder', {
 					}
 				});
 			}
-			
+
 			// Save relationship changes
 			if (relationshipChanges.length > 0) {
 				relationshipChanges.forEach(relationshipKey => {
@@ -18572,6 +18914,10 @@ createCustomElement('cadal-careiq-builder', {
 					library_id: questionData.library_id
 				};
 			} else {
+				// DEBUG: Log the voice value we're about to send
+				console.log('ADD_QUESTION_TO_SECTION_API - questionData.voice:', questionData.voice);
+				console.log('ADD_QUESTION_TO_SECTION_API - Full questionData:', questionData);
+
 				// Regular question - use full payload
 				requestBodyData = {
 					sectionId: sectionId,
@@ -18586,6 +18932,9 @@ createCustomElement('cadal-careiq-builder', {
 					available: questionData.available || false,
 					has_quality_measures: questionData.has_quality_measures || false
 				};
+
+				// DEBUG: Log the final voice value being sent
+				console.log('ADD_QUESTION_TO_SECTION_API - Final voice in requestBodyData:', requestBodyData.voice);
 
 				// Add library_id for library questions
 				if (questionData.library_id) {
@@ -18709,50 +19058,25 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			// Check if we should skip reload (e.g., during batch answer reordering)
+			// Clear the skipReload flag if it was set
 			if (state.skipAnswerUpdateReload) {
-				// Clear the flag and show success message without reload
 				updateState({
-					skipAnswerUpdateReload: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'success',
-							message: 'Answer updated successfully!',
-							timestamp: new Date().toISOString()
-						}
-					]
+					skipAnswerUpdateReload: false
 				});
-				return; // Exit early, no reload
 			}
 
-			// Normal flow: reload data after answer update
-			// Store the current section to re-select after refresh
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-
-			// Add success message
+			// Default behavior: NO reload (same as questions)
+			// Just show success message and force UI re-render
 			updateState({
+				renderKey: Date.now(), // Force re-render
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Answer updated successfully! Refreshing data...',
+						message: 'Answer updated successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-
-			// Set pending reselection data
-			updateState({
-				pendingReselectionSection: currentSection
-			});
-
-			// Trigger data refresh with proper reselection
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessmentId,
-				assessmentTitle: state.currentAssessment?.title || 'Assessment'
 			});
 		},
 
@@ -19358,6 +19682,12 @@ createCustomElement('cadal-careiq-builder', {
 				// Dispatch the add answers request
 				dispatch('MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST', { requestBody });
 
+				// CRITICAL: Remove the saved question from questionChanges to prevent re-saving
+				const updatedQuestionChanges = {...state.questionChanges};
+				if (savedQuestionId) {
+					delete updatedQuestionChanges[savedQuestionId];
+				}
+
 				// Update UI with message about adding answers and clear pending answers
 				updateState({
 					currentQuestions: {
@@ -19374,6 +19704,7 @@ createCustomElement('cadal-careiq-builder', {
 						}
 					],
 					// CRITICAL: Clear all question save tracking to prevent re-saving
+					questionChanges: updatedQuestionChanges,  // Remove this question from changes
 					pendingQuestionAnswers: null,
 					lastSavedQuestionId: null,
 					savingQuestions: {}  // Clear all saving states
@@ -19402,6 +19733,12 @@ createCustomElement('cadal-careiq-builder', {
 						});
 					}
 				} else {
+					// CRITICAL: Remove the saved question from questionChanges to prevent re-saving
+					const updatedQuestionChanges = {...state.questionChanges};
+					if (savedQuestionId) {
+						delete updatedQuestionChanges[savedQuestionId];
+					}
+
 					// Regular question - just update state and CLEAR tracking
 					updateState({
 						currentQuestions: {
@@ -19417,6 +19754,7 @@ createCustomElement('cadal-careiq-builder', {
 							}
 						],
 						// CRITICAL: Clear all question save tracking to prevent re-saving
+						questionChanges: updatedQuestionChanges,  // Remove this question from changes
 						lastSavedQuestionId: null,
 						pendingQuestionAnswers: null,
 						savingQuestions: {}  // Clear all saving states
@@ -19526,6 +19864,14 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					pendingQuestionMetadata: null,
 					lastCreatedQuestionId: null
+				});
+			}
+
+			// Refresh section to get real UUIDs for newly added answers
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
 				});
 			}
 		},
@@ -19843,130 +20189,33 @@ createCustomElement('cadal-careiq-builder', {
 
 		'ADD_SECTION_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
-			// The response contains the new section ID: { "id": "uuid" }
+			// The response contains the new section ID, label comes from state
 			const newSectionId = action.payload.id;
+			const newSectionLabel = state.pendingNewSectionLabel;
 
-			// Find which temp section was just saved
-			let oldTempSectionId = null;
-			for (const section of state.currentAssessment.sections) {
-				if (section.isNew && section.id.startsWith('temp_')) {
-					oldTempSectionId = section.id;
-					break;
-				}
-				// Also check subsections
-				if (section.subsections) {
-					for (const subsection of section.subsections) {
-						if (subsection.isNew && subsection.id.startsWith('temp_')) {
-							oldTempSectionId = subsection.id;
-							break;
-						}
-					}
-				}
-				if (oldTempSectionId) break;
-			}
-
-
-			// Update any child sections in sectionChanges that reference this temp parent ID
-			const updatedSectionChanges = {...state.sectionChanges};
-
-			// Remove the temp section that was just saved from sectionChanges
-			if (oldTempSectionId) {
-				delete updatedSectionChanges[oldTempSectionId];
-			}
-
-			let childSectionsUpdated = 0;
-			Object.keys(updatedSectionChanges).forEach(sectionId => {
-				const sectionData = updatedSectionChanges[sectionId];
-				if (sectionData.parent_section_id === oldTempSectionId) {
-					updatedSectionChanges[sectionId] = {
-						...sectionData,
-						parent_section_id: newSectionId
-					};
-					childSectionsUpdated++;
-				}
-			});
-
-			// Find and update the temp section with the real ID locally
-			const updatedSections = state.currentAssessment.sections.map(section => {
-				// If this section was just saved (temp -> real UUID), update it
-				if (section.isNew && section.id === oldTempSectionId) {
-					return {
-						...section,
-						id: newSectionId,
-						isNew: false // Remove the temp flag
-					};
-				}
-
-				// For all sections, update any subsections that were just saved
-				return {
-					...section,
-					subsections: section.subsections?.map(subsection => {
-						// If this is the temp subsection (marked as isNew), replace with real data
-						if (subsection.isNew && subsection.id === oldTempSectionId) {
-							return {
-								...subsection,
-								id: newSectionId,
-								isNew: false // Remove the temp flag
-							};
-						}
-						return subsection;
-					}) || []
-				};
-			});
-
+			// Clear loading state and show success message
 			updateState({
-				addingSection: false, // Clear loading state
-				currentAssessment: {
-					...state.currentAssessment,
-					sections: updatedSections
-				},
-				sectionChanges: updatedSectionChanges, // Update sectionChanges with corrected parent IDs
+				addingSection: false,
+				pendingNewSectionLabel: null, // Clear the stored label
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Section added successfully! No refresh needed.',
+						message: 'Section added successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
 
-			// Check if there are pending child sections to save after parent sections are done
-			if (state.pendingChildSections && state.pendingChildSections.length > 0) {
-
-				// Update child sections' parent_section_id from temp ID to real UUID
-				const updatedChildSections = state.pendingChildSections.map(({sectionId, sectionData}) => {
-					// Check if this child section's parent_section_id is a temp ID that needs updating
-					let updatedSectionData = {...sectionData};
-
-					// Find all sections that were just saved and map temp IDs to real UUIDs
-					// Look through the current assessment for temp IDs that were replaced
-					if (sectionData.parent_section_id && sectionData.parent_section_id.startsWith('temp_')) {
-						// This child section has a temp parent ID - we need to update it to the real UUID
-						// Since we just got a successful response, the newSectionId is the real UUID for the parent
-						updatedSectionData = {
-							...sectionData,
-							parent_section_id: newSectionId
-						};
-					}
-
-					return {sectionId, sectionData: updatedSectionData};
-				});
-
-				// Save all pending child sections with updated parent IDs
-				updatedChildSections.forEach(({sectionId, sectionData}) => {
-					dispatch('SAVE_SECTION', {
-						sectionId: sectionId,
-						sectionData: sectionData,
-						config: state.careiqConfig,
-						accessToken: state.accessToken
-					});
-				});
-
-				// Clear pending child sections
+			// Refresh assessment data and automatically select the new section
+			if (state.currentAssessmentId && newSectionLabel) {
 				updateState({
-					pendingChildSections: []
+					pendingReselectionSection: newSectionId,
+					pendingReselectionSectionLabel: newSectionLabel
+				});
+
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId
 				});
 			}
 		},
@@ -19991,6 +20240,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			updateState({
 				addingSection: false, // Clear loading state
+				pendingNewSectionLabel: null, // Clear the stored label
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
@@ -20111,12 +20361,6 @@ createCustomElement('cadal-careiq-builder', {
 				answerChanges: updatedAnswerChanges
 			});
 
-			// Show toast
-			dispatch('SHOW_TOAST', {
-				type: 'warning',
-				message: 'Question changes cancelled. Refreshing section data from server...'
-			});
-
 			// Reload section to get fresh data from server
 			if (state.selectedSection) {
 				dispatch('FETCH_SECTION_QUESTIONS', {
@@ -20136,7 +20380,7 @@ createCustomElement('cadal-careiq-builder', {
 			}
 			
 			// Update query and hide dropdown if search is too short
-			if (searchText.length < 3) {
+			if (searchText.length < 2) {
 				updateState({
 					sectionTypeaheadQuery: searchText,
 					sectionTypeaheadVisible: false,
@@ -20300,7 +20544,7 @@ createCustomElement('cadal-careiq-builder', {
 				answerTypeaheadDebounceTimeout: timeout,
 				answerTypeaheadQuery: searchText,
 				editingAnswerId: answerId,
-				answerTypeaheadVisible: searchText.length >= 3
+				answerTypeaheadVisible: searchText.length >= 2
 			});
 		},
 
@@ -20733,99 +20977,6 @@ createCustomElement('cadal-careiq-builder', {
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-		},
-
-		'ADD_INTERVENTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state, dispatch} = coeffects;
-			// Show success message
-			let systemMessage = 'Intervention created successfully! Refreshing data...';
-			let messageType = 'success';
-
-			// Surface any backend detail messages to user
-			if (action.payload && action.payload.detail) {
-				systemMessage = action.payload.detail;
-				if (systemMessage.toLowerCase().includes('duplicate') ||
-					systemMessage.toLowerCase().includes('already')) {
-					messageType = 'warning';
-				}
-			}
-
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: messageType,
-						message: systemMessage,
-						timestamp: new Date().toISOString()
-					}
-				],
-				modalSystemMessages: state.relationshipPanelOpen ? [
-					...(state.modalSystemMessages || []),
-					{
-						type: messageType,
-						message: systemMessage,
-						timestamp: new Date().toISOString()
-					}
-				] : state.modalSystemMessages
-			});
-
-			// Clear typeahead state after successful intervention creation
-			const answerId = state.relationshipModalAnswerId;
-			if (answerId) {
-				updateState({
-					interventionTypeaheadText: {},
-					interventionTypeaheadResults: {},
-					selectedInterventionData: {},
-					currentInterventionSearchContext: null
-				});
-			}
-
-			// CRITICAL: Refresh intervention data using stored goalId (meta params unreliable in ServiceNow)
-			const goalId = state.lastAddedInterventionGoalId;
-			if (goalId && state.currentAssessmentId) {
-				// Clear the stored ID after use
-				updateState({
-					lastAddedInterventionGoalId: null
-				});
-				dispatch('LOAD_GOAL_INTERVENTIONS', {
-					goalId: goalId,
-					guidelineTemplateId: state.currentAssessmentId
-				});
-			} else {
-			}
-
-			// Also refresh section questions to update badge counts
-			if (state.selectedSection) {
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: state.selectedSection,
-					sectionLabel: state.selectedSectionLabel
-				});
-			}
-		},
-
-		'ADD_INTERVENTION_ERROR': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-
-			console.error('ADD_INTERVENTION_ERROR:', action.payload);
-
-			updateState({
-				systemMessages: [
-					...(state.systemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				],
-				modalSystemMessages: state.relationshipPanelOpen ? [
-					...(state.modalSystemMessages || []),
-					{
-						type: 'error',
-						message: `Failed to add intervention: ${action.payload?.error || 'Unknown error'}`,
-						timestamp: new Date().toISOString()
-					}
-				] : state.modalSystemMessages
 			});
 		},
 

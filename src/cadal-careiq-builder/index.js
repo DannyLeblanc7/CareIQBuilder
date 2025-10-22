@@ -1758,7 +1758,9 @@ const view = (state, {updateState, dispatch}) => {
 																		minWidth: '40px',
 																		marginBottom: '0.5rem'
 																	} : {}}
-																	onclick={() => {
+																	onclick={(e) => {
+																		e.stopPropagation();
+																		e.preventDefault();
 																		dispatch('DELETE_QUESTION', {
 																			questionId: question.ids.id
 																		});
@@ -7743,91 +7745,6 @@ const view = (state, {updateState, dispatch}) => {
 				);
 			})()}
 
-			{/* Confirmation Dialog for Unsaved Changes */}
-			{state.confirmationDialogOpen && (
-				<div style={{
-					position: 'fixed',
-					top: 0,
-					left: 0,
-					width: '100%',
-					height: '100%',
-					backgroundColor: 'rgba(0, 0, 0, 0.5)',
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					zIndex: 10000
-				}}
-				onclick={(e) => {
-					if (e.target === e.currentTarget) {
-						dispatch('CANCEL_DIALOG_ACTION');
-					}
-				}}
-				>
-					<div style={{
-						backgroundColor: 'white',
-						borderRadius: '8px',
-						padding: '24px',
-						maxWidth: '500px',
-						width: '90%',
-						boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-					}}
-					onclick={(e) => e.stopPropagation()}
-					>
-						<h3 style={{
-							margin: '0 0 16px 0',
-							fontSize: '18px',
-							fontWeight: '600',
-							color: '#dc2626'
-						}}>
-							⚠️ Unsaved Changes
-						</h3>
-						<p style={{
-							margin: '0 0 24px 0',
-							fontSize: '14px',
-							color: '#4b5563',
-							lineHeight: '1.5'
-						}}>
-							{state.confirmationDialogMessage}
-						</p>
-						<div style={{
-							display: 'flex',
-							gap: '12px',
-							justifyContent: 'flex-end'
-						}}>
-							<button
-								onclick={() => dispatch('CANCEL_DIALOG_ACTION')}
-								style={{
-									padding: '8px 16px',
-									backgroundColor: '#f3f4f6',
-									color: '#374151',
-									border: 'none',
-									borderRadius: '4px',
-									fontSize: '14px',
-									fontWeight: '500',
-									cursor: 'pointer'
-								}}
-							>
-								Cancel
-							</button>
-							<button
-								onclick={() => dispatch('CONFIRM_DIALOG_ACTION')}
-								style={{
-									padding: '8px 16px',
-									backgroundColor: '#6b7280',
-									color: 'white',
-									border: 'none',
-									borderRadius: '4px',
-									fontSize: '14px',
-									fontWeight: '500',
-									cursor: 'pointer'
-								}}
-							>
-								Continue
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 
 			{/* Scoring Models Side Panel */}
 			{state.scoringPanelOpen && (
