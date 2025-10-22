@@ -19920,19 +19920,27 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			// The question was already removed locally by DELETE_QUESTION handler
-			// Just confirm the backend operation succeeded
+			// Now refresh the section to update relationship badges
 			updateState({
 				deletingQuestions: updatedDeletingQuestions,
+				questionsLoading: true, // Show spinner during refresh
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Question deleted successfully! No refresh needed.',
+						message: 'Question deleted successfully! Refreshing section...',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
+
+			// Refresh current section to update relationship badges
+			if (state.selectedSection) {
+				dispatch('FETCH_SECTION_QUESTIONS', {
+					sectionId: state.selectedSection,
+					sectionLabel: state.selectedSectionLabel
+				});
+			}
 		},
 
 		'DELETE_QUESTION_ERROR': (coeffects) => {
