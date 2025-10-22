@@ -607,7 +607,7 @@ const view = (state, {updateState, dispatch}) => {
 							>
 								🔄 Refresh
 							</button>
-							{state.currentAssessment?.status === 'draft' ? [
+							{(state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) ? [
 								<button 
 									key="edit-btn"
 									className={`mode-toggle-btn ${state.builderMode ? 'active' : ''}`}
@@ -633,6 +633,8 @@ const view = (state, {updateState, dispatch}) => {
 									key="edit-scoring-btn"
 									className={`mode-toggle-btn ${state.scoringPanelOpen ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_SCORING_MODE')}
+									disabled={state.selectedScoringModel}
+									title={state.selectedScoringModel ? 'Save or cancel current scoring changes first' : 'Open scoring models panel'}
 								>
 									🎯 Edit Scoring
 								</button>,
@@ -651,6 +653,33 @@ const view = (state, {updateState, dispatch}) => {
 							{state.currentAssessment?.status === 'published' ? [
 								<span key="published-indicator" className="published-indicator">
 									📋 Published Version - Read Only
+								</span>,
+								<button
+									key="unpublish-btn"
+									className="unpublish-btn"
+									onclick={() => dispatch('UNPUBLISH_ASSESSMENT', {
+										assessmentId: state.currentAssessmentId,
+										assessmentTitle: state.currentAssessment?.title
+									})}
+									title="Unpublish this assessment"
+								>
+									↩️ Unpublish
+								</button>,
+								<button
+									key="create-new-version-btn"
+									className="create-new-version-btn"
+									onclick={() => dispatch('CREATE_NEW_VERSION', {
+										assessmentId: state.currentAssessmentId,
+										assessmentTitle: state.currentAssessment?.title,
+										currentVersion: state.currentAssessment?.version
+									})}
+								>
+									Create New Version
+								</button>
+							] : null}
+							{state.currentAssessment?.status === 'unpublished' ? [
+								<span key="unpublished-indicator" className="published-indicator">
+									📋 Unpublished Version - Read Only
 								</span>,
 								<button
 									key="create-new-version-btn"
@@ -3778,7 +3807,26 @@ const view = (state, {updateState, dispatch}) => {
 			)}
 
 			{/* Assessment Details Panel */}
-			{state.assessmentDetailsPanel?.isOpen && (
+			{state.assessmentDetailsPanel?.isOpen && (() => {
+				// Helper: Check if field is editable based on status
+				const status = state.assessmentDetailsPanel.status;
+				const isPublished = status === 'published';
+				const isUnpublished = status === 'unpublished';
+				const isFieldEditable = (fieldName) => {
+					// Draft assessments: all fields editable
+					if (!isPublished && !isUnpublished) return true;
+					// Published assessments: only review dates editable
+					if (isPublished) {
+						return fieldName === 'reviewDate' || fieldName === 'nextReviewDate';
+					}
+					// Unpublished assessments: read-only (no fields editable)
+					if (isUnpublished) {
+						return false;
+					}
+					return true;
+				};
+
+				return (
 				<div className="assessment-details-overlay" onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}>
 					<div className="assessment-details-panel" onclick={(e) => e.stopPropagation()}>
 						<div className="panel-header">
@@ -3797,7 +3845,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Version Title */}
 									<div className="form-group">
 										<label>Version Title:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('versionName') ? (
 											<input
 												type="text"
 												className="form-input"
@@ -3815,7 +3863,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Use Case */}
 									<div className="form-group">
 										<label>Use Case:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('useCase') ? (
 											<input
 												type="text"
 												className="form-input"
@@ -3833,7 +3881,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Use Case Category */}
 									<div className="form-group">
 										<label>Use Case Category:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('useCaseCategory') ? (
 											<select
 												className="form-input"
 												value={state.assessmentDetailsPanel.useCaseCategory || ''}
@@ -3861,7 +3909,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Content Source */}
 									<div className="form-group">
 										<label>Content Source:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('contentSource') ? (
 											<input
 												type="text"
 												className="form-input"
@@ -3879,7 +3927,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Effective Date */}
 									<div className="form-group">
 										<label>Effective Date:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('effectiveDate') ? (
 											<input
 												type="date"
 												className="form-input"
@@ -3897,7 +3945,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Review Date */}
 									<div className="form-group">
 										<label>Review Date:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('reviewDate') ? (
 											<input
 												type="date"
 												className="form-input"
@@ -3912,24 +3960,22 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 
-									{/* Allow MCG Content - NO LABEL HEADER */}
+									{/* Allow MCG Content */}
 									<div className="form-group">
-										{state.assessmentDetailsPanel.isEditable ? (
-											<div className="checkbox-group">
-												<input
-													type="checkbox"
-													id="allowMcgContent"
-													checked={state.assessmentDetailsPanel.allowMcgContent || false}
-													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-														field: 'allowMcgContent',
-														value: e.target.checked
-													})}
-												/>
-												<label htmlFor="allowMcgContent">Allow MCG content</label>
-											</div>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.allowMcgContent ? 'Allowed' : 'Not Allowed'}</div>
-										)}
+										<label>Allow MCG Content:</label>
+										<div className="checkbox-group">
+											<input
+												type="checkbox"
+												id="allowMcgContent"
+												checked={state.assessmentDetailsPanel.allowMcgContent || false}
+												disabled={!isFieldEditable('allowMcgContent')}
+												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'allowMcgContent',
+													value: e.target.checked
+												})}
+											/>
+											<label htmlFor="allowMcgContent">Enable</label>
+										</div>
 									</div>
 								</div>
 
@@ -3944,7 +3990,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Usage */}
 									<div className="form-group">
 										<label>Usage:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('usage') ? (
 											<input
 												type="text"
 												className="form-input"
@@ -3962,7 +4008,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Code/Policy Number */}
 									<div className="form-group">
 										<label>Code/Policy Number:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('policyNumber') ? (
 											<input
 												type="text"
 												className="form-input"
@@ -3980,7 +4026,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Response Logging - DROPDOWN */}
 									<div className="form-group">
 										<label>Response Logging:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('responseLogging') ? (
 											<select
 												className="form-input"
 												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
@@ -4010,7 +4056,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* End Date */}
 									<div className="form-group">
 										<label>End Date:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('endDate') ? (
 											<input
 												type="date"
 												className="form-input"
@@ -4028,7 +4074,7 @@ const view = (state, {updateState, dispatch}) => {
 									{/* Next Review Date */}
 									<div className="form-group">
 										<label>Next Review Date:</label>
-										{state.assessmentDetailsPanel.isEditable ? (
+										{isFieldEditable('nextReviewDate') ? (
 											<input
 												type="date"
 												className="form-input"
@@ -4043,47 +4089,44 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 
-									{/* Enable "Select All PGI Elements" - NO LABEL HEADER */}
+									{/* Enable "Select All PGI Elements" */}
 									<div className="form-group">
-										{state.assessmentDetailsPanel.isEditable ? (
-											<div className="checkbox-group">
-												<input
-													type="checkbox"
-													id="enableSelectAllPgi"
-													checked={state.assessmentDetailsPanel.enableSelectAllPgi || false}
-													onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-														field: 'enableSelectAllPgi',
-														value: e.target.checked
-													})}
-												/>
-												<label htmlFor="enableSelectAllPgi">Enable "Select All PGI Elements"</label>
-											</div>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.enableSelectAllPgi ? 'Enabled' : 'Disabled'}</div>
-										)}
+										<label>Enable "Select All PGI Elements":</label>
+										<div className="checkbox-group">
+											<input
+												type="checkbox"
+												id="enableSelectAllPgi"
+												checked={state.assessmentDetailsPanel.enableSelectAllPgi || false}
+												disabled={!isFieldEditable('enableSelectAllPgi')}
+												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+													field: 'enableSelectAllPgi',
+													value: e.target.checked
+												})}
+											/>
+											<label htmlFor="enableSelectAllPgi">Enable</label>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
-						{state.assessmentDetailsPanel.isEditable && (
-							<div className="panel-footer">
-								<button
-									className="btn-cancel"
-									onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}
-								>
-									Cancel
-								</button>
-								<button
-									className="btn-save"
-									onclick={() => dispatch('SAVE_ASSESSMENT_DETAILS')}
-								>
-									Save Changes
-								</button>
-							</div>
-						)}
+						<div className="panel-footer">
+							<button
+								className="btn-cancel"
+								onclick={() => dispatch('CLOSE_ASSESSMENT_DETAILS')}
+							>
+								Cancel
+							</button>
+							<button
+								className="btn-save"
+								onclick={() => dispatch('SAVE_ASSESSMENT_DETAILS')}
+							>
+								Save Changes
+							</button>
+						</div>
 					</div>
 				</div>
-			)}
+				);
+			})()}
 
 			{/* Publish Assessment Panel */}
 			{state.publishPanel?.isOpen && (
@@ -7850,6 +7893,8 @@ const view = (state, {updateState, dispatch}) => {
 														showCreateScoringModel: true,
 														newScoringModelLabel: ''
 													})}
+													disabled={state.selectedScoringModel}
+													title={state.selectedScoringModel ? 'Cannot create new model while editing scores' : 'Create a new scoring model'}
 												>
 													+ Create New Scoring Model
 												</button>
@@ -7882,7 +7927,8 @@ const view = (state, {updateState, dispatch}) => {
 																			modelLabel: model.label
 																		});
 																	}}
-																	title={`Delete scoring model: ${model.label}`}
+																	disabled={state.selectedScoringModel}
+																	title={state.selectedScoringModel ? 'Cannot delete model while editing scores' : `Delete scoring model: ${model.label}`}
 																>
 																	<XIcon />
 																</button>
@@ -7977,7 +8023,7 @@ const view = (state, {updateState, dispatch}) => {
 							</button>
 							<button
 								style={{
-									backgroundColor: '#6b7280',
+									backgroundColor: '#10b981',
 									color: 'white',
 									border: 'none',
 									padding: '10px 20px',
@@ -7987,6 +8033,8 @@ const view = (state, {updateState, dispatch}) => {
 									fontWeight: '500',
 									transition: 'background-color 0.2s'
 								}}
+								onmouseenter={(e) => e.target.style.backgroundColor = '#059669'}
+								onmouseleave={(e) => e.target.style.backgroundColor = '#10b981'}
 								onclick={() => {
 									dispatch('CONFIRM_DIALOG_ACTION');
 								}}
@@ -8628,6 +8676,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'MAKE_PUBLISH_ASSESSMENT_REQUEST': effects.MAKE_PUBLISH_ASSESSMENT_REQUEST,
 
+		'MAKE_UNPUBLISH_ASSESSMENT_REQUEST': effects.MAKE_UNPUBLISH_ASSESSMENT_REQUEST,
+
 		'CREATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
@@ -8875,7 +8925,8 @@ createCustomElement('cadal-careiq-builder', {
 					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default',
 					allowMcgContent: state.currentAssessment?.mcg_content_enabled || false,
 					enableSelectAllPgi: state.currentAssessment?.select_all_enabled || false,
-					isEditable: state.currentAssessment?.status === 'draft'
+					isEditable: true,
+					status: state.currentAssessment?.status  // Store status to check if published
 				}
 			});
 		},
@@ -8942,27 +8993,131 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
-			// Make API call to save assessment details
-			const payload = {
-				assessmentId: state.currentAssessmentId,
-				versionName: panelData.versionName,
-				useCaseCategory: panelData.useCaseCategory,
-				usage: panelData.usage,
-				contentSource: panelData.contentSource,
-				policyNumber: panelData.policyNumber,
-				effectiveDate: panelData.effectiveDate,
-				endDate: panelData.endDate,
-				reviewDate: panelData.reviewDate,
-				nextReviewDate: panelData.nextReviewDate,
-				responseLogging: panelData.responseLogging,
-				allowMcgContent: panelData.allowMcgContent,
-				select_all_enabled: panelData.enableSelectAllPgi
-			};
+			// Build payload based on status
+			const status = panelData.status;
+			const isPublished = status === 'published';
+			const isUnpublished = status === 'unpublished';
+
+			// Don't allow saving unpublished assessments
+			if (isUnpublished) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save changes to unpublished assessments.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			let payload;
+
+			if (isPublished) {
+				// For published assessments, only send reviewDate and nextReviewDate
+				payload = {
+					assessmentId: state.currentAssessmentId,
+					reviewDate: panelData.reviewDate,
+					nextReviewDate: panelData.nextReviewDate
+				};
+			} else {
+				// For draft assessments, send all fields
+				payload = {
+					assessmentId: state.currentAssessmentId,
+					versionName: panelData.versionName,
+					useCaseCategory: panelData.useCaseCategory,
+					usage: panelData.usage,
+					contentSource: panelData.contentSource,
+					policyNumber: panelData.policyNumber,
+					effectiveDate: panelData.effectiveDate,
+					endDate: panelData.endDate,
+					reviewDate: panelData.reviewDate,
+					nextReviewDate: panelData.nextReviewDate,
+					responseLogging: panelData.responseLogging,
+					allowMcgContent: panelData.allowMcgContent,
+					select_all_enabled: panelData.enableSelectAllPgi
+				};
+			}
 
 			console.log('SAVE_ASSESSMENT_DETAILS - Full payload:', payload);
 
 			const requestBody = JSON.stringify(payload);
 			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
+		},
+
+		'UNPUBLISH_ASSESSMENT': (coeffects) => {
+			const {action, updateState, state, dispatch} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+
+			console.log('UNPUBLISH_ASSESSMENT - assessmentId:', assessmentId);
+			console.log('UNPUBLISH_ASSESSMENT - assessmentTitle:', assessmentTitle);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'info',
+						message: `Unpublishing assessment: ${assessmentTitle}...`,
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			const payload = {
+				guidelineTemplateId: assessmentId
+			};
+
+			const requestBody = JSON.stringify(payload);
+			console.log('UNPUBLISH_ASSESSMENT - requestBody:', requestBody);
+			console.log('UNPUBLISH_ASSESSMENT - About to dispatch MAKE_UNPUBLISH_ASSESSMENT_REQUEST');
+			dispatch('MAKE_UNPUBLISH_ASSESSMENT_REQUEST', {requestBody: requestBody});
+		},
+
+		'UNPUBLISH_ASSESSMENT_SUCCESS': (coeffects) => {
+			const {updateState, state, dispatch, action} = coeffects;
+
+			console.log('UNPUBLISH_ASSESSMENT_SUCCESS - action.payload:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'success',
+						message: 'Assessment unpublished successfully! Reloading assessment...',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
+
+			// Reload the current assessment to show unpublished state
+			if (state.currentAssessmentId) {
+				dispatch('FETCH_ASSESSMENT_DETAILS', {
+					assessmentId: state.currentAssessmentId,
+					assessmentTitle: state.currentAssessment?.title || 'Assessment'
+				});
+			}
+
+			// Also refresh the assessments list
+			dispatch('LOAD_ASSESSMENTS', {pageNumber: state.currentPage});
+		},
+
+		'UNPUBLISH_ASSESSMENT_ERROR': (coeffects) => {
+			const {updateState, state, action} = coeffects;
+
+			console.log('UNPUBLISH_ASSESSMENT_ERROR - action.payload:', action.payload);
+
+			updateState({
+				systemMessages: [
+					...(state.systemMessages || []),
+					{
+						type: 'error',
+						message: 'Failed to unpublish assessment. Please try again.',
+						timestamp: new Date().toISOString()
+					}
+				]
+			});
 		},
 
 		'PUBLISH_ASSESSMENT': (coeffects) => {

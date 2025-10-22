@@ -418,6 +418,27 @@
   font-style: italic;
 }
 
+.unpublish-btn {
+  background-color: #f59e0b;
+  color: white;
+  border: 1px solid #d97706;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #d97706;
+    border-color: #b45309;
+  }
+
+  &:active {
+    background-color: #b45309;
+  }
+}
+
 .create-new-version-btn {
   background-color: #059669;
   color: white;
@@ -2853,6 +2874,9 @@
         color: #6b7280;
         box-sizing: border-box;
         min-width: 0; // Allow shrinking below content width
+        min-height: 42px; // Match input height (0.875rem font + 0.75rem top/bottom padding + 2px borders)
+        display: flex;
+        align-items: center;
         word-wrap: break-word; // Break long words if needed
         overflow-wrap: break-word; // Modern browser support
       }

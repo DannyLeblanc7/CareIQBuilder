@@ -41,6 +41,38 @@ publishAssessment: function(requestData) {
     }
 },
 
+unpublishAssessment: function(guidelineTemplateId) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        // Build the unpublish endpoint: /builder/guideline-template/{guidelineTemplateId}/status
+        var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/status');
+        var r = this._createRESTMessage('Unpublish Assessment', endpoint);
+
+        // Set method to POST
+        r.setHttpMethod('POST');
+
+        // Build payload with status: "unpublished"
+        var payload = {
+            "status": "unpublished"
+        };
+
+        // Set the request body
+        r.setRequestBody(JSON.stringify(payload));
+
+        var response = this._executeRequestWithRetry(r, 'UnpublishAssessment');
+
+        return response.getBody();
+    } catch (e) {
+        this._logError('UnpublishAssessment - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+
 // BUILDER - SECTION OPERATIONS
 
 builderGetSections: function(assessmentId) {

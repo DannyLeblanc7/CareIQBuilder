@@ -70,6 +70,15 @@ export const MAKE_PUBLISH_ASSESSMENT_REQUEST = createHttpEffect('/api/x_1628056_
 	errorActionType: 'PUBLISH_ASSESSMENT_ERROR'
 });
 
+export const MAKE_UNPUBLISH_ASSESSMENT_REQUEST = createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/unpublish-assessment', {
+	method: 'POST',
+	dataParam: 'requestBody',
+	headers: defaultHeaders,
+	startActionType: 'UNPUBLISH_ASSESSMENT_START',
+	successActionType: 'UNPUBLISH_ASSESSMENT_SUCCESS',
+	errorActionType: 'UNPUBLISH_ASSESSMENT_ERROR'
+});
+
 // Assessment details and sections
 export const MAKE_ASSESSMENT_DETAILS_REQUEST = createHttpEffect('/api/x_1628056_careiq/careiq_builder_api/get-sections', {
 	method: 'POST',
