@@ -228,8 +228,7 @@ After editing a question:
 
 ---
 
-**Screenshot Placeholder 29**: Delete question confirmation dialog
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/deleteQuestionConfirmation.png "Delete Question Confirmation")
 
 ---
 
@@ -272,8 +271,8 @@ You can move questions from one section to another:
 
 ---
 
-**Screenshot Placeholder 30**: Move question dialog with section selector
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/questionDragToSection1.png "Question Drag and Drop 1")
+![CareIQ Builder](Screenshots/questionDragToSection2.png "Question Drag and Drop 2")
 
 ---
 
@@ -332,8 +331,7 @@ Some answers require additional information:
 
 ---
 
-**Screenshot Placeholder 31**: Add Answer button location
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/addAnswer.png "Add Answer")
 
 ---
 
@@ -355,8 +353,7 @@ Some answers require additional information:
 
 ---
 
-**Screenshot Placeholder 32**: Answer typeahead dropdown
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/addAnswerTypeahead.png "Add Answer Typeahead")
 
 ---
 
@@ -388,8 +385,7 @@ For answers requiring additional information:
 
 ---
 
-**Screenshot Placeholder 33**: Secondary input type selector
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/secondaryInput.png "Secondary Input")
 
 ---
 
@@ -481,8 +477,7 @@ Answer deletion uses a **Save & Delete** pattern:
 
 ---
 
-**Screenshot Placeholder 34**: Answer marked for deletion
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/deleteAnswer.png "Delete Answer")
 
 ---
 
@@ -526,8 +521,7 @@ Answers with triggered questions show an indicator:
 
 ---
 
-**Screenshot Placeholder 35**: Answer with triggered question indicator
-![CareIQ Builder](Screenshots/saveCancelQuestion.png "Save / Cancel Question Changes")
+![CareIQ Builder](Screenshots/answerTriggeredQuestion.png "Answer Triggered Question")
 
 ---
 

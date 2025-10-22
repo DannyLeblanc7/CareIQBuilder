@@ -32,7 +32,7 @@ CareIQ Builder supports six relationship types:
 
 ---
 
-**Screenshot Placeholder 36**: Relationship types overview diagram
+![CareIQ Builder](Screenshots/generalRelationships.png "General Relationships")
 
 ---
 
@@ -45,12 +45,12 @@ CareIQ Builder supports six relationship types:
    - Answer must be part of a saved question
 
 2. **Click Relationship Button**
-   - Look for a relationship icon or button on the answer card
-   - May be labeled "Relationships", "Links", or show an icon (🔗)
+   - Look for the Edit Relationship button and make sure it is active
+   - Click on the badge that lists the number of each relationship on the answer
 
 ---
 
-**Screenshot Placeholder 37**: Relationship button on answer card
+![CareIQ Builder](Screenshots/relationshipBadge.png "Relationship Badge")
 
 ---
 
@@ -61,7 +61,7 @@ CareIQ Builder supports six relationship types:
 
 ---
 
-**Screenshot Placeholder 38**: Relationship modal with tabs
+![CareIQ Builder](Screenshots/relationshipModal.png "Relationship Modal")
 
 ---
 
@@ -100,7 +100,7 @@ Triggered questions appear only when specific answers are selected. They enable 
 
 ---
 
-**Screenshot Placeholder 39**: Questions tab in relationship modal
+![CareIQ Builder](Screenshots/questionTab.png "Question Tab")
 
 ---
 
@@ -131,17 +131,7 @@ Triggered questions appear only when specific answers are selected. They enable 
    - Find the question you want to unlink
 
 2. **Click Delete Button**
-   - Click the delete icon (×) or **"Delete"** button
-   - Confirmation dialog may appear
-
----
-
-**Screenshot Placeholder 40**: Delete triggered question confirmation
-
----
-
-3. **Confirm Deletion**
-   - Click **"Delete"** or **"Confirm"**
+   - Click the delete icon (×)
    - Relationship is removed from backend
    - Question still exists but is no longer triggered by this answer
 
@@ -183,7 +173,7 @@ Clinical guidelines are evidence-based practice recommendations. Linking answers
 
 ---
 
-**Screenshot Placeholder 41**: Guidelines tab in relationship modal
+![CareIQ Builder](Screenshots/guidelineTab.png "Guideline Tab")
 
 ---
 
@@ -244,7 +234,7 @@ Linking answers to PGI:
 
 ---
 
-**Screenshot Placeholder 42**: PGI hierarchy diagram
+![CareIQ Builder](Screenshots/PGITab.png "PGI Tab")
 
 ---
 
@@ -259,7 +249,7 @@ Linking answers to PGI:
 
 ---
 
-**Screenshot Placeholder 43**: Problems tab showing hierarchy
+![CareIQ Builder](Screenshots/PGITab.png "PGI Tab")
 
 ---
 
@@ -297,7 +287,7 @@ The Problems tab displays:
 
 ---
 
-**Screenshot Placeholder 44**: Expanded problem showing goals
+![CareIQ Builder](Screenshots/PGITab.png "PGI Tab")
 
 ---
 
@@ -372,7 +362,7 @@ Goals are specific, measurable outcomes associated with problems. They define wh
 
 ---
 
-**Screenshot Placeholder 45**: Add goal button and search
+![CareIQ Builder](Screenshots/addGoal.png "Add Goal")
 
 ---
 
@@ -433,7 +423,7 @@ Interventions are specific actions taken to achieve goals. They are the most gra
 
 ---
 
-**Screenshot Placeholder 46**: Expanded goal showing interventions
+![CareIQ Builder](Screenshots/PGITab.png "PGI Tab")
 
 ---
 
@@ -464,7 +454,7 @@ Interventions are specific actions taken to achieve goals. They are the most gra
 
 ---
 
-**Screenshot Placeholder 47**: Add intervention search and results
+![CareIQ Builder](Screenshots/addIntervention.png "Add Intervention")
 
 ---
 
@@ -516,7 +506,7 @@ Barriers are obstacles that may prevent successful care delivery. Linking barrie
 ---
 
 **Screenshot Placeholder 48**: Barriers tab in relationship modal
-
+![CareIQ Builder](Screenshots/questionDragToSection2.png "Question Drag and Drop 2")
 ---
 
 3. **Search for Barrier**
@@ -563,7 +553,7 @@ When viewing an answer card:
 ---
 
 **Screenshot Placeholder 49**: Answer with relationship counts displayed
-
+![CareIQ Builder](Screenshots/questionDragToSection2.png "Question Drag and Drop 2")
 ---
 
 ### Comprehensive Relationship View

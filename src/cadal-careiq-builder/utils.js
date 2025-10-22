@@ -96,5 +96,63 @@ export const calculateVisibleQuestions = (selectedAnswers, currentQuestions, ans
 		});
 	});
 
+	// CRITICAL: Remove triggered questions whose parent question is no longer visible
+	// This handles cascading visibility: if Q1-A1 triggers Q2, and Q2-A1 triggers Q3,
+	// then deselecting Q1-A1 should hide both Q2 AND Q3
+	let changed = true;
+	while (changed) {
+		changed = false;
+		const questionsToRemove = [];
+
+		visibleQuestions.forEach(questionId => {
+			const question = currentQuestions.find(q => q.ids.id === questionId);
+
+			// Check if this question was triggered by an answer
+			// We need to verify that the triggering question is still visible
+			let hasVisibleTrigger = false;
+
+			// If question is not hidden by default, it's always visible
+			if (question && !question.hidden) {
+				hasVisibleTrigger = true;
+			} else {
+				// Check all selected answers to see if any of them trigger this question
+				Object.keys(selectedAnswers).forEach(parentQuestionId => {
+					// Only count triggers from visible questions
+					if (visibleQuestions.includes(parentQuestionId)) {
+						const selectedAnswerIds = selectedAnswers[parentQuestionId];
+						selectedAnswerIds.forEach(answerId => {
+							const parentQuestion = currentQuestions.find(q => q.ids.id === parentQuestionId);
+							const answer = parentQuestion?.answers?.find(a => a.ids.id === answerId);
+
+							// Check triggered_questions array
+							if (answer?.triggered_questions && answer.triggered_questions.includes(questionId)) {
+								hasVisibleTrigger = true;
+							}
+
+							// Check answerRelationships
+							if (answerRelationships[answerId]?.questions?.questions?.some(tq => tq.id === questionId)) {
+								hasVisibleTrigger = true;
+							}
+						});
+					}
+				});
+			}
+
+			// If no visible trigger found, mark for removal
+			if (!hasVisibleTrigger && question?.hidden) {
+				questionsToRemove.push(questionId);
+				changed = true;
+			}
+		});
+
+		// Remove questions without visible triggers
+		questionsToRemove.forEach(questionId => {
+			const index = visibleQuestions.indexOf(questionId);
+			if (index > -1) {
+				visibleQuestions.splice(index, 1);
+			}
+		});
+	}
+
 	return visibleQuestions;
 };
