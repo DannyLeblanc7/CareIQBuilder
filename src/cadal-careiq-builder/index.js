@@ -788,11 +788,11 @@ const view = (state, {updateState, dispatch}) => {
 					
 					{state.currentAssessment && !state.assessmentDetailsLoading && (
 						<div className={`builder-content ${state.sectionsPanelExpanded ? 'sections-expanded' : ''} ${state.questionsPanelExpanded ? 'questions-expanded' : ''}`}>
-							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`} style={{position: "relative"}}>
+							<div className={`sections-sidebar ${state.sectionsPanelExpanded ? 'expanded' : ''}`}>
 
 								<div className="sections-header">
 									<div className="sections-title-container">
-										<button 
+										<button
 											className="expand-sections-btn"
 											onclick={() => dispatch('TOGGLE_SECTIONS_PANEL')}
 											title={state.sectionsPanelExpanded ? 'Collapse sections panel' : 'Expand sections panel'}
@@ -801,15 +801,26 @@ const view = (state, {updateState, dispatch}) => {
 										</button>
 										<h3>Sections</h3>
 									</div>
-									{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
-										<button
-											className="add-section-btn"
-											onclick={() => dispatch('ADD_SECTION')}
-											title="Add new section"
-										>
-											+
-										</button>
-									)}
+									<div className="header-right-buttons">
+										{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
+											<button
+												className="add-section-btn"
+												onclick={() => dispatch('ADD_SECTION')}
+												title="Add new parent section"
+											>
+												+
+											</button>
+										)}
+										{state.sectionsPanelExpanded && (
+											<button
+												className="btn-cancel"
+												onclick={() => dispatch('TOGGLE_SECTIONS_PANEL')}
+												title="Close panel"
+											>
+												<XIcon />
+											</button>
+										)}
+									</div>
 								</div>
 								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
 									<div className="sections-list">
