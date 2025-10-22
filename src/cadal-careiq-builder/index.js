@@ -5171,7 +5171,14 @@ const view = (state, {updateState, dispatch}) => {
 															onmouseenter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
 															onmouseleave={(e) => e.target.style.backgroundColor = '#ffffff'}
 														>
-															{guideline.label || guideline.name}
+															<div style={{fontWeight: '500', marginBottom: '4px'}}>
+																{guideline.label || guideline.name}
+															</div>
+															{guideline.use_case_category?.name && (
+																<div style={{fontSize: '12px', color: '#6b7280'}}>
+																	{guideline.use_case_category.name}
+																</div>
+															)}
 														</div>
 													))}
 												</div>
