@@ -26,6 +26,13 @@
             }
         }
 
+        // CRITICAL DEBUG: Log select_all_enabled specifically
+        gs.info('=== SELECT_ALL_ENABLED DEBUG ===');
+        gs.info('requestData.select_all_enabled: ' + requestData.select_all_enabled);
+        gs.info('requestData.selectAllEnabled: ' + requestData.selectAllEnabled);
+        gs.info('Type of select_all_enabled: ' + typeof requestData.select_all_enabled);
+        gs.info('================================');
+
         // Validate required fields
         var requiredFields = ['assessmentId'];
         var missingFields = [];

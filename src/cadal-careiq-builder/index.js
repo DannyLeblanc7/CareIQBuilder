@@ -3981,20 +3981,27 @@ const view = (state, {updateState, dispatch}) => {
 										{state.assessmentDetailsPanel.isEditable ? (
 											<select
 												className="form-input"
-												value={state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}
 												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
 													field: 'responseLogging',
 													value: e.target.value
 												})}
 											>
-												<option value="Use Org Default">Use Org Default</option>
-												<option value="Disabled">Disabled</option>
-												<option value="Autosave, Draft and Submit">Autosave, Draft and Submit</option>
-												<option value="Save as Draft and Submit">Save as Draft and Submit</option>
-												<option value="Submit Only">Submit Only</option>
+												<option value="use_default" selected={state.assessmentDetailsPanel.responseLogging === 'use_default'}>Use Org Default</option>
+												<option value="disabled" selected={state.assessmentDetailsPanel.responseLogging === 'disabled'}>Disabled</option>
+												<option value="draft" selected={state.assessmentDetailsPanel.responseLogging === 'draft'}>Save as Draft and Submit</option>
+												<option value="submit" selected={state.assessmentDetailsPanel.responseLogging === 'submit'}>Submit Only</option>
 											</select>
 										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.responseLogging || 'Use Org Default'}</div>
+											<div className="readonly-field">{
+												(() => {
+													const value = state.assessmentDetailsPanel.responseLogging;
+													if (value === 'use_default') return 'Use Org Default';
+													if (value === 'disabled') return 'Disabled';
+													if (value === 'draft') return 'Save as Draft and Submit';
+													if (value === 'submit') return 'Submit Only';
+													return 'Use Org Default';
+												})()
+											}</div>
 										)}
 									</div>
 
@@ -4432,11 +4439,10 @@ const view = (state, {updateState, dispatch}) => {
 										boxSizing: 'border-box'
 									}}
 								>
-									<option value="Use Org Default">Use Org Default</option>
-									<option value="Disabled">Disabled</option>
-									<option value="Auto-save, Draft and Submit">Auto-save, Draft and Submit</option>
-									<option value="Save as Draft and Submit">Save as Draft and Submit</option>
-									<option value="Submit only">Submit only</option>
+									<option value="use_default">Use Org Default</option>
+									<option value="disabled">Disabled</option>
+									<option value="draft">Save as Draft and Submit</option>
+									<option value="submit">Submit Only</option>
 								</select>
 							</div>
 
@@ -4449,6 +4455,18 @@ const view = (state, {updateState, dispatch}) => {
 										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'allowMcgContent', value: e.target.checked})}
 									/>
 									Allow MCG Content
+								</label>
+							</div>
+
+							{/* Enable "Select All PGI Elements" */}
+							<div className="form-field">
+								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500'}}>
+									<input
+										type="checkbox"
+										checked={state.newAssessmentForm.selectAllEnabled}
+										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'selectAllEnabled', value: e.target.checked})}
+									/>
+									Enable "Select All PGI Elements"
 								</label>
 							</div>
 						</div>
@@ -8540,8 +8558,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: '',
 					reviewDate: '',
 					nextReviewDate: '',
-					responseLogging: 'Use Org Default',
-					allowMcgContent: false
+					responseLogging: 'use_default',
+					allowMcgContent: false,
+					selectAllEnabled: false
 				}
 			});
 		},
@@ -8650,12 +8669,12 @@ createCustomElement('cadal-careiq-builder', {
 				policy_number: assessmentData.codePolicyNumber || '',
 				use_case_category_id: useCaseCategoryId, // Use mapped UUID instead of display name
 				quality_measures: assessmentData.quality_measures || {},
-				settings: assessmentData.settings || {
-					store_responses: "use_default"
+				settings: {
+					store_responses: assessmentData.responseLogging || "use_default"
 				},
 				usage: assessmentData.usage || 'Care Planning',
 				mcg_content_enabled: assessmentData.allowMcgContent || false,
-				select_all_enabled: assessmentData.select_all_enabled !== undefined ? assessmentData.select_all_enabled : true,
+				select_all_enabled: assessmentData.selectAllEnabled || false,
 				multi_tenant_default: assessmentData.multi_tenant_default || false
 			};
 
@@ -8909,6 +8928,10 @@ createCustomElement('cadal-careiq-builder', {
 		'OPEN_ASSESSMENT_DETAILS': (coeffects) => {
 			const {updateState, state} = coeffects;
 
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.select_all_enabled:', state.currentAssessment?.select_all_enabled);
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.settings:', state.currentAssessment?.settings);
+			console.log('OPEN_ASSESSMENT_DETAILS - currentAssessment.settings.store_responses:', state.currentAssessment?.settings?.store_responses);
+
 			// Open the details panel with current assessment data
 			updateState({
 				assessmentDetailsPanel: {
@@ -8925,9 +8948,9 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: state.currentAssessment?.end_date || '',
 					reviewDate: state.currentAssessment?.review_date || '',
 					nextReviewDate: state.currentAssessment?.next_review_date || '',
-					responseLogging: state.currentAssessment?.response_logging || 'Use Org Default',  // Changed to string
-					allowMcgContent: state.currentAssessment?.allow_mcg_content || false,
-					enableSelectAllPgi: state.currentAssessment?.enable_select_all_pgi || false,  // NEW
+					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default',
+					allowMcgContent: state.currentAssessment?.mcg_content_enabled || false,
+					enableSelectAllPgi: state.currentAssessment?.select_all_enabled || false,
 					isEditable: state.currentAssessment?.status === 'draft'
 				}
 			});
@@ -8951,7 +8974,7 @@ createCustomElement('cadal-careiq-builder', {
 					endDate: '',
 					reviewDate: '',
 					nextReviewDate: '',
-					responseLogging: 'Use Org Default',  // Changed to string
+					responseLogging: 'use_default',
 					allowMcgContent: false,
 					enableSelectAllPgi: false,  // NEW
 					isEditable: false
@@ -8962,6 +8985,8 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ASSESSMENT_DETAIL_FIELD': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {field, value} = action.payload;
+
+			console.log('UPDATE_ASSESSMENT_DETAIL_FIELD - field:', field, 'value:', value);
 
 			updateState({
 				assessmentDetailsPanel: {
@@ -8974,6 +8999,8 @@ createCustomElement('cadal-careiq-builder', {
 		'SAVE_ASSESSMENT_DETAILS': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const panelData = state.assessmentDetailsPanel;
+
+			console.log('SAVE_ASSESSMENT_DETAILS - panelData.enableSelectAllPgi:', panelData.enableSelectAllPgi);
 
 			// Close panel and show saving message
 			updateState({
@@ -8992,7 +9019,7 @@ createCustomElement('cadal-careiq-builder', {
 			});
 
 			// Make API call to save assessment details
-			const requestBody = JSON.stringify({
+			const payload = {
 				assessmentId: state.currentAssessmentId,
 				versionName: panelData.versionName,
 				useCaseCategory: panelData.useCaseCategory,
@@ -9005,9 +9032,12 @@ createCustomElement('cadal-careiq-builder', {
 				nextReviewDate: panelData.nextReviewDate,
 				responseLogging: panelData.responseLogging,
 				allowMcgContent: panelData.allowMcgContent,
-				enableSelectAllPgi: panelData.enableSelectAllPgi  // NEW
-			});
+				select_all_enabled: panelData.enableSelectAllPgi
+			};
 
+			console.log('SAVE_ASSESSMENT_DETAILS - Full payload:', payload);
+
+			const requestBody = JSON.stringify(payload);
 			dispatch('MAKE_UPDATE_ASSESSMENT_REQUEST', {requestBody: requestBody});
 		},
 
@@ -9163,6 +9193,8 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_ASSESSMENT_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
+			console.log('UPDATE_ASSESSMENT_SUCCESS - response payload:', action.payload);
 
 			// Show success message
 			updateState({
@@ -9758,6 +9790,8 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if we need to re-select a section after save
 			const pendingReselection = state.pendingReselectionSection;
 			const pendingReselectionLabel = state.pendingReselectionSectionLabel;
+
+			console.log('ASSESSMENT_DETAILS_SUCCESS - select_all_enabled from backend:', action.payload?.select_all_enabled);
 
 			updateState({
 				currentAssessment: action.payload,

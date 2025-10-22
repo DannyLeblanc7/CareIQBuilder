@@ -1126,7 +1126,16 @@ updateAssessment: function(requestData) {
         if (requestData.allowMcgContent !== undefined) {
             payload.mcg_content_enabled = requestData.allowMcgContent;
         }
-        payload.select_all_enabled = false; // Default as shown in example
+
+        // DEBUG: Log what we're receiving for select_all_enabled
+        this._logError('Update Assessment - requestData.select_all_enabled: ' + requestData.select_all_enabled);
+        this._logError('Update Assessment - requestData.selectAllEnabled: ' + requestData.selectAllEnabled);
+
+        if (requestData.selectAllEnabled !== undefined) {
+            payload.select_all_enabled = requestData.selectAllEnabled;
+        } else if (requestData.select_all_enabled !== undefined) {
+            payload.select_all_enabled = requestData.select_all_enabled;
+        }
 
         // Handle response logging settings
         if (requestData.responseLogging !== undefined) {

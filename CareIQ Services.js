@@ -109,13 +109,10 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
                 this._setAuthHeaders(request, sessionToken);
                 
                 // Execute the request
-                this._log(logContext + ' - Executing REST request', false);
                 var response = request.execute();
                 var statusCode = response.getStatusCode();
                 lastStatusCode = statusCode;
-                
-                this._log(logContext + ' - Response received with status code: ' + statusCode, false);
-                
+                                
                 // If successful, return the response
                 if (statusCode >= 200 && statusCode < 300) {
                     return response;
@@ -159,32 +156,27 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
         try {
             // Parse input string to object
             var data = JSON.parse(input);
-            this._log("Successfully parsed input JSON string", false);
             
             // Process each section
             if (data.sections && Array.isArray(data.sections)) {
-                this._log("Found sections array with " + data.sections.length + " sections", false);
                 
                 for (var i = 0; i < data.sections.length; i++) {
                     var section = data.sections[i];
                     
                     // Only process if subsections exist and has more than 1 item
                     if (section.subsections && Array.isArray(section.subsections) && section.subsections.length > 1) {
-                        this._log("Section " + i + " has " + section.subsections.length + " subsections", false);
                         
                         // Sort subsections by sort_order
                         section.subsections.sort(function(a, b) {
                             return parseInt(a.sort_order) - parseInt(b.sort_order);
                         });
                         
-                        this._log("Subsections sorted successfully", false);
                     }
                 }
             }
             
             // Convert back to JSON string with same formatting as input
             var result = JSON.stringify(data);
-            this._log("Successfully converted result back to JSON string", false);
             
             return result;
         } catch (e) {
@@ -204,7 +196,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             
             // Build the full endpoint URL
             var endpoint = this._buildEndpoint('/auth/token');
-            this._log('Auth - Calling endpoint: ' + endpoint, false);
             
             // Create REST message
             var r = new sn_ws.RESTMessageV2();
@@ -299,10 +290,8 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             table: tableName
         });
     },
-
-    getSections: function(gtId) {
+    getSections: function(gtId, token) {
         try {
-            gs.info('DANNY TEST');
 			var config = this._getConfig();
             
             if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
@@ -311,7 +300,12 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             
             var endpoint = this._buildEndpoint('/careflow/guideline-template/' + gtId);
             var r = this._createRESTMessage('Get Sections', endpoint);
-            
+
+            // Add token header if provided
+            if (token) {
+                r.setRequestHeader('token', token);
+            }
+
             var response = this._executeRequestWithRetry(r, 'GetSections');
             //We need to ensure the sort order is followed
             return this._reorderSubsections(response.getBody());
@@ -320,12 +314,9 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             return '{"error": "' + e.message + '"}';
         }
     },
-
     getQuestions: function(gtId, sectionId, sessionToken) {
         try {
             var config = this._getConfig();
-            this._log("API Call - Starting Get Questions request", false);
-            this._log("Session Token" + sessionToken, false);
             
             if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
                 return '{"error": "Configuration invalid"}';
@@ -374,7 +365,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 
     addAnswers: function(answerPayload, sessionToken) {
         try {
-            this._log("API Call - Starting POST Answers request", false);
             
             var config = this._getConfig();
             
@@ -387,7 +377,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             
             // Log payload size for debugging
             var payloadSize = JSON.stringify(answerPayload).length;
-            this._log("API Call - Setting request body with payload size: " + payloadSize + " characters", false);
             
             r.setRequestBody(JSON.stringify(answerPayload));
             
@@ -430,7 +419,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
         }
     },
 
-    getCarePlan: function(sessionToken, problemsPerPage) {
+    /*getCarePlan: function(sessionToken, problemsPerPage) {
         try {
             var config = this._getConfig();
             
@@ -465,8 +454,34 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
             this._logError('GetCarePlan - Error: ' + e);
             return '{"error": "' + e.message + '"}';
         }
-    },
+    }, */
 
+	getCarePlan: function(sessionToken) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the care plan endpoint: /careflow/session/careplan
+			var endpoint = this._buildEndpoint('/careflow/session/careplan');
+			var r = this._createRESTMessage('GET Care Plan', endpoint);
+
+			// Set method to GET
+			r.setHttpMethod('GET');
+
+			// Add session token to header
+			r.setRequestHeader('token', sessionToken);
+
+			var response = this._executeRequestWithRetry(r, 'GetCarePlan');
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetCarePlan - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
     getProblem: function(sessionToken, problemId) {
         try {
             var config = this._getConfig();
@@ -1084,7 +1099,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			}
 			
 			// Validate content type
-			var validTypes = ['section', 'question', 'answer','problem','barrier'];
+			var validTypes = ['section', 'question', 'answer','problem','barrier','goal','intervention'];
 			if (validTypes.indexOf(contentType) === -1) {
 				return '{"error": "Invalid content type: ' + contentType + '"}';
 			}
@@ -1329,32 +1344,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			return '{"error": "' + e.message + '"}';
 		}
 	},
-	createQuestionBundle: function(contentId) {
-		try {
-			var config = this._getConfig();
-
-			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
-				return '{"error": "Configuration invalid"}';
-			}
-
-			var endpoint = this._buildEndpoint('/builder/question-bundle');
-			var r = this._createRESTMessage('POST Create Question Bundle', endpoint);
-			r.setHttpMethod('POST');
-
-			// Build request body with contentId (question UUID)
-			var requestBody = {
-				content_id: contentId
-			};
-
-			r.setRequestBody(JSON.stringify(requestBody));
-
-			var response = this._executeRequestWithRetry(r, 'CreateQuestionBundle');
-			return response.getBody();
-		} catch (e) {
-			this._logError('CreateQuestionBundle - Error: ' + e);
-			return '{"error": "' + e.message + '"}';
-		}
-	},
 	builderAnswerTypeahead: function(searchText) {
 		try {
 			var config = this._getConfig();
@@ -1521,6 +1510,785 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			return response.getBody();
 		} catch (e) {
 			this._logError('DeleteGuidelineRelationship - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	addBarrierRelationship: function(answerId, barrierName, barrierId, sortOrder, guidelineTemplateId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/barrier');
+			var r = this._createRESTMessage('POST Barrier Relationship', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request body with CORRECT field names for CareIQ API
+			var requestBody = {
+				answer_id: answerId,
+				label: barrierName,
+				original_label: barrierName,
+				sort_order: sortOrder || 0,
+				guideline_template_id: guidelineTemplateId
+			};
+
+			// Only include library_id if we're adding an existing barrier from library
+			if (barrierId && barrierId !== null && barrierId !== '') {
+				requestBody.library_id = barrierId;
+			}
+
+			r.setRequestBody(JSON.stringify(requestBody));
+
+			var response = this._executeRequestWithRetry(r, 'AddBarrierRelationship');
+			return response.getBody();
+		} catch (e) {
+			this._logError('AddBarrierRelationship - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteBarrierRelationship: function(barrierId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/barrier/' + encodeURIComponent(barrierId));
+			var r = this._createRESTMessage('DELETE Barrier Relationship', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteBarrierRelationship');
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteBarrierRelationship - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	addProblemRelationship: function(answerId, problemName, problemId, sortOrder, guidelineTemplateId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/problem');
+			var r = this._createRESTMessage('POST Problem Relationship', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request body with CORRECT field names for CareIQ API
+			var requestBody = {
+				answer_id: answerId,
+				label: problemName,
+				original_label: problemName,
+				sort_order: sortOrder || 0,
+				guideline_template_id: guidelineTemplateId
+			};
+
+			// Only include library_id if we're adding an existing problem from library
+			if (problemId && problemId !== null && problemId !== '') {
+				requestBody.library_id = problemId;
+			}
+
+			r.setRequestBody(JSON.stringify(requestBody));
+
+			var response = this._executeRequestWithRetry(r, 'AddProblemRelationship');
+			return response.getBody();
+		} catch (e) {
+			this._logError('AddProblemRelationship - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	saveProblemEdits: function(problemId, label, alternativeWording, tooltip, customAttributes, required) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+			var r = this._createRESTMessage('PATCH Problem Edits', endpoint);
+			r.setHttpMethod('PATCH');
+
+			// Build request body matching the CareIQ API specification
+			var requestBody = {
+				label: label,
+				tooltip: tooltip || '',
+				alternative_wording: alternativeWording || '',
+				custom_attributes: customAttributes || {},
+				required: required || false
+			};
+
+			r.setRequestBody(JSON.stringify(requestBody));
+
+			var response = this._executeRequestWithRetry(r, 'SaveProblemEdits');
+			return response.getBody();
+		} catch (e) {
+			this._logError('SaveProblemEdits - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getProblemDetails: function(problemId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+			var r = this._createRESTMessage('GET Problem Details', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetProblemDetails');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetProblemDetails - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteProblemRelationship: function(problemId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/problem/' + encodeURIComponent(problemId));
+			var r = this._createRESTMessage('DELETE Problem Relationship', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteProblemRelationship');
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteProblemRelationship - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getProblemGoals: function(guidelineTemplateId, problemId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/problem/' + encodeURIComponent(problemId) + '/goals');
+			var r = this._createRESTMessage('GET Problem Goals', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetProblemGoals');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetProblemGoals - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	addGoalToProblem: function(problemId, goalText, goalId, answerId, guidelineTemplateId, libraryId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/goal');
+			var r = this._createRESTMessage('POST Goal to Problem', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request payload with CORRECT field names for CareIQ API
+			var payload = {
+				problem_id: problemId,  // Use snake_case like other APIs
+				label: goalText,  // CareIQ API expects 'label' field for goal text
+				answer_id: answerId,  // Use snake_case like other APIs
+				guideline_template_id: guidelineTemplateId  // Use snake_case like other APIs
+			};
+
+			// If goalId is provided, it's linking an existing goal, otherwise creating new
+			if (goalId && goalId !== null) {
+				payload.goal_id = goalId;  // Link existing goal (use snake_case)
+			}
+
+			// If libraryId is provided, it's using a library goal as template
+			if (libraryId && libraryId !== null) {
+				payload.library_id = libraryId;  // Reference library goal by master_id
+			}
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'AddGoalToProblem');
+			return response.getBody();
+		} catch (e) {
+			this._logError('AddGoalToProblem - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteGoal: function(goalId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+			var r = this._createRESTMessage('DELETE Goal', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteGoal');
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteGoal - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getGoalDetails: function(goalId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+			var r = this._createRESTMessage('GET Goal Details', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetGoalDetails');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetGoalDetails - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+
+	updateGoal: function(goalId, label, tooltip, alternativeWording, required, customAttributes) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId));
+			var r = this._createRESTMessage('PATCH Update Goal', endpoint);
+			r.setHttpMethod('PATCH');
+
+			// Build request payload to match CareIQ API expectations
+			var payload = {
+				label: label,
+				tooltip: tooltip || '',
+				alternative_wording: alternativeWording || '',
+				required: required || false,
+				custom_attributes: customAttributes || {}
+			};
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'UpdateGoal');
+			return response.getBody();
+		} catch (e) {
+			this._logError('UpdateGoal - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getGoalInterventions: function(guidelineTemplateId, goalId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the goal interventions endpoint: /builder/guideline-template/{gtId}/goal/{goalId}/interventions
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/goal/' + encodeURIComponent(goalId) + '/interventions');
+			var r = this._createRESTMessage('GET Goal Interventions', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetGoalInterventions');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetGoalInterventions - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	addInterventionToGoal: function(goalId, interventionText, category, guidelineTemplateId, tooltip, alternativeWording, interventionId, libraryId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the intervention creation endpoint: /builder/intervention
+			var endpoint = this._buildEndpoint('/builder/intervention');
+			var r = this._createRESTMessage('POST Add Intervention', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request payload to match CareIQ API expectations
+			var payload = {
+				guideline_template_id: guidelineTemplateId,
+				label: interventionText,
+				tooltip: tooltip || '',
+				alternative_wording: alternativeWording || '',
+				custom_attributes: {},
+				available: false,
+				required: false,
+				sort_order: 0,
+				category: category,
+				goal_id: goalId
+			};
+
+			// Add intervention_id if linking to existing intervention (vs creating new)
+			if (interventionId) {
+				payload.intervention_id = interventionId;
+			}
+
+			// Add library_id if linking to library intervention
+			if (libraryId) {
+				payload.library_id = libraryId;
+			}
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'AddIntervention');
+			return response.getBody();
+		} catch (e) {
+			this._logError('AddIntervention - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteIntervention: function(goalId, interventionId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the delete intervention endpoint: /builder/goal/{goalId}/intervention/{interventionId}
+			var endpoint = this._buildEndpoint('/builder/goal/' + encodeURIComponent(goalId) + '/intervention/' + encodeURIComponent(interventionId));
+			var r = this._createRESTMessage('DELETE Intervention', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteIntervention');
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteIntervention - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	createVersion: function(assessmentId, versionName, effectiveDate) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the create version endpoint
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(assessmentId) + '/status');
+			var r = this._createRESTMessage('POST Create Version', endpoint);
+
+			// Set method to PUT (for status endpoint)
+			r.setHttpMethod('POST');
+
+			// Set up the payload
+			var payload = {
+				status: "draft",
+				effective_date: effectiveDate,
+				version_name: versionName
+			};
+
+			this._logError('Create Version - Endpoint: ' + endpoint);
+			this._logError('Create Version - Payload: ' + JSON.stringify(payload));
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'CreateVersion');
+			this._logError('Create Version - Response: ' + response.getBody());
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('CreateVersion - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	updateAssessment: function(requestData) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the update assessment endpoint
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(requestData.assessmentId));
+			var r = this._createRESTMessage('PATCH Update Assessment', endpoint);
+
+			// Set method to PATCH
+			r.setHttpMethod('PATCH');
+
+			// Set up the payload
+			var payload = {};
+
+			// Map form fields to API payload
+			if (requestData.effectiveDate) payload.effective_date = requestData.effectiveDate;
+			if (requestData.endDate) payload.end_date = requestData.endDate;
+			if (requestData.reviewDate) payload.review_date = requestData.reviewDate;
+			if (requestData.nextReviewDate) payload.next_review_date = requestData.nextReviewDate;
+			if (requestData.useCaseCategory) payload.use_case_category_id = requestData.useCaseCategory;
+			if (requestData.usage) payload.usage = requestData.usage;
+			if (requestData.policyNumber) payload.policy_number = requestData.policyNumber;
+			if (requestData.versionName) payload.version_name = requestData.versionName;
+			if (requestData.contentSource) payload.content_source = requestData.contentSource;
+
+			// Handle boolean fields
+			if (requestData.allowMcgContent !== undefined) {
+				payload.mcg_content_enabled = requestData.allowMcgContent;
+			}
+
+			// Handle select_all_enabled (check both camelCase and snake_case)
+			if (requestData.selectAllEnabled !== undefined) {
+				payload.select_all_enabled = requestData.selectAllEnabled;
+			} else if (requestData.select_all_enabled !== undefined) {
+				payload.select_all_enabled = requestData.select_all_enabled;
+			}
+
+			// Handle response logging settings
+			if (requestData.responseLogging !== undefined) {
+				payload.settings = {
+					store_responses: requestData.responseLogging
+				};
+			}
+
+			this._log('Update Assessment - Endpoint: ' + endpoint, false);
+			this._log('Update Assessment - Payload: ' + JSON.stringify(payload), false);
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'UpdateAssessment');
+			this._log('Update Assessment - Response: ' + response.getBody(), false);
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('UpdateAssessment - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	publishAssessment: function(requestData) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the publish endpoint: /builder/guideline-template/{assessmentId}/status
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(requestData.assessmentId) + '/status');
+			var r = this._createRESTMessage('POST Publish Assessment', endpoint);
+
+			// Set method to POST
+			r.setHttpMethod('POST');
+
+			// Build payload with form data and status: "published"
+			var payload = {
+				"status": "published",
+				"store_responses": requestData.responseLogging || "use_default",
+				"effective_date": requestData.effectiveDate,
+				"end_date": requestData.endDate || null,
+				"review_date": requestData.reviewDate || null,
+				"next_review_date": requestData.nextReviewDate || null,
+				"version_name": requestData.versionTitle || "string"
+			};
+
+			// Set the request body
+			r.setRequestBody(JSON.stringify(payload));
+
+			var response = this._executeRequestWithRetry(r, 'PublishAssessment');
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('PublishAssessment - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getInterventionDetails: function(interventionId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/intervention/' + encodeURIComponent(interventionId));
+			var r = this._createRESTMessage('GET Intervention Details', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetInterventionDetails');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetInterventionDetails - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+updateIntervention: function(interventionId, label, tooltip, alternativeWording, category, goalId, required, customAttributes) {
+    try {
+        var config = this._getConfig();
+
+        if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+            return '{"error": "Configuration invalid"}';
+        }
+
+        var endpoint = this._buildEndpoint('/builder/intervention/' + encodeURIComponent(interventionId));
+        var r = this._createRESTMessage('PATCH Update Intervention', endpoint);
+        r.setHttpMethod('PATCH');
+
+        // Build request payload to match CareIQ API expectations
+        var payload = {
+            label: label,
+            tooltip: tooltip || '',
+            alternative_wording: alternativeWording || '',
+            category: category || 'assist',
+            goal_id: goalId,
+            required: required || false,
+            custom_attributes: customAttributes || {}
+        };
+
+        r.setRequestBody(JSON.stringify(payload));
+        r.setRequestHeader('Content-Type', 'application/json');
+
+        var response = this._executeRequestWithRetry(r, 'UpdateIntervention');
+        return response.getBody();
+    } catch (e) {
+        this._logError('UpdateIntervention - Error: ' + e);
+        return '{"error": "' + e.message + '"}';
+    }
+},
+	createScoringModel: function(guidelineTemplateId, label, scoringType) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/scoring_model');
+			var r = this._createRESTMessage('POST Create Scoring Model', endpoint);
+			r.setHttpMethod('POST');
+
+			// Build request payload to match CareIQ API expectations
+			var payload = {
+				guideline_template_id: guidelineTemplateId,
+				label: label,
+				scoring_type: scoringType
+			};
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'CreateScoringModel');
+			return response.getBody();
+		} catch (e) {
+			this._logError('CreateScoringModel - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getScoringModels: function(guidelineTemplateId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/guideline_template/' + encodeURIComponent(guidelineTemplateId) + '/scoring_model');
+			var r = this._createRESTMessage('GET Scoring Models', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetScoringModels');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetScoringModels - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	deleteScoringModel: function(guidelineTemplateId, modelId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/guideline_template/' + encodeURIComponent(guidelineTemplateId) + '/scoring_model/' + encodeURIComponent(modelId));
+			var r = this._createRESTMessage('DELETE Scoring Model', endpoint);
+			r.setHttpMethod('DELETE');
+
+			var response = this._executeRequestWithRetry(r, 'DeleteScoringModel');
+
+			// Handle 204 No Content response
+			if (response.getStatusCode() === 204) {
+				return '{"success": true, "message": "Scoring model deleted successfully"}';
+			}
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('DeleteScoringModel - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	saveScoringModelValue: function(scoringModelId, guidelineTemplateId, label, scoringType, answerId, value) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/builder/scoring_model/' + encodeURIComponent(scoringModelId));
+			var r = this._createRESTMessage('PATCH Save Scoring Model Value', endpoint);
+			r.setHttpMethod('PATCH');
+
+			// Build the payload with the single answer value
+			var payload = {
+				guideline_template_id: guidelineTemplateId,
+				label: label,
+				scoring_type: scoringType,
+				values: [
+					{
+						answer_id: answerId,
+						value: value
+					}
+				]
+			};
+
+			r.setRequestBody(JSON.stringify(payload));
+			r.setRequestHeader('Content-Type', 'application/json');
+
+			var response = this._executeRequestWithRetry(r, 'SaveScoringModelValue');
+
+			// Handle 204 No Content response
+			if (response.getStatusCode() === 204) {
+				return '{"success": true, "message": "Scoring model value saved successfully"}';
+			}
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('SaveScoringModelValue - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	createQuestionBundle: function(contentId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the question bundle endpoint
+			var endpoint = this._buildEndpoint('/builder/library/question/bundle');
+			var r = this._createRESTMessage('POST Create Question Bundle', endpoint);
+
+			// Set method to POST
+			r.setHttpMethod('POST');
+
+			// Build payload
+			var payload = {
+				"content_id": contentId
+			};
+
+			// Set the request body
+			r.setRequestBody(JSON.stringify(payload));
+
+			var response = this._executeRequestWithRetry(r, 'CreateQuestionBundle');
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('CreateQuestionBundle - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	createProblemBundle: function(contentId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the problem bundle endpoint
+			var endpoint = this._buildEndpoint('/builder/library/problem/bundle');
+			var r = this._createRESTMessage('POST Create Problem Bundle', endpoint);
+
+			// Set method to POST
+			r.setHttpMethod('POST');
+
+			// Build payload
+			var payload = {
+				"content_id": contentId
+			};
+
+			// Set the request body
+			r.setRequestBody(JSON.stringify(payload));
+
+			var response = this._executeRequestWithRetry(r, 'CreateProblemBundle');
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('CreateProblemBundle - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getEvidence: function(contentType, contentId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the evidence endpoint: /careflow/{contentType}/{contentId}/evidence
+			// contentType can be: question, answer, problem, goal, intervention
+			var endpoint = this._buildEndpoint('/careflow/' + encodeURIComponent(contentType) + '/' + encodeURIComponent(contentId) + '/evidence');
+			var r = this._createRESTMessage('GET Evidence', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetEvidence');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetEvidence - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getQualityMeasures: function(guidelineTemplateId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the quality measures endpoint: /careflow/guideline-template/{guidelineTemplateId}/quality-measures
+			var endpoint = this._buildEndpoint('/careflow/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/quality-measures');
+			var r = this._createRESTMessage('GET Quality Measures', endpoint);
+			r.setHttpMethod('GET');
+
+			var response = this._executeRequestWithRetry(r, 'GetQualityMeasures');
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetQualityMeasures - Error: ' + e);
 			return '{"error": "' + e.message + '"}';
 		}
 	},
