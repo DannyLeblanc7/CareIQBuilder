@@ -19022,50 +19022,25 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
 
-			// Check if we should skip reload (e.g., during batch answer reordering)
+			// Clear the skipReload flag if it was set
 			if (state.skipAnswerUpdateReload) {
-				// Clear the flag and show success message without reload
 				updateState({
-					skipAnswerUpdateReload: false,
-					systemMessages: [
-						...(state.systemMessages || []),
-						{
-							type: 'success',
-							message: 'Answer updated successfully!',
-							timestamp: new Date().toISOString()
-						}
-					]
+					skipAnswerUpdateReload: false
 				});
-				return; // Exit early, no reload
 			}
 
-			// Normal flow: reload data after answer update
-			// Store the current section to re-select after refresh
-			const currentSection = state.selectedSection;
-			const currentSectionLabel = state.selectedSectionLabel;
-
-			// Add success message
+			// Default behavior: NO reload (same as questions)
+			// Just show success message and force UI re-render
 			updateState({
+				renderKey: Date.now(), // Force re-render
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
-						message: 'Answer updated successfully! Refreshing data...',
+						message: 'Answer updated successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
-			});
-
-			// Set pending reselection data
-			updateState({
-				pendingReselectionSection: currentSection
-			});
-
-			// Trigger data refresh with proper reselection
-			dispatch('FETCH_ASSESSMENT_DETAILS', {
-				assessmentId: state.currentAssessmentId,
-				assessmentTitle: state.currentAssessment?.title || 'Assessment'
 			});
 		},
 
