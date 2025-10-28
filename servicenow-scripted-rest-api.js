@@ -85,7 +85,7 @@
             
             // Fetch all required properties
             for (var i = 0; i < required.length; i++) {
-                var propName = 'x_1628056_careiq.careiq.platform.' + required[i];
+                var propName = 'x_cadal_careiq_e_0.careiq.platform.' + required[i];
                 var value = gs.getProperty(propName, '').trim();
                 
                 if (!value) {

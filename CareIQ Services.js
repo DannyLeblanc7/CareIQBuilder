@@ -2,7 +2,7 @@ var CareIQServices = Class.create();
 CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
     // Configuration and utility methods
     _isDebugEnabled: function() {
-        return gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
+        return gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
     },
     
     _log: function(message, isError) {
@@ -24,13 +24,13 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
   
     _getConfig: function() {
         var config = {
-            token: gs.getProperty('x_1628056_careiq.careiq.platform.token'),
-            app: gs.getProperty('x_1628056_careiq.careiq.platform.app'),
-            region: gs.getProperty('x_1628056_careiq.careiq.platform.region'),
-            version: gs.getProperty('x_1628056_careiq.careiq.platform.version'),
-            clientId: gs.getProperty('x_1628056_careiq.careiq.platform.id'),
-            oToken: gs.getProperty('x_1628056_careiq.careiq.platform.otoken'),
-            apiKey: gs.getProperty('x_1628056_careiq.careiq.platform.apikey')
+            token: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token'),
+            app: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.app'),
+            region: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.region'),
+            version: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.version'),
+            clientId: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.id'),
+            oToken: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.otoken'),
+            apiKey: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.apikey')
         };
         
         return config;
@@ -59,7 +59,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
     },
     
     _createRESTMessage: function(name, endpoint) {
-        var r = new sn_ws.RESTMessageV2('x_1628056_careiq.CareIQ REST Calls', name);
+        var r = new sn_ws.RESTMessageV2('x_cadal_careiq_e_0.CareIQ REST Calls', name);
         r.setEndpoint(endpoint);
         return r;
     },
@@ -218,7 +218,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
                 if (token) {
                     // Save token to sys_properties
                     var gr = new GlideRecord('sys_properties');
-                    gr.addQuery('name', 'x_1628056_careiq.careiq.platform.token');
+                    gr.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
                     gr.query();
                     
                     if (gr.next()) {

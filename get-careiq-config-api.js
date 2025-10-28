@@ -1,7 +1,7 @@
 (function process(request, response) {
     try {
         // Check if debug logging is enabled
-        var isDebugEnabled = gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
+        var isDebugEnabled = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
 
         if (isDebugEnabled) {
             gs.info('=== CareIQ Config API ===');
@@ -10,12 +10,12 @@
 
         // Fetch only the 3 required properties
         var gr = new GlideRecord('sys_properties');
-        gr.addQuery('name', 'IN', 'x_1628056_careiq.careiq.platform.region,x_1628056_careiq.careiq.platform.version,x_1628056_careiq.careiq.platform.app');
+        gr.addQuery('name', 'IN', 'x_cadal_careiq_e_0.careiq.platform.region,x_cadal_careiq_e_0.careiq.platform.version,x_cadal_careiq_e_0.careiq.platform.app');
         gr.query();
 
         var config = {};
         while (gr.next()) {
-            var key = gr.getValue('name').replace('x_1628056_careiq.careiq.platform.', '');
+            var key = gr.getValue('name').replace('x_cadal_careiq_e_0.careiq.platform.', '');
             config[key] = gr.getValue('value');
         }
 

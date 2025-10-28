@@ -33,7 +33,7 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
 **ALWAYS use the 2-step API pattern for creating questions:**
 
 1. **Step 1: Create question** using `ADD_QUESTION_TO_SECTION_API`
-   - Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-question-to-section`
+   - Endpoint: `/api/x_cadal_careiq_e_0/careiq_experience_builder_api/add-question-to-section`
    - Calls: `builderAddQuestionToSection()` in CareIQ Services
    - CareIQ Backend: `POST /builder/section/{sectionId}/questions`
    - Does NOT include answers in this call
@@ -42,12 +42,12 @@ ServiceNow UI component that integrates with the CareIQ platform for creating an
    - SUCCESS handler receives question ID from backend
    - Checks for `state.pendingQuestionAnswers`
    - Dispatches `MAKE_ADD_ANSWERS_TO_QUESTION_REQUEST` with question ID
-   - Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-answers-to-question`
+   - Endpoint: `/api/x_cadal_careiq_e_0/careiq_experience_builder_api/add-answers-to-question`
 
 **DEPRECATED: DO NOT USE**
 - ❌ `ADD_QUESTION_API` action (REMOVED)
 - ❌ `MAKE_ADD_QUESTION_REQUEST` HTTP effect (REMOVED)
-- ❌ Endpoint: `/api/x_cadal_careiq_b_0/careiq_api/add-question` (OLD API)
+- ❌ Endpoint: `/api/x_cadal_careiq_e_0/careiq_experience_builder_api/add-question` (OLD API)
 - ❌ `builderAddQuestion()` method that sends question + answers in one call
 
 **Why This Pattern:**
@@ -71,8 +71,8 @@ var requestData = request.body.data;  // ServiceNow wraps in .data automatically
 ```
 
 ### CareIQ Services Script Include Pattern
-- **Correct instantiation**: `var careiqServices = new x_1628056_careiq.CareIQServices();`
-- **Application scope**: All CareIQ Script Includes are in the `x_1628056_careiq` scope
+- **Correct instantiation**: `var careiqServices = new x_cadal_careiq_e_0.CareIQServices();`
+- **Application scope**: All CareIQ Script Includes are in the `x_cadal_careiq_e_0` scope
 - **Use `Delta CareIQ Services - Consolidated.js`** as single source of truth for new methods
 
 ### CRITICAL: Save/Cancel Button Display Fix

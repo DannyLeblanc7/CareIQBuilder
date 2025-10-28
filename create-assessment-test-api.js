@@ -1,7 +1,7 @@
 (function process(request, response) {
     try {
         // Check if debug logging is enabled
-        var isDebugEnabled = gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
+        var isDebugEnabled = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
 
         if (isDebugEnabled) {
             gs.info('=== CareIQ Create Assessment TEST API ===');

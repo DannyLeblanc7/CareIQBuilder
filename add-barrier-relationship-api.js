@@ -1,7 +1,7 @@
 (function process(request, response) {
     try {
         // Check if debug logging is enabled
-        var isDebugEnabled = gs.getProperty('x_1628056_careiq.careiq.platform.globalDebug') === 'true';
+        var isDebugEnabled = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
 
         // Log raw request body for debugging
         if (isDebugEnabled) {
@@ -55,7 +55,7 @@
         }
 
         // Create Script Include instance and call the method
-        var careiqServices = new x_1628056_careiq.CareIQServices();
+        var careiqServices = new x_cadal_careiq_e_0.CareIQServices();
 
         if (isDebugEnabled) {
             gs.info('CareIQServices instance created successfully');
