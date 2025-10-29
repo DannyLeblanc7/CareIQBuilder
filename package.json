@@ -1,6 +1,6 @@
 {
   "name": "@myorg/careiq-builder",
-  "version": "0.1.151",
+  "version": "0.1.153",
   "private": false,
   "description": "Component that connects to the CareIQ platform for creating and maintaining assessments.",
   "keywords": [

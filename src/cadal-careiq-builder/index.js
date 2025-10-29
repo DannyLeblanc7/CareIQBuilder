@@ -9121,6 +9121,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'PUBLISH_ASSESSMENT': (coeffects) => {
+			const {action, dispatch} = coeffects;
+			const {assessmentId, assessmentTitle} = action.payload;
+
+			// Show confirmation dialog before opening publish panel
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to publish this assessment? Once published, it cannot be edited. You will need to create a new version to make changes.',
+				pendingAction: {
+					type: 'CONFIRM_PUBLISH_ASSESSMENT',
+					payload: {assessmentId, assessmentTitle}
+				}
+			});
+		},
+
+		'CONFIRM_PUBLISH_ASSESSMENT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
 
