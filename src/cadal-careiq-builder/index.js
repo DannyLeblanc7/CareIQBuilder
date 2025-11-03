@@ -18093,6 +18093,15 @@ createCustomElement('cadal-careiq-builder', {
 		'UPDATE_ANSWER_SECONDARY_INPUT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, newSecondaryInputType} = action.payload;
+
+			// Find the question that contains this answer
+			let parentQuestionId = null;
+			state.currentQuestions?.questions?.forEach(question => {
+				if (question.answers?.some(answer => answer.ids.id === answerId)) {
+					parentQuestionId = question.ids.id;
+				}
+			});
+
 			// Update the answer in the current questions data and mark parent question as unsaved
 			const updatedQuestions = {
 				...state.currentQuestions,
@@ -18112,7 +18121,17 @@ createCustomElement('cadal-careiq-builder', {
 			};
 
 			updateState({
-				currentQuestions: updatedQuestions
+				currentQuestions: updatedQuestions,
+				// Track answer change for save
+				answerChanges: {
+					...state.answerChanges,
+					[answerId]: {
+						action: 'update',
+						answerId: answerId,
+						questionId: parentQuestionId,
+						secondary_input_type: newSecondaryInputType
+					}
+				}
 			});
 		},
 
