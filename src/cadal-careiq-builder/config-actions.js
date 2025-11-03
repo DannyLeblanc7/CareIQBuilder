@@ -110,9 +110,8 @@ export const configActions = {
 		});
 		dispatch('FETCH_ASSESSMENTS', {
 			offset: 0,
-			limit: state.assessmentsPagination.apiLimit,
+			limit: state.assessmentsPagination?.apiLimit || 1000,  // Use 1000 as fallback
 			useCase: 'CM',
-			contentSource: 'Organization',
 			searchValue: ''
 		});
 	},

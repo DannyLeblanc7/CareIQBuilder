@@ -1457,7 +1457,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			return '{"error": "' + e.message + '"}';
 		}
 	},
-	builderGetGuidelineTemplates: function(useCase, offset, limit, contentSource, latestVersionOnly, searchValue) {
+	builderGetGuidelineTemplates: function(useCase, offset, limit, latestVersionOnly, searchValue) {
 		try {
 			var config = this._getConfig();
 
@@ -1468,8 +1468,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			// Build the builder guideline templates endpoint with query parameters
 			var endpoint = this._buildEndpoint('/builder/guideline-template?use_case=' + encodeURIComponent(useCase) +
 											'&offset=' + encodeURIComponent(offset) +
-											'&limit=' + encodeURIComponent(limit) +
-											'&content_source=' + encodeURIComponent(contentSource));
+											'&limit=' + encodeURIComponent(limit));
 
 			// Add optional parameters if provided
 			if (latestVersionOnly) {

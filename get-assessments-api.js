@@ -16,8 +16,8 @@
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
-        // Validate required fields
-        var requiredFields = ['useCase', 'offset', 'limit', 'contentSource'];
+        // Validate required fields (contentSource is now optional, replaced by excludeMcg)
+        var requiredFields = ['useCase', 'offset', 'limit'];
         var missingFields = [];
 
         for (var i = 0; i < requiredFields.length; i++) {
@@ -58,7 +58,6 @@
             requestData.useCase,
             requestData.offset,
             requestData.limit,
-            requestData.contentSource,
             requestData.latestVersionOnly,
             requestData.searchValue
         );

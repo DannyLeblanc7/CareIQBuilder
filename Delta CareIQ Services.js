@@ -1512,3 +1512,189 @@ if (library_id) {
 // SERVER-SIDE CHANGES:
 // - add-question-to-section-api.js line 95: Default voice fallback
 // - CareIQ Services.js lines 988, 1345, 1357: Default voice fallbacks
+
+// ============================================================================
+// COMPONENT FIX: Content Source Field Fixes (v1.0.019)
+// ============================================================================
+// PROBLEM 1: When creating a template, content_source was hardcoded to
+// 'Organization' even if the user entered a different value in the form.
+//
+// PROBLEM 2: No validation to prevent users from entering "MCG" as the content
+// source (reserved for other purposes).
+//
+// FIX 1: CREATE_ASSESSMENT_API (line 8667) - Changed from hardcoded 'Organization'
+// to use form value: assessmentData.contentSource || 'Organization'
+//
+// FIX 2: SAVE_NEW_ASSESSMENT (line 8597) - Added validation to reject "MCG"
+// content source when creating new assessments.
+//
+// FIX 3: UPDATE_ASSESSMENT_DETAIL_FIELD (line 9000) - Added validation to
+// immediately reject "MCG" when user types it in the details panel.
+//
+// FIX 4: SAVE_ASSESSMENT_DETAILS (line 9029) - Added backup validation to
+// prevent saving assessments with "MCG" content source.
+
+// ============================================================================
+// COMPONENT FIX: Show MCG Validation in Modal (v1.0.020)
+// ============================================================================
+// ENHANCEMENT: Added inline error display in the "Create New Assessment" modal
+// to show validation errors (including MCG content source rejection) directly
+// in the modal, not just in the system panel.
+//
+// CHANGES:
+// 1. Added validationError field to newAssessmentForm state (line 8248)
+// 2. Added error message display in modal UI (line 4538-4551)
+// 3. Updated SAVE_NEW_ASSESSMENT (lines 8602, 8621) to set validationError
+// 4. Updated UPDATE_NEW_ASSESSMENT_FIELD (line 8583) to clear validationError
+//    when user changes any field
+//
+// NOTE: MCG validation for editing assessment details was already implemented
+// in v1.0.019 via UPDATE_ASSESSMENT_DETAIL_FIELD and SAVE_ASSESSMENT_DETAILS.
+
+// ============================================================================
+// COMPONENT FIX: MCG Validation in Assessment Details Panel (v1.0.021)
+// ============================================================================
+// FIX: Added inline error display in the "Assessment Details" panel to show
+// MCG validation errors directly in the panel, not just in the system messages.
+//
+// The validation logic was already in place from v1.0.019, but errors only
+// appeared in the system panel. This update makes the error visible inline.
+//
+// CHANGES:
+// 1. Added validationError field to assessmentDetailsPanel state
+//    - OPEN_ASSESSMENT_DETAILS (line 9004): Initialize as null
+//    - CLOSE_ASSESSMENT_DETAILS (line 9031): Reset to null
+// 2. Added error message display in panel UI (line 4131-4144)
+// 3. Updated UPDATE_ASSESSMENT_DETAIL_FIELD (line 9047) to set validationError
+//    when "MCG" is entered, and clear it (line 9065) when other changes are made
+// 4. Updated SAVE_ASSESSMENT_DETAILS (line 9080) to set validationError when
+//    attempting to save with "MCG" content source
+
+// ============================================================================
+// COMPONENT & SERVER-SIDE: MCG Assessment Filter - Client-Side (v1.0.023)
+// ============================================================================
+// CHANGE: Changed from server-side filtering to CLIENT-SIDE filtering of MCG
+// assessments. Removed hardcoded contentSource='Organization' filter entirely.
+//
+// PREVIOUS BEHAVIOR (v1.0.022):
+// - Server-side filtering with excludeMcg parameter
+// - Only fetched non-MCG assessments from backend
+//
+// NEW BEHAVIOR (v1.0.023):
+// - Fetch ALL assessments from backend (no server-side filtering)
+// - Filter MCG assessments CLIENT-SIDE based on checkbox
+// - By default, hide MCG assessments (checkbox unchecked)
+// - When "Show MCG Assessments" is checked, display all including MCG
+//
+// COMPONENT CHANGES (index.js):
+// 1. State remains: includeMcgAssessments: false (line 8195)
+// 2. Updated checkbox label from "Include" to "Show" (line 440)
+// 3. FETCH_ASSESSMENTS (line 8569): Removed excludeMcg parameter entirely
+// 4. ASSESSMENTS_SUCCESS (line 8490-8493): Added client-side filtering logic:
+//    - Keep all assessments in state.assessments
+//    - Filter to state.filteredAssessments based on includeMcgAssessments
+// 5. TOGGLE_MCG_FILTER (line 8795-8813): Changed to re-filter existing data
+//    instead of reloading from server
+//
+// SERVER-SIDE CHANGES:
+// - config-actions.js: Removed contentSource: 'Organization' (line 111-116)
+// - get-assessments-api.js: Removed excludeMcg parameter (line 57-63)
+// - CareIQ Services.js: Reverted builderGetGuidelineTemplates to original
+//   signature without excludeMcg parameter (line 1460)
+//
+// NOTE: The 200 assessment limit is intentional - it's the API fetch limit
+// (state.assessmentsPagination.apiLimit), and client-side pagination handles
+// display in chunks (default 10 per page).
+
+// ============================================================================
+// COMPONENT: Increased Assessment API Fetch Limit (v1.0.024)
+// ============================================================================
+// CHANGE: Increased apiLimit from 200 to 1000 to fetch more assessments in
+// a single API call.
+//
+// COMPONENT CHANGES (index.js):
+// - Line 8196: Changed apiLimit from 200 to 1000
+//
+// COMPONENT CHANGES (config-actions.js):
+// - Line 113: Added fallback || 1000 in case state.assessmentsPagination
+//   is not initialized yet
+//
+// IMPORTANT NOTE:
+// If you're still only seeing 30 assessments, the CareIQ backend API likely
+// has a maximum limit of 30 hardcoded on the server side. Check the backend
+// API configuration at:
+//   GET /builder/guideline-template
+//
+// The backend may be ignoring the limit parameter and using its own default.
+// You may need to:
+// 1. Check backend API settings/configuration
+// 2. Implement pagination on the frontend to make multiple API calls
+// 3. Increase the backend's max limit setting
+
+// ============================================================================
+// COMPONENT: Visual Indicator for Non-MCG Assessments (v1.0.025)
+// ============================================================================
+// CHANGE: Added light blue background (#e6f2ff) to assessment cards and version
+// cards when content_source is NOT 'MCG' to make them easier to distinguish.
+//
+// COMPONENT CHANGES (index.js):
+// - Line 474-476: Added inline style to assessment-card with light blue
+//   background when content_source !== 'MCG'
+// - Line 529-531: Added inline style to version-card with same light blue
+//   background when content_source !== 'MCG'
+//
+// VISUAL EFFECT:
+// - Non-MCG assessments: Light blue background (#e6f2ff)
+// - MCG assessments: Default/white background
+// - Makes it easy to visually identify which assessments are MCG vs non-MCG
+
+// ============================================================================
+// COMPONENT: Block Save When Validation Error Exists (v1.0.026)
+// ============================================================================
+// CHANGE: Added validation check to prevent saving assessment details when
+// there's a validation error present (specifically for MCG content source).
+//
+// ISSUE: When user typed "MCG" in Content Source field, UPDATE_ASSESSMENT_DETAIL_FIELD
+// would block it from being saved to state (line 9080 return), but the browser
+// input still showed "MCG" visually. When user clicked Save, the SAVE_ASSESSMENT_DETAILS
+// handler checked state.assessmentDetailsPanel.contentSource which was the OLD
+// value (not "MCG"), so validation passed and save went through.
+//
+// COMPONENT CHANGES (index.js):
+// - Lines 9098-9111: Added check at beginning of SAVE_ASSESSMENT_DETAILS to
+//   block save if panelData.validationError exists, shows error message and
+//   returns early before any save logic executes
+//
+// HOW IT WORKS:
+// 1. User types "MCG" in Content Source field
+// 2. UPDATE_ASSESSMENT_DETAIL_FIELD blocks it and sets validationError (line 9069)
+// 3. User clicks Save
+// 4. SAVE_ASSESSMENT_DETAILS checks for validationError first (line 9099)
+// 5. If validationError exists, shows error message and returns early
+// 6. Save is prevented until user fixes the validation error
+//
+// This ensures that any validation errors must be fixed before the save can proceed.
+
+// ============================================================================
+// COMPONENT: Display Content Source in Assessment Cards (v1.0.027)
+// ============================================================================
+// CHANGE: Added content source display to the bottom right corner of both
+// main assessment cards and version cards.
+//
+// COMPONENT CHANGES (index.js):
+// - Line 507: Added inline styles to assessment-card-body:
+//   - position: 'relative' (to enable absolute positioning of source label)
+//   - paddingBottom: '30px' (to prevent overlap with other content)
+// - Lines 520-532: Added conditional rendering of content source label with:
+//   - position: 'absolute' (positioned relative to card body)
+//   - bottom: '10px', right: '15px' (positioned in bottom right corner)
+//   - fontSize: '12px', color: '#666', fontStyle: 'italic' (subtle styling)
+//   - Format: "Source: {content_source}"
+//
+// - Line 556: Added same inline styles to version-body
+// - Lines 565-577: Added same content source label to version cards
+//
+// VISUAL EFFECT:
+// - Both main assessment cards and version cards now show "Source: [value]"
+//   in bottom right corner in small, gray, italic text
+// - Works together with light blue background (v1.0.025) to identify non-MCG assessments

@@ -417,7 +417,7 @@ const view = (state, {updateState, dispatch}) => {
 							/>
 							<div className="page-size-controls">
 								<label className="page-size-label">Show:</label>
-								<select 
+								<select
 									className="page-size-select"
 									value={state.assessmentsPagination.displayPageSize}
 									onchange={(e) => dispatch('CHANGE_PAGE_SIZE', {pageSize: parseInt(e.target.value)})}
@@ -429,7 +429,18 @@ const view = (state, {updateState, dispatch}) => {
 								</select>
 								<span className="page-size-label">per page</span>
 							</div>
-							<button 
+							<div className="mcg-filter-controls" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+								<input
+									type="checkbox"
+									id="showMcgCheckbox"
+									checked={state.includeMcgAssessments}
+									onchange={(e) => dispatch('TOGGLE_MCG_FILTER', {includeMcg: e.target.checked})}
+								/>
+								<label htmlFor="showMcgCheckbox" style={{cursor: 'pointer', fontSize: '14px'}}>
+									Show MCG Assessments
+								</label>
+							</div>
+							<button
 								className="new-assessment-btn"
 								onclick={() => dispatch('CREATE_NEW_ASSESSMENT')}
 							>
@@ -458,8 +469,11 @@ const view = (state, {updateState, dispatch}) => {
 									
 									return (
 										<div key={assessment.id} className="assessment-group">
-											<div 
+											<div
 												className={`assessment-card clickable ${isExpanded ? 'expanded' : ''}`}
+												style={{
+													backgroundColor: assessment.content_source !== 'MCG' ? '#e6f2ff' : undefined
+												}}
 												onclick={() => dispatch('OPEN_ASSESSMENT_BUILDER', {
 													assessmentId: assessment.id,
 													assessmentTitle: assessment.title
@@ -490,7 +504,7 @@ const view = (state, {updateState, dispatch}) => {
 														</span>
 													</div>
 												</div>
-												<div className="assessment-card-body">
+												<div className="assessment-card-body" style={{position: 'relative', paddingBottom: '30px'}}>
 													<p className="assessment-policy">Policy: {assessment.policy_number}</p>
 													<p className="assessment-category">
 														Category: {assessment.use_case_category.name}
@@ -503,6 +517,19 @@ const view = (state, {updateState, dispatch}) => {
 													<p className="assessment-dates">
 														Created: {new Date(assessment.created_date).toLocaleDateString()}
 													</p>
+													{assessment.content_source && (
+														<p style={{
+															position: 'absolute',
+															bottom: '10px',
+															right: '15px',
+															fontSize: '12px',
+															color: '#666',
+															margin: '0',
+															fontStyle: 'italic'
+														}}>
+															Source: {assessment.content_source}
+														</p>
+													)}
 												</div>
 											</div>
 											
@@ -512,6 +539,9 @@ const view = (state, {updateState, dispatch}) => {
 														<div
 															key={version.id}
 															className="version-card clickable"
+															style={{
+																backgroundColor: version.content_source !== 'MCG' ? '#e6f2ff' : undefined
+															}}
 															onclick={() => dispatch('OPEN_ASSESSMENT_BUILDER', {
 																assessmentId: version.id,
 																assessmentTitle: version.title
@@ -523,7 +553,7 @@ const view = (state, {updateState, dispatch}) => {
 																	{version.status}
 																</span>
 															</div>
-															<div className="version-body">
+															<div className="version-body" style={{position: 'relative', paddingBottom: '30px'}}>
 																{version.version_name && (
 																	<p className="version-name">{version.version_name}</p>
 																)}
@@ -532,6 +562,19 @@ const view = (state, {updateState, dispatch}) => {
 																	<p>Ended: {new Date(version.end_date).toLocaleDateString()}</p>
 																)}
 																<p>Most Recent: {version.most_recent ? 'Yes' : 'No'}</p>
+																{version.content_source && (
+																	<p style={{
+																		position: 'absolute',
+																		bottom: '10px',
+																		right: '15px',
+																		fontSize: '12px',
+																		color: '#666',
+																		margin: '0',
+																		fontStyle: 'italic'
+																	}}>
+																		Source: {version.content_source}
+																	</p>
+																)}
 															</div>
 														</div>
 													))}
@@ -4128,6 +4171,21 @@ const view = (state, {updateState, dispatch}) => {
 								</div>
 							</div>
 						</div>
+						{/* Validation Error Message */}
+						{state.assessmentDetailsPanel.validationError && (
+							<div style={{
+								margin: '15px 20px',
+								padding: '12px',
+								backgroundColor: '#f8d7da',
+								color: '#721c24',
+								border: '1px solid #f5c6cb',
+								borderRadius: '4px',
+								fontSize: '14px'
+							}}>
+								<strong>Error:</strong> {state.assessmentDetailsPanel.validationError}
+							</div>
+						)}
+
 						<div className="panel-footer">
 							<button
 								className="btn-cancel"
@@ -4534,6 +4592,21 @@ const view = (state, {updateState, dispatch}) => {
 								</label>
 							</div>
 						</div>
+
+						{/* Validation Error Message */}
+						{state.newAssessmentForm.validationError && (
+							<div style={{
+								marginTop: '15px',
+								padding: '12px',
+								backgroundColor: '#f8d7da',
+								color: '#721c24',
+								border: '1px solid #f5c6cb',
+								borderRadius: '4px',
+								fontSize: '14px'
+							}}>
+								<strong>Error:</strong> {state.newAssessmentForm.validationError}
+							</div>
+						)}
 
 						{/* Modal Buttons */}
 						<div className="modal-buttons" style={{
@@ -8152,7 +8225,7 @@ createCustomElement('cadal-careiq-builder', {
 		assessmentsPagination: {
 			total: 0,
 			apiOffset: 0,
-			apiLimit: 200,
+			apiLimit: 1000,  // Increased from 200 to 1000 to fetch more assessments
 			displayPage: 0,
 			displayPageSize: 10,
 			totalPages: 0
@@ -8162,6 +8235,7 @@ createCustomElement('cadal-careiq-builder', {
 		expandedAssessments: {},
 		assessmentVersions: {},
 		currentRequest: null,
+		includeMcgAssessments: false,  // Default to excluding MCG assessments
 		// Assessment Builder state
 		builderView: false,
 		currentAssessment: null,
@@ -8229,7 +8303,8 @@ createCustomElement('cadal-careiq-builder', {
 			reviewDate: '',
 			nextReviewDate: '',
 			responseLogging: 'Use Org Default',
-			allowMcgContent: false
+			allowMcgContent: false,
+			validationError: null
 		},
 		// Section editing state
 		editingSectionId: null,
@@ -8444,23 +8519,28 @@ createCustomElement('cadal-careiq-builder', {
 					return titleA.localeCompare(titleB);
 				});
 
+				// Client-side filtering: exclude MCG assessments unless checkbox is checked
+				const filteredAssessments = state.includeMcgAssessments
+					? sortedAssessments
+					: sortedAssessments.filter(a => a.content_source !== 'MCG');
+
 				updateState({
-					assessments: sortedAssessments,
+					assessments: sortedAssessments,  // Keep all assessments in state
 					assessmentsLoading: false,
-					filteredAssessments: sortedAssessments,
+					filteredAssessments: filteredAssessments,  // Only show filtered assessments
 					assessmentsPagination: {
 						...state.assessmentsPagination,
 						total: total,
 						apiOffset: offset,
 						apiLimit: limit,
 						displayPage: 0,
-						totalPages: Math.ceil(sortedAssessments.length / state.assessmentsPagination.displayPageSize)
+						totalPages: Math.ceil(filteredAssessments.length / state.assessmentsPagination.displayPageSize)
 					},
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'success',
-							message: `Loaded ${assessments.length} assessments`,
+							message: `Loaded ${filteredAssessments.length} assessments` + (state.includeMcgAssessments ? '' : ' (MCG filtered out)'),
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -8527,7 +8607,6 @@ createCustomElement('cadal-careiq-builder', {
 				useCase: 'CM',
 				offset: offset,
 				limit: limit,
-				contentSource: 'Organization',
 				latestVersionOnly: latestVersionOnly !== false,
 				searchValue: searchValue || ''
 			});
@@ -8563,7 +8642,8 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				newAssessmentForm: {
 					...state.newAssessmentForm,
-					[fieldName]: value
+					[fieldName]: value,
+					validationError: null // Clear any validation errors when user changes fields
 				}
 			});
 		},
@@ -8582,11 +8662,34 @@ createCustomElement('cadal-careiq-builder', {
 
 			if (!form.guidelineName || !form.useCaseCategory) {
 				updateState({
+					newAssessmentForm: {
+						...form,
+						validationError: 'Please fill in all required fields (Guideline Name and Use Case Category)'
+					},
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'error',
 							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// CRITICAL: Validate that content source is not "MCG" (reserved)
+			if (form.contentSource && form.contentSource.toUpperCase() === 'MCG') {
+				updateState({
+					newAssessmentForm: {
+						...form,
+						validationError: 'Content Source cannot be "MCG" - this value is reserved. Please use a different content source.'
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Content Source cannot be "MCG" - this value is reserved. Please use a different content source.',
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -8649,7 +8752,7 @@ createCustomElement('cadal-careiq-builder', {
 			const payload = {
 				title: assessmentData.guidelineName, // Map guidelineName to title
 				use_case: 'CM', // Fixed value as per your example
-				content_source: 'Organization', // Fixed value as per your example
+				content_source: assessmentData.contentSource || 'Organization', // Use form value, default to 'Organization'
 				version_name: assessmentData.guidelineName + ' - v1', // Auto-append v1 to the title
 				external_id: assessmentData.external_id || '',
 				custom_attributes: assessmentData.custom_attributes || {},
@@ -8945,7 +9048,8 @@ createCustomElement('cadal-careiq-builder', {
 					allowMcgContent: state.currentAssessment?.mcg_content_enabled || false,
 					enableSelectAllPgi: state.currentAssessment?.select_all_enabled || false,
 					isEditable: true,
-					status: state.currentAssessment?.status  // Store status to check if published
+					status: state.currentAssessment?.status,  // Store status to check if published
+					validationError: null
 				}
 			});
 		},
@@ -8971,7 +9075,8 @@ createCustomElement('cadal-careiq-builder', {
 					responseLogging: 'use_default',
 					allowMcgContent: false,
 					enableSelectAllPgi: false,  // NEW
-					isEditable: false
+					isEditable: false,
+					validationError: null
 				}
 			});
 		},
@@ -8982,10 +9087,30 @@ createCustomElement('cadal-careiq-builder', {
 
 			console.log('UPDATE_ASSESSMENT_DETAIL_FIELD - field:', field, 'value:', value);
 
+			// CRITICAL: Block "MCG" as content source (reserved value)
+			if (field === 'contentSource' && value && value.toUpperCase() === 'MCG') {
+				updateState({
+					assessmentDetailsPanel: {
+						...state.assessmentDetailsPanel,
+						validationError: 'Content Source cannot be "MCG" - this value is reserved.'
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Content Source cannot be "MCG" - this value is reserved.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Don't update the field
+			}
+
 			updateState({
 				assessmentDetailsPanel: {
 					...state.assessmentDetailsPanel,
-					[field]: value
+					[field]: value,
+					validationError: null  // Clear any validation errors when user changes fields
 				}
 			});
 		},
@@ -8995,6 +9120,40 @@ createCustomElement('cadal-careiq-builder', {
 			const panelData = state.assessmentDetailsPanel;
 
 			console.log('SAVE_ASSESSMENT_DETAILS - panelData.enableSelectAllPgi:', panelData.enableSelectAllPgi);
+
+			// CRITICAL: Block save if there's any validation error
+			if (panelData.validationError) {
+				updateState({
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save: Please fix validation errors before saving.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
+
+			// CRITICAL: Validate content source is not "MCG" (reserved value)
+			if (panelData.contentSource && panelData.contentSource.toUpperCase() === 'MCG') {
+				updateState({
+					assessmentDetailsPanel: {
+						...panelData,
+						validationError: 'Cannot save: Content Source cannot be "MCG" - this value is reserved.'
+					},
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save: Content Source cannot be "MCG" - this value is reserved.',
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return;
+			}
 
 			// Close panel and show saving message
 			updateState({
@@ -9676,6 +9835,26 @@ createCustomElement('cadal-careiq-builder', {
 				assessmentsPagination: {
 					...state.assessmentsPagination,
 					displayPage: 0
+				}
+			});
+		},
+
+		'TOGGLE_MCG_FILTER': (coeffects) => {
+			const {action, state, updateState} = coeffects;
+			const {includeMcg} = action.payload;
+
+			// Client-side filtering: apply filter to existing assessments
+			const filteredAssessments = includeMcg
+				? state.assessments  // Show all
+				: state.assessments.filter(a => a.content_source !== 'MCG');  // Exclude MCG
+
+			updateState({
+				includeMcgAssessments: includeMcg,
+				filteredAssessments: filteredAssessments,
+				assessmentsPagination: {
+					...state.assessmentsPagination,
+					displayPage: 0,  // Reset to first page
+					totalPages: Math.ceil(filteredAssessments.length / state.assessmentsPagination.displayPageSize)
 				}
 			});
 		},
