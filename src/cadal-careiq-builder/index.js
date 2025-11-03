@@ -1472,7 +1472,7 @@ const view = (state, {updateState, dispatch}) => {
 																		alternative_wording: question.alternative_wording || '',
 																		sort_order: question.sort_order,
 																		custom_attributes: question.custom_attributes || {},
-																		voice: question.voice || 'CaseManager',
+																		voice: question.voice || 'Patient',
 																		required: question.required || false,
 																		available: question.available || false,
 																		has_quality_measures: question.has_quality_measures || false,
@@ -1844,7 +1844,7 @@ const view = (state, {updateState, dispatch}) => {
 													) : (
 														<div className="question-preview-header">
 															<div className="question-preview-line">
-																<span className="voice-display">{question.voice === 'CaseManager' ? 'CASE MANAGER' : question.voice === 'Caregiver' ? 'CAREGIVER' : question.voice === 'Patient' ? 'PATIENT' : 'CASE MANAGER'}</span>
+																<span className="voice-display">{question.voice === 'CaseManager' ? 'CASE MANAGER' : question.voice === 'Caregiver' ? 'CAREGIVER' : question.voice === 'Patient' ? 'PATIENT' : 'PATIENT'}</span>
 																<h4 className="question-label">
 																	{qIndex + 1}. {question.label}
 																	{question.required && <span className="required-indicator">*</span>}
@@ -10561,7 +10561,7 @@ createCustomElement('cadal-careiq-builder', {
 				required: false,
 				hidden: false,
 				tooltip: '',
-				voice: 'CaseManager', // Set default voice for new questions
+				voice: 'Patient', // Set default voice for new questions
 				sort_order: nextSortOrder,
 				answers: [
 					{
@@ -11199,7 +11199,7 @@ createCustomElement('cadal-careiq-builder', {
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
 					// Get the most current voice value from questionChanges if available
-					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
 
 					const questionData = {
 						label: question.label,
@@ -11236,7 +11236,7 @@ createCustomElement('cadal-careiq-builder', {
 					console.log('SAVE_QUESTION_IMMEDIATELY - Full questionChanges:', state.questionChanges?.[questionId]);
 
 					// Get the most current voice value from questionChanges if available
-					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
 
 					console.log('SAVE_QUESTION_IMMEDIATELY - Final currentVoice:', currentVoice);
 
@@ -11273,7 +11273,7 @@ createCustomElement('cadal-careiq-builder', {
 							type: question.type,
 							required: question.required,
 							tooltip: question.tooltip || '',
-							voice: question.voice || 'CaseManager',
+							voice: question.voice || 'Patient',
 							sort_order: question.sort_order,
 							answers: question.answers || []
 						}
@@ -11343,7 +11343,7 @@ createCustomElement('cadal-careiq-builder', {
 				});
 
 				// Get the most current voice value - check questionChanges first, then question object
-				const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'CaseManager';
+				const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
 
 				dispatch('UPDATE_QUESTION_API', {
 					questionData: {
@@ -14708,7 +14708,7 @@ createCustomElement('cadal-careiq-builder', {
 					type: libraryQuestion.type,
 					required: libraryQuestion.required || false,
 					tooltip: libraryQuestion.tooltip || '',
-					voice: libraryQuestion.voice || 'CaseManager',
+					voice: libraryQuestion.voice || 'Patient',
 					sort_order: questionContext.questionData.sort_order,
 					alternative_wording: libraryQuestion.alternative_wording || '',
 					custom_attributes: libraryQuestion.custom_attributes || {},
@@ -14821,7 +14821,7 @@ createCustomElement('cadal-careiq-builder', {
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
-						voice: question.voice || 'CaseManager',
+						voice: question.voice || 'Patient',
 						sort_order: question.sort_order,
 						alternative_wording: '',
 						custom_attributes: {},
@@ -14836,7 +14836,7 @@ createCustomElement('cadal-careiq-builder', {
 					type: question.type,
 					required: question.required,
 					tooltip: question.tooltip || '',
-					voice: question.voice || 'CaseManager',
+					voice: question.voice || 'Patient',
 					sort_order: question.sort_order,
 					alternative_wording: '',
 					custom_attributes: {},
@@ -17466,7 +17466,7 @@ createCustomElement('cadal-careiq-builder', {
 				alternative_wording: question.alternative_wording || '',
 				sort_order: newSortOrder,
 				custom_attributes: question.custom_attributes || {},
-				voice: question.voice || 'CaseManager',
+				voice: question.voice || 'Patient',
 				required: question.required || false,
 				available: question.available || false,
 				has_quality_measures: question.has_quality_measures || false,
@@ -18609,7 +18609,7 @@ createCustomElement('cadal-careiq-builder', {
 							alternative_wording: '',
 							sort_order: questionData.sort_order,
 							custom_attributes: {},
-							voice: currentQuestion?.voice || questionData.voice || 'CaseManager',
+							voice: currentQuestion?.voice || questionData.voice || 'Patient',
 							required: currentQuestion?.required ?? questionData.required ?? false,
 							available: false,
 							has_quality_measures: false
@@ -19099,7 +19099,7 @@ createCustomElement('cadal-careiq-builder', {
 					sort_order: questionData.sort_order,
 					library_id: questionData.library_id,
 					required: questionData.required || false,
-					voice: questionData.voice || 'CaseManager',
+					voice: questionData.voice || 'Patient',
 					tooltip: questionData.tooltip || '',
 					alternative_wording: questionData.alternative_wording || ''
 				};
@@ -19113,7 +19113,7 @@ createCustomElement('cadal-careiq-builder', {
 					alternative_wording: questionData.alternative_wording || '',
 					sort_order: questionData.sort_order,
 					custom_attributes: questionData.custom_attributes || {},
-					voice: questionData.voice || 'CaseManager',
+					voice: questionData.voice || 'Patient',
 					required: questionData.required || false,
 					available: questionData.available || false,
 					has_quality_measures: questionData.has_quality_measures || false

@@ -92,7 +92,7 @@
             requestData.alternative_wording || '',
             requestData.sort_order,
             requestData.custom_attributes || {},
-            requestData.voice || 'CaseManager',
+            requestData.voice || 'Patient',
             requestData.required || false,
             requestData.available || false,
             requestData.has_quality_measures || false,

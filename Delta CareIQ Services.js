@@ -1497,3 +1497,18 @@ if (library_id) {
 //
 // FIX 3: Updated validation in 'ADD_QUESTION' action handler (line ~10539) to
 // check for hasOwnProperty('subsections') instead of checking subsections.length.
+
+// ============================================================================
+// COMPONENT & SERVER-SIDE FIX: Change Default Voice to "Patient" (v1.0.018)
+// ============================================================================
+// CHANGE: Changed default voice value from "CaseManager" to "Patient" for all
+// new questions and as fallback defaults throughout the codebase.
+//
+// COMPONENT CHANGES (index.js):
+// - Line 10564: New question creation default voice
+// - All fallback defaults changed from 'CaseManager' to 'Patient'
+// - Fixed dropdown and ternary expressions to preserve value comparisons
+//
+// SERVER-SIDE CHANGES:
+// - add-question-to-section-api.js line 95: Default voice fallback
+// - CareIQ Services.js lines 988, 1345, 1357: Default voice fallbacks

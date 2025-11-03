@@ -985,7 +985,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				section_id: questionData.section_id,
 				sort_order: questionData.sort_order || 1,
 				custom_attributes: questionData.custom_attributes || {},
-				voice: questionData.voice || 'CaseManager',
+				voice: questionData.voice || 'Patient',
 				required: questionData.required || false,
 				available: questionData.available || false
 			};
@@ -1342,11 +1342,11 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 					sort_order: sort_order || 0,
 					library_id: library_id,
 					tooltip: tooltip || '',
-					voice: voice || 'CaseManager',
+					voice: voice || 'Patient',
 					required: required || false,
 					alternative_wording: alternative_wording || ''
 				};
-				this._log('AddQuestionToSection - Using payload for library question: ' + library_id + ', required: ' + (required || false) + ', voice: ' + (voice || 'CaseManager') + ', tooltip length: ' + (tooltip ? tooltip.length : 0), false);
+				this._log('AddQuestionToSection - Using payload for library question: ' + library_id + ', required: ' + (required || false) + ', voice: ' + (voice || 'Patient') + ', tooltip length: ' + (tooltip ? tooltip.length : 0), false);
 			} else {
 				// Regular question - full payload
 				requestBody = {
@@ -1354,7 +1354,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 					alternative_wording: alternative_wording || '',
 					sort_order: sort_order || 0,
 					custom_attributes: custom_attributes || {},
-					voice: voice || 'CaseManager',
+					voice: voice || 'Patient',
 					required: required || false,
 					available: available || false,
 					has_quality_measures: has_quality_measures || false,
