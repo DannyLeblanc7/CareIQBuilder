@@ -116,10 +116,15 @@
             return;
         }
 
-        if (parsedResponse && parsedResponse.error) {
+        // Check for errors in multiple formats:
+        // 1. {"error": "..."} - our custom format
+        // 2. {"detail": [...]} - CareIQ backend validation errors (FastAPI/Pydantic format)
+        if (parsedResponse && (parsedResponse.error || parsedResponse.detail)) {
             // Return error from CareIQ Services
-            if (isDebugEnabled) {
-                gs.info('Error response from CareIQ Services: ' + responseBody);
+            if (isDebugEnabled || true) { // Always log errors
+                gs.error('CareIQ Add Question to Section: Error from backend');
+                gs.error('Section ID: ' + requestData.sectionId);
+                gs.error('Error response: ' + responseBody);
             }
             response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');

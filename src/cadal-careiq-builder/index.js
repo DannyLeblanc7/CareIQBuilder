@@ -10699,9 +10699,13 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[questionId]: {
 						...(state.questionChanges?.[questionId] || {}),
-						action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+						// Preserve special actions ('add', 'library_replace'), otherwise 'update'
+					action: (state.questionChanges?.[questionId]?.action === 'add' || state.questionChanges?.[questionId]?.action === 'library_replace')
+						? state.questionChanges?.[questionId]?.action
+						: 'update',
 						questionId: questionId,
 						voice: newVoice
+
 					}
 				}
 			});
@@ -10721,6 +10725,12 @@ createCustomElement('cadal-careiq-builder', {
 				return question;
 			});
 
+
+		// DEBUG: Log action preservation
+		console.log('UPDATE_QUESTION_REQUIRED - questionId:', questionId);
+		console.log('UPDATE_QUESTION_REQUIRED - Previous action:', state.questionChanges?.[questionId]?.action);
+		console.log('UPDATE_QUESTION_REQUIRED - Setting action to:', state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update');
+		console.log('UPDATE_QUESTION_REQUIRED - required value:', required);
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
@@ -10731,7 +10741,10 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[questionId]: {
 						...(state.questionChanges?.[questionId] || {}),
-						action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+						// Preserve special actions ('add', 'library_replace'), otherwise 'update'
+					action: (state.questionChanges?.[questionId]?.action === 'add' || state.questionChanges?.[questionId]?.action === 'library_replace')
+						? state.questionChanges?.[questionId]?.action
+						: 'update',
 						questionId: questionId,
 						required: required
 					}
@@ -18545,6 +18558,12 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionChanges.length > 0) {
 				questionChanges.forEach(questionId => {
 					const questionData = questionChangesData[questionId];
+
+				// DEBUG: Log what action we're using
+				console.log('SAVE_ALL_CHANGES - Processing question:', questionId);
+				console.log('SAVE_ALL_CHANGES - questionData.action:', questionData.action);
+				console.log('SAVE_ALL_CHANGES - questionData.isLibraryQuestion:', questionData.isLibraryQuestion);
+				console.log('SAVE_ALL_CHANGES - Full questionData:', questionData);
 					// Handle new questions with ADD API
 					if (questionData.action === 'add') {
 						// CORRECT IMPLEMENTATION: 2-step process (add question to section, then add answers)
@@ -18561,7 +18580,7 @@ createCustomElement('cadal-careiq-builder', {
 							sort_order: questionData.sort_order,
 							custom_attributes: {},
 							voice: currentQuestion?.voice || questionData.voice || 'CaseManager',
-							required: questionData.required || false,
+							required: currentQuestion?.required ?? questionData.required ?? false,
 							available: false,
 							has_quality_measures: false
 						};
@@ -18596,18 +18615,20 @@ createCustomElement('cadal-careiq-builder', {
 						const questionAnswers = currentQuestion.answers || [];
 						// Use 2-step process for library questions to handle answers correctly
 						// Use the standard 2-step API flow which now handles library answers correctly
+
 						const libraryQuestionData = {
 							label: currentQuestion.label,
 							type: currentQuestion.type,
-							tooltip: currentQuestion.tooltip || '',
+							tooltip: questionData.tooltip || currentQuestion.tooltip || '',
 							alternative_wording: questionData.alternative_wording || '',
 							sort_order: currentQuestion.sort_order || 0,
 							custom_attributes: {},
-							voice: currentQuestion.voice || 'Patient',
-							required: currentQuestion.required || false,
+							voice: questionData.voice || currentQuestion.voice || 'Patient',
+							required: questionData.required ?? currentQuestion.required ?? false,
 							available: false,
 							has_quality_measures: false,
 							library_id: currentQuestion.libraryQuestionId // Include library ID
+
 						};
 						dispatch('ADD_QUESTION_TO_SECTION_API', {
 							questionData: libraryQuestionData,
@@ -19040,19 +19061,19 @@ createCustomElement('cadal-careiq-builder', {
 				});
 			}
 
-			// CRITICAL: For library questions, use minimal payload (only sort_order and library_id)
+			// CRITICAL: For library questions, include all editable fields
 			let requestBodyData;
 			if (questionData.library_id) {
 				requestBodyData = {
 					sectionId: sectionId,
 					sort_order: questionData.sort_order,
-					library_id: questionData.library_id
+					library_id: questionData.library_id,
+					required: questionData.required || false,
+					voice: questionData.voice || 'CaseManager',
+					tooltip: questionData.tooltip || '',
+					alternative_wording: questionData.alternative_wording || ''
 				};
 			} else {
-				// DEBUG: Log the voice value we're about to send
-				console.log('ADD_QUESTION_TO_SECTION_API - questionData.voice:', questionData.voice);
-				console.log('ADD_QUESTION_TO_SECTION_API - Full questionData:', questionData);
-
 				// Regular question - use full payload
 				requestBodyData = {
 					sectionId: sectionId,

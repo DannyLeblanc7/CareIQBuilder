@@ -1422,3 +1422,61 @@ getQualityMeasures: function(guidelineTemplateId) {
         return '{"error": "' + e.message + '"}';
     }
 },
+
+// ====================
+// FIX FOR v1.0.009 - Library Question Editable Fields
+// ====================
+// LOCATION: In builderAddQuestionToSection method (around line 1339 in CareIQ Services.js)
+// REPLACE THE LIBRARY_ID CONDITION WITH THIS:
+
+if (library_id) {
+	// Library question - include editable fields (tooltip, voice, required, alternative_wording)
+	requestBody = {
+		sort_order: sort_order || 0,
+		library_id: library_id,
+		tooltip: tooltip || '',
+		voice: voice || 'CaseManager',
+		required: required || false,
+		alternative_wording: alternative_wording || ''
+	};
+	this._log('AddQuestionToSection - Using payload for library question: ' + library_id + ', required: ' + (required || false) + ', voice: ' + (voice || 'CaseManager') + ', tooltip length: ' + (tooltip ? tooltip.length : 0), false);
+} else {
+	// Regular question - full payload
+	requestBody = {
+		tooltip: tooltip || '',
+		alternative_wording: alternative_wording || '',
+		sort_order: sort_order || 0,
+		custom_attributes: custom_attributes || {},
+		voice: voice || 'CaseManager',
+		required: required || false,
+		available: available || false,
+		has_quality_measures: has_quality_measures || false,
+		label: label,
+		type: type
+	};
+}
+
+// REASON FOR FIX:
+// The original code only sent sort_order and library_id for library questions.
+// When users edited tooltip, voice, or required fields on library questions,
+// these changes were not being sent to the CareIQ backend.
+//
+// This fix ensures that editable fields are included in the library question payload.
+
+// ============================================================================
+// COMPONENT FIX: ADD_QUESTION_TO_SECTION_API Handler (index.js line ~19066)
+// ============================================================================
+// ALSO FIXED in the component: The ADD_QUESTION_TO_SECTION_API action handler
+// was using a "minimal payload" for library questions that only included:
+//   - sectionId, sort_order, library_id, required
+//
+// It was STRIPPING OUT the voice, tooltip, and alternative_wording fields
+// even though they were passed in from SAVE_ALL_CHANGES.
+//
+// FIXED by including all editable fields in the library question requestBodyData:
+//   required: questionData.required || false,
+//   voice: questionData.voice || 'CaseManager',
+//   tooltip: questionData.tooltip || '',
+//   alternative_wording: questionData.alternative_wording || ''
+//
+// This was the root cause of the voice/tooltip revert bug.

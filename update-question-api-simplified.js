@@ -13,21 +13,31 @@
             gs.info('Received requestData: ' + JSON.stringify(requestData));
         }
 
-        // Validate required fields 
+        // Validate required fields
         var requiredFields = ['questionId', 'label', 'type'];
         var missingFields = [];
-        
+
         for (var i = 0; i < requiredFields.length; i++) {
             if (requestData[requiredFields[i]] === undefined || requestData[requiredFields[i]] === null || requestData[requiredFields[i]] === '') {
                 missingFields.push(requiredFields[i]);
             }
         }
-        
+
         if (missingFields.length > 0) {
             gs.error('CareIQ Update Question: Missing required fields: ' + missingFields.join(', '));
             response.setStatus(400);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString('{"error": "Missing required fields: ' + missingFields.join(', ') + '"}');
+            return;
+        }
+
+        // CRITICAL: Prevent UPDATE calls with temp IDs (should use ADD API instead)
+        if (requestData.questionId && requestData.questionId.toString().indexOf('temp_') === 0) {
+            gs.error('CareIQ Update Question: INVALID - Cannot update question with temporary ID: ' + requestData.questionId);
+            gs.error('This indicates a bug in the client code - should call ADD API, not UPDATE API for new questions');
+            response.setStatus(400);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString('{"error": "Cannot update question with temporary ID. Question must be created first using ADD API."}');
             return;
         }
 
@@ -43,7 +53,7 @@
         }
 
         // Create Script Include instance and call the method
-        var careiqServices = new x_cadal_careiq_e_0.CareIQServices();
+        var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();
         
         if (isDebugEnabled) {
             gs.info('CareIQServices instance created successfully');
@@ -66,44 +76,60 @@
             gs.info('Response type: ' + typeof responseBody);
         }
 
-        // Parse response to check for errors (even though PATCH returns 204 No Content)
+        // Parse response to check for errors
+        // Empty response typically means success (204 No Content), but verify if response exists
         if (!responseBody || responseBody.trim() === '') {
             // Empty response is expected for successful PATCH (204 No Content)
             if (isDebugEnabled) {
-                gs.info('=== QUESTION UPDATED SUCCESSFULLY ===');
+                gs.info('=== QUESTION UPDATED SUCCESSFULLY (empty response) ===');
                 gs.info('Updated Question ID: ' + requestData.questionId);
-                gs.info('=====================================');
+                gs.info('========================================================');
             }
-            
+
             // Return 204 No Content for successful update
             response.setStatus(204);
             return;
         }
-        
-        // If there's a response body, check for errors
+
+        // If there's a response body, parse and check for errors
         var parsedResponse;
         try {
             parsedResponse = JSON.parse(responseBody);
         } catch (parseError) {
+            // Non-JSON response could be an error message
+            gs.error('CareIQ Update Question: Invalid JSON response: ' + responseBody);
             response.setStatus(500);
             response.setHeader('Content-Type', 'application/json');
-            response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services"}');
+            response.getStreamWriter().writeString('{"error": "Invalid JSON response from CareIQ Services", "details": "' + responseBody.replace(/"/g, '\\"') + '"}');
             return;
         }
-        
-        if (parsedResponse && parsedResponse.error) {
+
+        // Check for errors in multiple formats:
+        // 1. {"error": "..."} - our custom format
+        // 2. {"detail": [...]} - CareIQ backend validation errors (FastAPI/Pydantic format)
+        if (parsedResponse && (parsedResponse.error || parsedResponse.detail)) {
             // Return error from CareIQ Services
-            response.setStatus(400);
+            var statusCode = 400;
+
+            // Log the error for debugging
+            if (isDebugEnabled || true) { // Always log errors
+                gs.error('CareIQ Update Question: Error from backend');
+                gs.error('Question ID: ' + requestData.questionId);
+                gs.error('Error response: ' + responseBody);
+            }
+
+            response.setStatus(statusCode);
             response.setHeader('Content-Type', 'application/json');
             response.getStreamWriter().writeString(responseBody);
         } else {
-            // Successful update
+            // Successful update with response body
             if (isDebugEnabled) {
                 gs.info('=== QUESTION UPDATED SUCCESSFULLY ===');
                 gs.info('Updated Question ID: ' + requestData.questionId);
+                gs.info('Response: ' + responseBody);
                 gs.info('=====================================');
             }
-            
+
             response.setStatus(204);
         }
 

@@ -1337,12 +1337,16 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			var requestBody;
 
 			if (library_id) {
-				// Library question - minimal payload (only sort_order and library_id)
+				// Library question - include editable fields (tooltip, voice, required, alternative_wording)
 				requestBody = {
 					sort_order: sort_order || 0,
-					library_id: library_id
+					library_id: library_id,
+					tooltip: tooltip || '',
+					voice: voice || 'CaseManager',
+					required: required || false,
+					alternative_wording: alternative_wording || ''
 				};
-				this._log('AddQuestionToSection - Using minimal payload for library question: ' + library_id, false);
+				this._log('AddQuestionToSection - Using payload for library question: ' + library_id + ', required: ' + (required || false) + ', voice: ' + (voice || 'CaseManager') + ', tooltip length: ' + (tooltip ? tooltip.length : 0), false);
 			} else {
 				// Regular question - full payload
 				requestBody = {
