@@ -1,5 +1,5 @@
-var CareIQServices = Class.create();
-CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
+var CareIQExperienceServices = Class.create();
+CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
     // Configuration and utility methods
     _isDebugEnabled: function() {
         return gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
@@ -59,7 +59,7 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
     },
     
     _createRESTMessage: function(name, endpoint) {
-        var r = new sn_ws.RESTMessageV2('x_cadal_careiq_e_0.CareIQ REST Calls', name);
+        var r = new sn_ws.RESTMessageV2('x_cadal_careiq_e_0.CareIQ Experience REST Calls', name);
         r.setEndpoint(endpoint);
         return r;
     },
@@ -185,58 +185,61 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
         }
     },
 
-    getToken: function() {
-        try {
-            var config = this._getConfig();
-            
-            // Validate required values
-            if (!this._validateConfig(config, ['app', 'region', 'version', 'apiKey', 'oToken', 'clientId'])) {
-                return;
-            }
-            
-            // Build the full endpoint URL
-            var endpoint = this._buildEndpoint('/auth/token');
-            
-            // Create REST message
-            var r = new sn_ws.RESTMessageV2();
-            r.setHttpMethod('post'); 
-            r.setEndpoint(endpoint);
-            r.setRequestHeader('x-api-key', config.apiKey);
-            r.setRequestHeader('o-token', config.oToken);
-            r.setRequestHeader('x-client-id', config.clientId);
-            
-            // Execute the callout
-            var response = this._executeRequest(r, 'Auth');
-            var status = response.getStatusCode();
-            
-            // Handle success
-            if (status === 200) {
-                var responseBody = response.getBody();
-                var json = JSON.parse(responseBody);
-                var token = json.access_token;
-                
-                if (token) {
-                    // Save token to sys_properties
-                    var gr = new GlideRecord('sys_properties');
-                    gr.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
-                    gr.query();
-                    
-                    if (gr.next()) {
-                        gr.value = token;
-                        gr.update();
-                        this._log('Auth - Token updated successfully', false);
-                    } else {
-                        this._logError('Auth - Token property not found');
-                    }
-                } else {
-                    this._logError('Auth - Token not found in response');
-                }
-            }
-        } catch (ex) {
-            this._logError('Auth - Exception: ' + ex.message);
-        }
-    },
-
+	getToken: function() {
+		try {
+			var config = this._getConfig();
+			
+			// Validate required values
+			if (!this._validateConfig(config, ['app', 'region', 'version', 'apiKey', 'oToken', 'clientId'])) {
+				return;
+			}
+			
+			// Build the full endpoint URL
+			var endpoint = this._buildEndpoint('/auth/token');
+			
+			// Create REST message
+			var r = new sn_ws.RESTMessageV2();
+			r.setHttpMethod('post'); 
+			r.setEndpoint(endpoint);
+			r.setRequestHeader('x-api-key', config.apiKey);
+			r.setRequestHeader('o-token', config.oToken);
+			r.setRequestHeader('x-client-id', config.clientId);
+			
+			// Execute the callout
+			var response = this._executeRequest(r, 'Auth');
+			var status = response.getStatusCode();
+			
+			// Handle success
+			if (status === 200) {
+				var responseBody = response.getBody();
+				var json = JSON.parse(responseBody);
+				var token = json.access_token;
+				
+				if (token) {
+					// Save token to sys_properties
+					var gr = new GlideRecordSecure('sys_properties');
+					if (gr.isValid()) {  // ✅ Add validation
+						gr.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
+						gr.query();
+						
+						if (gr.next()) {
+							gr.value = token;
+							gr.update();
+							this._log('Auth - Token updated successfully', false);
+						} else {
+							this._logError('Auth - Token property not found');
+						}
+					} else {
+						this._logError('Auth - Unable to access sys_properties table');
+					}
+				} else {
+					this._logError('Auth - Token not found in response');
+				}
+			}
+		} catch (ex) {
+			this._logError('Auth - Exception: ' + ex.message);
+		}
+	},
     searchAssessments: function(useCase, searchValue, admin, useCaseCategories) {
         try {
             var config = this._getConfig();
@@ -611,16 +614,41 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			var recordSize = JSON.stringify(recordObject).length;
 			this._log('CreateRecord - Record object size: ' + recordSize + ' characters', false);
 			
+			// Validate table is within application scope for security
+			if (!tableName.startsWith('x_cadal_careiq_e_0_')) {
+				this._logError('CreateRecord - Table must be within application scope: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Security error: Can only create records in application tables',
+					table: tableName
+				});
+			}
+
 			// Create new GlideRecord for the specified table
-			var gr = new GlideRecord(tableName);
+			var gr = new GlideRecordSecure(tableName);
+			
+			// ✅ Validate table exists
+			if (!gr.isValid()) {
+				this._logError('CreateRecord - Invalid table name: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid table name',
+					table: tableName
+				});
+			}
 			
 			// Set all field values from the record object
 			var fieldCount = 0;
 			for (var field in recordObject) {
 				if (recordObject.hasOwnProperty(field)) {
-					gr.setValue(field, recordObject[field]);
-					fieldCount++;
-					this._log('CreateRecord - Set field "' + field + '" with value type: ' + typeof recordObject[field], false);
+					// ✅ Validate field exists before setting
+					if (gr.isValidField(field)) {
+						gr.setValue(field, recordObject[field]);
+						fieldCount++;
+						this._log('CreateRecord - Set field "' + field + '" with value type: ' + typeof recordObject[field], false);
+					} else {
+						this._log('CreateRecord - Warning: Skipping invalid field "' + field + '"', true);
+					}
 				}
 			}
 			
@@ -660,7 +688,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			});
 		}
 	},
-
 	queryRecords: function(tableName, fieldsObject, systemId) {
 		try {
 			this._log('QueryRecords - Starting query for table: ' + tableName, false);
@@ -701,10 +728,26 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			if (systemId) {
 				this._log('QueryRecords - System ID filter: ' + systemId, false);
 			}
-			
+			// Validate table is within application scope for security
+			if (!tableName.startsWith('x_cadal_careiq_e_0_')) {
+				this._logError('QueryRecords - Table must be within application scope: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Security error: Can only query application tables',
+					table: tableName
+				});
+			}			
 			// Create GlideRecord for the specified table
-			var gr = new GlideRecord(tableName);
-			
+			var gr = new GlideRecordSecure(tableName);
+
+			if (!gr.isValid()) {
+				this._logError('QueryRecords - Invalid table name: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid table name',
+					table: tableName
+				});
+			}			
 			// Add systemId query condition first if provided
 			if (systemId && typeof systemId === 'string' && systemId.trim() !== '') {
 				gr.addQuery('sys_id', systemId.trim());
@@ -746,8 +789,14 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 				// If no specific fields requested, return all accessible fields
 				if (fieldsToReturn.length === 0) {
 					// Get all field names for this table
+					//var elements = gr.getElements();
+					//for (var i = 0; i < elements.size(); i++) {
+					//	var element = elements.get(i);
+					//	var fieldName = element.getName();
 					var elements = gr.getElements();
-					for (var i = 0; i < elements.size(); i++) {
+					var elementCount = elements.size();
+					for (var i = 0; i < elementCount; i++) {
+						//var element = elements[i];  // Changed from .get(i) to [i]
 						var element = elements.get(i);
 						var fieldName = element.getName();
 						record[fieldName] = gr.getDisplayValue(fieldName);
@@ -817,7 +866,6 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 	},
 	builderAddSection: function(sectionData) {
 		try {
-			gs.info('DANNY');
 			var config = this._getConfig();
 			
 			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
@@ -1908,14 +1956,14 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 				version_name: versionName
 			};
 
-			this._logError('Create Version - Endpoint: ' + endpoint);
-			this._logError('Create Version - Payload: ' + JSON.stringify(payload));
+			this._log('Create Version - Endpoint: ' + endpoint);
+			this._log('Create Version - Payload: ' + JSON.stringify(payload));
 
 			r.setRequestBody(JSON.stringify(payload));
 			r.setRequestHeader('Content-Type', 'application/json');
 
 			var response = this._executeRequestWithRetry(r, 'CreateVersion');
-			this._logError('Create Version - Response: ' + response.getBody());
+			this._log('Create Version - Response: ' + response.getBody());
 
 			return response.getBody();
 		} catch (e) {
@@ -1956,14 +2004,12 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 			if (requestData.allowMcgContent !== undefined) {
 				payload.mcg_content_enabled = requestData.allowMcgContent;
 			}
-
 			// Handle select_all_enabled (check both camelCase and snake_case)
 			if (requestData.selectAllEnabled !== undefined) {
 				payload.select_all_enabled = requestData.selectAllEnabled;
 			} else if (requestData.select_all_enabled !== undefined) {
 				payload.select_all_enabled = requestData.select_all_enabled;
 			}
-
 			// Handle response logging settings
 			if (requestData.responseLogging !== undefined) {
 				payload.settings = {
@@ -1971,14 +2017,14 @@ CareIQServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
 				};
 			}
 
-			this._log('Update Assessment - Endpoint: ' + endpoint, false);
-			this._log('Update Assessment - Payload: ' + JSON.stringify(payload), false);
+			this._log('Update Assessment - Endpoint: ' + endpoint);
+			this._log('Update Assessment - Payload: ' + JSON.stringify(payload));
 
 			r.setRequestBody(JSON.stringify(payload));
 			r.setRequestHeader('Content-Type', 'application/json');
 
 			var response = this._executeRequestWithRetry(r, 'UpdateAssessment');
-			this._log('Update Assessment - Response: ' + response.getBody(), false);
+			this._log('Update Assessment - Response: ' + response.getBody());
 
 			return response.getBody();
 		} catch (e) {
@@ -2292,5 +2338,36 @@ updateIntervention: function(interventionId, label, tooltip, alternativeWording,
 			return '{"error": "' + e.message + '"}';
 		}
 	},
-	type: 'CareIQServices'
+	unpublishAssessment: function(guidelineTemplateId) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the unpublish endpoint: /builder/guideline-template/{guidelineTemplateId}/status
+			var endpoint = this._buildEndpoint('/builder/guideline-template/' + encodeURIComponent(guidelineTemplateId) + '/status');
+			var r = this._createRESTMessage('POST Unpublish Assessment', endpoint);
+
+			// Set method to POST
+			r.setHttpMethod('POST');
+
+			// Build payload with status: "unpublished"
+			var payload = {
+				"status": "unpublished"
+			};
+
+			// Set the request body
+			r.setRequestBody(JSON.stringify(payload));
+
+			var response = this._executeRequestWithRetry(r, 'UnpublishAssessment');
+
+			return response.getBody();
+		} catch (e) {
+			this._logError('UnpublishAssessment - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	type: 'CareIQExperienceServices'
 });
