@@ -1480,3 +1480,20 @@ if (library_id) {
 //   alternative_wording: questionData.alternative_wording || ''
 //
 // This was the root cause of the voice/tooltip revert bug.
+
+// ============================================================================
+// COMPONENT FIX: Prevent Adding Questions to Parent Sections (v1.0.017)
+// ============================================================================
+// PROBLEM: When a parent section is first created, it becomes selected and the
+// "Add Question" button appears. Parent sections should only contain subsections,
+// not questions.
+//
+// FIX 1: Added helper function `isParentSection()` (line ~120) that checks if
+// the selected section has a 'subsections' property using hasOwnProperty().
+// This works even for newly created parent sections with empty subsections: [].
+//
+// FIX 2: Updated "Add Question" button condition (line ~3701) to include:
+//   && !isParentSection(state)
+//
+// FIX 3: Updated validation in 'ADD_QUESTION' action handler (line ~10539) to
+// check for hasOwnProperty('subsections') instead of checking subsections.length.

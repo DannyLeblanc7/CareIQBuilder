@@ -117,6 +117,25 @@ const view = (state, {updateState, dispatch}) => {
 		return hasUnsavedQuestions || hasUnsavedAnswers;
 	};
 
+	// Check if the currently selected section is a parent section
+	// Parent sections have a 'subsections' property (even if empty array)
+	const isParentSection = (state) => {
+		if (!state.selectedSection || !state.currentAssessment?.sections) {
+			return false;
+		}
+
+		// Find the section in the parent sections list
+		const section = state.currentAssessment.sections.find(s => s.id === state.selectedSection);
+
+		// If found and has 'subsections' property, it's a parent section
+		// This works even for newly created parent sections that don't have subsections yet
+		if (section && section.hasOwnProperty('subsections')) {
+			return true;
+		}
+
+		return false;
+	};
+
 	// Auto-scroll system message box to bottom after render
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
@@ -3680,8 +3699,8 @@ const view = (state, {updateState, dispatch}) => {
 											);
 										})}
 
-										{/* Add Question Button - only show in edit mode for draft assessments */}
-										{state.builderMode && state.currentAssessment?.status === 'draft' && (
+										{/* Add Question Button - only show in edit mode for draft assessments, and NOT for parent sections */}
+										{state.builderMode && state.currentAssessment?.status === 'draft' && !isParentSection(state) && (
 											<button
 												className="add-question-btn"
 												disabled={hasAnyUnsavedChanges(state)}
@@ -10515,6 +10534,17 @@ createCustomElement('cadal-careiq-builder', {
 			const {sectionId} = action.payload;
 			if (!state.currentQuestions?.questions) {
 				return;
+			}
+
+			// CRITICAL: Prevent adding questions to parent sections
+			// Parent sections should only contain subsections, not questions
+			// Check if section has 'subsections' property (works for new parent sections too)
+			if (state.currentAssessment?.sections) {
+				const section = state.currentAssessment.sections.find(s => s.id === sectionId);
+				if (section && section.hasOwnProperty('subsections')) {
+					// This is a parent section - don't allow adding questions
+					return;
+				}
 			}
 
 			// Generate a temporary UUID for the new question
