@@ -3922,22 +3922,10 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 
-									{/* Use Case */}
+									{/* Use Case - Always Read-Only */}
 									<div className="form-group">
 										<label>Use Case:</label>
-										{isFieldEditable('useCase') ? (
-											<input
-												type="text"
-												className="form-input"
-												value={state.assessmentDetailsPanel.useCase || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'useCase',
-													value: e.target.value
-												})}
-											/>
-										) : (
-											<div className="readonly-field">{state.assessmentDetailsPanel.useCase}</div>
-										)}
+										<div className="readonly-field">{state.assessmentDetailsPanel.useCase}</div>
 									</div>
 
 									{/* Use Case Category */}
@@ -3952,7 +3940,6 @@ const view = (state, {updateState, dispatch}) => {
 													value: e.target.value
 												})}
 											>
-												<option value="">Select Category</option>
 												{(state.useCaseCategories || []).map(category => (
 													<option
 														key={category.id}
@@ -4022,7 +4009,7 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 
-									{/* Allow MCG Content */}
+									{/* Allow MCG Content - Can toggle until saved, then locked if enabled */}
 									<div className="form-group">
 										<label>Allow MCG Content:</label>
 										<div className="checkbox-group">
@@ -4030,7 +4017,7 @@ const view = (state, {updateState, dispatch}) => {
 												type="checkbox"
 												id="allowMcgContent"
 												checked={state.assessmentDetailsPanel.allowMcgContent || false}
-												disabled={!isFieldEditable('allowMcgContent')}
+												disabled={!isFieldEditable('allowMcgContent') || state.assessmentDetailsPanel.originalAllowMcgContent}
 												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
 													field: 'allowMcgContent',
 													value: e.target.checked
@@ -4053,15 +4040,18 @@ const view = (state, {updateState, dispatch}) => {
 									<div className="form-group">
 										<label>Usage:</label>
 										{isFieldEditable('usage') ? (
-											<input
-												type="text"
+											<select
 												className="form-input"
 												value={state.assessmentDetailsPanel.usage || ''}
-												oninput={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
+												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
 													field: 'usage',
 													value: e.target.value
 												})}
-											/>
+											>
+												<option value="Assessment Only" selected={state.assessmentDetailsPanel.usage === 'Assessment Only'}>Assessment Only</option>
+												<option value="Care Planning" selected={state.assessmentDetailsPanel.usage === 'Care Planning'}>Care Planning</option>
+												<option value="Care Plan Only" selected={state.assessmentDetailsPanel.usage === 'Care Plan Only'}>Care Plan Only</option>
+											</select>
 										) : (
 											<div className="readonly-field">{state.assessmentDetailsPanel.usage}</div>
 										)}
@@ -8660,17 +8650,36 @@ createCustomElement('cadal-careiq-builder', {
 			// Validate required fields
 			const form = state.newAssessmentForm;
 
-			if (!form.guidelineName || !form.useCaseCategory) {
+			// Check all required fields
+			const missingFields = [];
+			if (!form.guidelineName || form.guidelineName.trim() === '') {
+				missingFields.push('Guideline Name');
+			}
+			if (!form.useCaseCategory || form.useCaseCategory.trim() === '') {
+				missingFields.push('Use Case Category');
+			}
+			if (!form.type || form.type.trim() === '') {
+				missingFields.push('Usage');
+			}
+			if (!form.contentSource || form.contentSource.trim() === '') {
+				missingFields.push('Content Source');
+			}
+			if (!form.codePolicyNumber || form.codePolicyNumber.trim() === '') {
+				missingFields.push('Code/Policy Number');
+			}
+
+			if (missingFields.length > 0) {
+				const errorMessage = 'Please fill in all required fields: ' + missingFields.join(', ');
 				updateState({
 					newAssessmentForm: {
 						...form,
-						validationError: 'Please fill in all required fields (Guideline Name and Use Case Category)'
+						validationError: errorMessage
 					},
 					systemMessages: [
 						...(state.systemMessages || []),
 						{
 							type: 'error',
-							message: 'Please fill in all required fields (Guideline Name and Use Case Category)',
+							message: errorMessage,
 							timestamp: new Date().toISOString()
 						}
 					]
@@ -9046,6 +9055,7 @@ createCustomElement('cadal-careiq-builder', {
 					nextReviewDate: state.currentAssessment?.next_review_date || '',
 					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default',
 					allowMcgContent: state.currentAssessment?.mcg_content_enabled || false,
+					originalAllowMcgContent: state.currentAssessment?.mcg_content_enabled || false,  // Track backend value
 					enableSelectAllPgi: state.currentAssessment?.select_all_enabled || false,
 					isEditable: true,
 					status: state.currentAssessment?.status,  // Store status to check if published
@@ -9074,6 +9084,7 @@ createCustomElement('cadal-careiq-builder', {
 					nextReviewDate: '',
 					responseLogging: 'use_default',
 					allowMcgContent: false,
+					originalAllowMcgContent: false,
 					enableSelectAllPgi: false,  // NEW
 					isEditable: false,
 					validationError: null
@@ -9493,6 +9504,7 @@ createCustomElement('cadal-careiq-builder', {
 					nextReviewDate: '',
 					responseLogging: false,
 					allowMcgContent: false,
+					originalAllowMcgContent: false,
 					isEditable: false
 				}
 			});

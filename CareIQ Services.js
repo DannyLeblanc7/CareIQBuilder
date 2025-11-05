@@ -1993,15 +1993,15 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			var payload = {};
 
 			// Map form fields to API payload
-			if (requestData.effectiveDate) payload.effective_date = requestData.effectiveDate;
-			if (requestData.endDate) payload.end_date = requestData.endDate;
-			if (requestData.reviewDate) payload.review_date = requestData.reviewDate;
-			if (requestData.nextReviewDate) payload.next_review_date = requestData.nextReviewDate;
-			if (requestData.useCaseCategory) payload.use_case_category_id = requestData.useCaseCategory;
-			if (requestData.usage) payload.usage = requestData.usage;
-			if (requestData.policyNumber) payload.policy_number = requestData.policyNumber;
-			if (requestData.versionName) payload.version_name = requestData.versionName;
-			if (requestData.contentSource) payload.content_source = requestData.contentSource;
+			if (requestData.effectiveDate !== undefined) payload.effective_date = requestData.effectiveDate;
+			if (requestData.endDate !== undefined) payload.end_date = requestData.endDate;
+			if (requestData.reviewDate !== undefined) payload.review_date = requestData.reviewDate;
+			if (requestData.nextReviewDate !== undefined) payload.next_review_date = requestData.nextReviewDate;
+			if (requestData.useCaseCategory !== undefined) payload.use_case_category_id = requestData.useCaseCategory;
+			if (requestData.usage !== undefined) payload.usage = requestData.usage;
+			if (requestData.policyNumber !== undefined) payload.policy_number = requestData.policyNumber;
+			if (requestData.versionName !== undefined) payload.version_name = requestData.versionName;
+			if (requestData.contentSource !== undefined) payload.content_source = requestData.contentSource;
 
 			// Handle boolean fields
 			if (requestData.allowMcgContent !== undefined) {

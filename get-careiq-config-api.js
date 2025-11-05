@@ -9,7 +9,7 @@
         }
 
         // Fetch only the 3 required properties
-        var gr = new GlideRecord('sys_properties');
+        var gr = new GlideRecordSecure('sys_properties');
         gr.addQuery('name', 'IN', 'x_cadal_careiq_e_0.careiq.platform.region,x_cadal_careiq_e_0.careiq.platform.version,x_cadal_careiq_e_0.careiq.platform.app');
         gr.query();
 

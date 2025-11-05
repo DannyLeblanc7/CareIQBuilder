@@ -1698,3 +1698,21 @@ if (library_id) {
 // - Both main assessment cards and version cards now show "Source: [value]"
 //   in bottom right corner in small, gray, italic text
 // - Works together with light blue background (v1.0.025) to identify non-MCG assessments
+
+// ============================================================================
+// SERVER-SIDE API: Replace GlideRecord with GlideRecordSecure (v1.0.028)
+// ============================================================================
+// CHANGE: Updated get-careiq-config-api.js to use GlideRecordSecure instead
+// of GlideRecord for improved security.
+//
+// SECURITY BEST PRACTICE:
+// - GlideRecordSecure respects ACL (Access Control List) rules
+// - GlideRecord bypasses ACL rules, which can be a security risk
+// - Using GlideRecordSecure ensures proper access control enforcement
+//
+// SERVER-SIDE API CHANGES (get-careiq-config-api.js):
+// - Line 12: Changed from new GlideRecord('sys_properties')
+//            to new GlideRecordSecure('sys_properties')
+//
+// NOTE: All other server-side files (CareIQ Services.js) already use
+// GlideRecordSecure. This was the only remaining instance of GlideRecord.
