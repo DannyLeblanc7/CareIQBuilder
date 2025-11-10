@@ -2055,12 +2055,22 @@ const view = (state, {updateState, dispatch}) => {
 																								}
 																							}
 																						}}
-																						onblur={(e) => {
-																							// Hide typeahead after a short delay to allow selection
-																							setTimeout(() => {
-																								dispatch('ANSWER_TYPEAHEAD_HIDE');
-																							}, 150);
-																						}}
+																							onblur={(e) => {
+																								// Check if there's an exact match to auto-select
+																								const exactMatch = state.answerTypeaheadResults?.find(r => r.exact_match === true);
+																								if (exactMatch && state.editingAnswerId === answer.ids.id) {
+																									// Auto-select the exact match
+																									dispatch('SELECT_LIBRARY_ANSWER', {
+																										answerId: answer.ids.id,
+																										libraryAnswer: exactMatch
+																									});
+																								} else {
+																									// Hide typeahead after a short delay to allow manual selection
+																									setTimeout(() => {
+																										dispatch('ANSWER_TYPEAHEAD_HIDE');
+																									}, 150);
+																								}
+																							}}
 																						onmousedown={(e) => {
 																							e.stopPropagation();
 																						}}
