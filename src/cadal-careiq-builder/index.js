@@ -1651,12 +1651,22 @@ const view = (state, {updateState, dispatch}) => {
 																				dispatch('QUESTION_TYPEAHEAD_KEYBOARD', { key: e.key });
 																			}
 																		}}
-																		onblur={(e) => {
-																			// Hide typeahead after a short delay to allow selection
-																			setTimeout(() => {
-																				dispatch('QUESTION_TYPEAHEAD_HIDE');
-																			}, 150);
-																		}}
+																			onblur={(e) => {
+																				// Check if there's an exact match to auto-select
+																				const exactMatch = state.questionTypeaheadResults?.find(r => r.exact_match === true);
+																				if (exactMatch && state.editingQuestionId === question.ids.id) {
+																					// Auto-select the exact match
+																					dispatch('SELECT_LIBRARY_QUESTION', {
+																						questionId: question.ids.id,
+																						libraryQuestion: exactMatch
+																					});
+																				} else {
+																					// Hide typeahead after a short delay to allow manual selection
+																					setTimeout(() => {
+																						dispatch('QUESTION_TYPEAHEAD_HIDE');
+																					}, 150);
+																				}
+																			}}
 																	onmousedown={(e) => {
 																		e.stopPropagation();
 																	}}
