@@ -5851,6 +5851,23 @@ const view = (state, {updateState, dispatch}) => {
 																		>
 																			{problem.label || problem.name}
 																		</span>,
+																																		<button
+																																			className="edit-btn"
+																																			onclick={() => {
+																																				dispatch('FETCH_PROBLEM_DETAILS', {
+																																					problemId: problem.id,
+																																					fallbackData: {
+																																						label: problem.label || problem.name,
+																																						alternative_wording: problem.alternative_wording || '',
+																																						tooltip: problem.tooltip || ''
+																																					}
+																																				});
+																																			}}
+																																			title="Edit problem"
+																																			style={{marginLeft: '8px'}}
+																																		>
+																																			✏️
+																																		</button>,
 																	<button
 																		className="cancel-relationship-btn"
 																		onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
@@ -6204,6 +6221,18 @@ const view = (state, {updateState, dispatch}) => {
 																									>
 																										{isLoading ? 'Loading...' : (goal.label || goal.name)}
 																									</span>,
+																																										<button
+																																											key="edit-btn"
+																																											className="edit-btn"
+																																											style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																																											title="Edit goal"
+																																											onclick={() => dispatch('GET_GOAL_DETAILS', {
+																																												goalId: goal.id,
+																																												problemId: problem.id
+																																											})}
+																																										>
+																																											✏️
+																																										</button>,
 																									<button
 																										key="delete-btn"
 																										className="cancel-relationship-btn"
@@ -6614,6 +6643,24 @@ const view = (state, {updateState, dispatch}) => {
 																																>
 																																	{intervention.category}
 																																</span>
+																																																									<button
+																																																										className="edit-btn"
+																																																										style={{
+																																																											marginLeft: '12px',
+																																																											fontSize: '12px',
+																																																											fontWeight: 'normal',
+																																																											padding: '4px 8px'
+																																																										}}
+																																																										title="Edit intervention"
+																																																										onclick={() => {
+																																																											dispatch('GET_INTERVENTION_DETAILS', {
+																																																												interventionId: intervention.id,
+																																																												goalId: goal.id
+																																																											});
+																																																										}}
+																																																									>
+																																																										✏️
+																																																									</button>
 																																<button
 																																	className="delete-intervention-btn"
 																																	style={{
