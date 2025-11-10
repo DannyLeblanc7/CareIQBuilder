@@ -1879,7 +1879,7 @@ const view = (state, {updateState, dispatch}) => {
 																>
 																	🗑️
 																</button>
-																{question.isUnsaved && (question.type === 'Single Select' || question.type === 'Multiselect') && (
+																{question.isUnsaved && (question.type === 'Single Select' || question.type === 'Multiselect') && !question.ids.id.startsWith('temp_') && (
 																	<button
 																		className="save-bundle-btn"
 																		title="Click to save the question bundle"

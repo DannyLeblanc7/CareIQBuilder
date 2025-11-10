@@ -403,6 +403,35 @@ updateState({ savingGoals: updatedSavingGoals });
 8. Surface backend messages to system messages
 9. Use state-based refresh for PGI operations (meta params unreliable)
 
+## Troubleshooting: Edit/Write Tool Issues
+
+### Background
+During development session on 2025-11-10, the Edit and Write tools experienced intermittent failures with "File has been unexpectedly modified" errors. This happened even when:
+- No editor was open
+- No hot-reload/auto-publish processes were running
+- No linters or formatters were active
+- File contents hadn't actually changed
+
+### Root Cause (Unknown)
+The exact cause was never determined. The Edit tool worked fine on this project for months prior, then suddenly started failing consistently for a brief period before recovering.
+
+### Workaround Used
+When Edit/Write tools failed, we successfully used:
+1. **Node.js scripts** with `fs.readFileSync` and `fs.writeFileSync` for complex edits
+2. **sed commands** for simple string replacements (version numbers, single-line changes)
+3. **Manual edits** as last resort when tools completely failed
+
+### Resolution
+After a period of failures, the Edit/Write tools began working normally again without any changes to the system. The issue appeared to be transient.
+
+### Lessons Learned
+- If Edit tool fails 2-3 times in a row, immediately switch to Node/sed approach
+- Don't attempt dozens of Edit retries hoping for different results
+- Node.js file manipulation is reliable fallback: `fs.readFileSync` → modify → `fs.writeFileSync`
+- Keep backup approach ready for future transient tool issues
+
+
+
 # CRITICAL FILE RECOVERY RULES
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER use git checkout, git reset, or any restore commands without permission.
