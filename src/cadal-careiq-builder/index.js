@@ -20751,9 +20751,18 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			});
 
+
+			// Clear isUnsaved flag on the question object
+			const updatedQuestions = state.currentQuestions.questions.map(q =>
+				q.ids.id === questionId ? {...q, isUnsaved: false} : q
+			);
 			updateState({
 				questionChanges: updatedQuestionChanges,
-				answerChanges: updatedAnswerChanges
+				answerChanges: updatedAnswerChanges,
+			currentQuestions: {
+				...state.currentQuestions,
+				questions: updatedQuestions
+			}
 			});
 
 			// Reload section to get fresh data from server
