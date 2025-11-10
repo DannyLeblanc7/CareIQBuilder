@@ -743,6 +743,16 @@ const view = (state, {updateState, dispatch}) => {
 								<span key="unpublished-indicator" className="published-indicator">
 									📋 Unpublished Version - Read Only
 								</span>,
+                                <button
+                                    key="publish-btn"
+                                    className="publish-btn"
+                                    onclick={() => dispatch('PUBLISH_ASSESSMENT', {
+                                        assessmentId: state.currentAssessmentId,
+                                        assessmentTitle: state.currentAssessment?.title
+                                    })}
+                                >
+                                    🚀 Publish
+                                </button>,
 								<button
 									key="create-new-version-btn"
 									className="create-new-version-btn"
