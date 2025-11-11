@@ -728,6 +728,13 @@ const view = (state, {updateState, dispatch}) => {
 									↩️ Unpublish
 								</button>,
 								<button
+									key="view-relationships-btn"
+									className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
+									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
+								>
+									🔗 View Relationships
+								</button>,
+								<button
 									key="create-new-version-btn"
 									className="create-new-version-btn"
 									onclick={() => dispatch('CREATE_NEW_VERSION', {
@@ -752,6 +759,13 @@ const view = (state, {updateState, dispatch}) => {
                                     })}
                                 >
                                     🚀 Publish
+                                </button>,
+                                <button
+                                    key="view-relationships-btn"
+                                    className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
+                                    onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
+                                >
+                                    🔗 View Relationships
                                 </button>,
 								<button
 									key="create-new-version-btn"
@@ -2337,7 +2351,7 @@ const view = (state, {updateState, dispatch}) => {
 																			})()}
 																			
 																			{/* Relationship button/counts */}
-																			{isEditable && state.showRelationships && (
+																			{state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.relationshipsLoading[answer.ids.id] ? (
 																						<button
@@ -2352,7 +2366,7 @@ const view = (state, {updateState, dispatch}) => {
 																							}}
 																						>
 																							{(() => {
-																								if (!answer.counts) return 'Manage Relationships';
+																								if (!answer.counts) return isEditable ? 'Manage Relationships' : null;
 
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
@@ -2366,7 +2380,7 @@ const view = (state, {updateState, dispatch}) => {
 																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
 																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
 
-																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : (isEditable ? 'Manage Relationships' : null);
 																							})()}
 																						</button>
 																					) : (
@@ -2803,6 +2817,37 @@ const view = (state, {updateState, dispatch}) => {
 																					)}
 																				</div>
 																			)}
+																																																																						
+																																																																						{/* Relationship button/counts for read-only */}
+																																																																						{state.showRelationships && (answer.counts && Object.values(answer.counts).some(count => count > 0)) && (
+																																																																							<div className="answer-relationships">
+																																																																								<button
+																																																																									className="load-relationships-btn"
+																																																																									on={{
+																																																																										click: (e) => {
+																																																																											e.stopPropagation();
+																																																																											dispatch('OPEN_RELATIONSHIP_MODAL', {
+																																																																												answerId: answer.ids.id
+																																																																											});
+																																																																										}
+																																																																									}}
+																																																																								>
+																																																																									{(() => {
+																																																																										const labels = [
+																																																																											{ key: 'triggered_guidelines', label: 'G' },
+																																																																											{ key: 'problems', label: 'P' },
+																																																																											{ key: 'triggered_questions', label: 'Q' },
+																																																																											{ key: 'evidence', label: 'E' },
+																																																																											{ key: 'barriers', label: 'B' }
+																																																																										];
+																																																																										const displayCounts = labels
+																																																																											.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
+																																																																											.map(item => `${item.label}: ${answer.counts[item.key]}`);
+																																																																										return displayCounts.join(' ');
+																																																																									})()}
+																																																																								</button>
+																																																																							</div>
+																																																																						)}
 																		</div>
 																	)}
 																</div>
@@ -3229,7 +3274,7 @@ const view = (state, {updateState, dispatch}) => {
 																			})()}
 																			
 																			{/* Relationship button/counts */}
-																			{isEditable && state.showRelationships && (
+																			{state.showRelationships && (
 																				<div className="answer-relationships">
 																					{!state.relationshipsLoading[answer.ids.id] ? (
 																						<button
@@ -3244,7 +3289,7 @@ const view = (state, {updateState, dispatch}) => {
 																							}}
 																						>
 																							{(() => {
-																								if (!answer.counts) return 'Manage Relationships';
+																								if (!answer.counts) return isEditable ? 'Manage Relationships' : null;
 
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
@@ -3258,7 +3303,7 @@ const view = (state, {updateState, dispatch}) => {
 																									.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
 																									.map(item => `${item.label}: ${answer.counts[item.key]}`);
 
-																								return displayCounts.length > 0 ? displayCounts.join(' ') : 'Manage Relationships';
+																								return displayCounts.length > 0 ? displayCounts.join(' ') : (isEditable ? 'Manage Relationships' : null);
 																							})()}
 																						</button>
 																					) : (
@@ -3693,6 +3738,37 @@ const view = (state, {updateState, dispatch}) => {
 																					)}
 																				</div>
 																			)}
+																																																																						
+																																																																						{/* Relationship button/counts for read-only */}
+																																																																						{state.showRelationships && (answer.counts && Object.values(answer.counts).some(count => count > 0)) && (
+																																																																							<div className="answer-relationships">
+																																																																								<button
+																																																																									className="load-relationships-btn"
+																																																																									on={{
+																																																																										click: (e) => {
+																																																																											e.stopPropagation();
+																																																																											dispatch('OPEN_RELATIONSHIP_MODAL', {
+																																																																												answerId: answer.ids.id
+																																																																											});
+																																																																										}
+																																																																									}}
+																																																																								>
+																																																																									{(() => {
+																																																																										const labels = [
+																																																																											{ key: 'triggered_guidelines', label: 'G' },
+																																																																											{ key: 'problems', label: 'P' },
+																																																																											{ key: 'triggered_questions', label: 'Q' },
+																																																																											{ key: 'evidence', label: 'E' },
+																																																																											{ key: 'barriers', label: 'B' }
+																																																																										];
+																																																																										const displayCounts = labels
+																																																																											.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
+																																																																											.map(item => `${item.label}: ${answer.counts[item.key]}`);
+																																																																										return displayCounts.join(' ');
+																																																																									})()}
+																																																																								</button>
+																																																																							</div>
+																																																																						)}
 																		</div>
 																	)}
 																</div>
@@ -4889,6 +4965,8 @@ const view = (state, {updateState, dispatch}) => {
 						const answerId = state.relationshipModalAnswerId;
 						if (!answerId || !state.currentQuestions?.questions) return null;
 
+						// Check if assessment is read-only (published or unpublished)
+
 						// Find the question and answer
 						const question = state.currentQuestions.questions.find(q =>
 							q.answers && q.answers.some(a => a.ids.id === answerId)
@@ -5173,6 +5251,7 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 										<h4>Guidelines</h4>
 
+
 										{/* Existing Guidelines */}
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
@@ -5193,6 +5272,7 @@ const view = (state, {updateState, dispatch}) => {
 																			guidelineName: guideline.label
 																		})
 																	}}
+															style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}
 																	title="Delete guideline"
 																>
 																	<XIcon />
@@ -5214,7 +5294,7 @@ const view = (state, {updateState, dispatch}) => {
 										})()}
 
 										{/* Add New Guideline */}
-										<div className="add-relationship">
+										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}>
 											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
 												<input
 													type="text"
@@ -5351,6 +5431,7 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 										<h4>Questions</h4>
 
+
 										{/* Existing Questions */}
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
@@ -5370,6 +5451,7 @@ const view = (state, {updateState, dispatch}) => {
 																			questionLabel: question.label
 																		})
 																	}}
+															style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}
 																	title="Delete question"
 																>
 																	<XIcon />
@@ -5390,7 +5472,7 @@ const view = (state, {updateState, dispatch}) => {
 										})()}
 
 										{/* Add New Question */}
-										<div className="add-relationship">
+										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}>
 											<div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
 												<input
 													type="text"
@@ -5548,6 +5630,7 @@ const view = (state, {updateState, dispatch}) => {
 											<LoadingOverlay message="Processing..." />
 										)}
 										<h4>Problems</h4>
+
 
 										{/* Existing Problems */}
 										{(() => {
@@ -5837,6 +5920,7 @@ const view = (state, {updateState, dispatch}) => {
 																			className="relationship-label"
 																			ondblclick={() => {
 																				// Fetch full problem details before editing
+																				if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
 																				dispatch('FETCH_PROBLEM_DETAILS', {
 																					problemId: problem.id,
 																					fallbackData: {
@@ -5845,9 +5929,10 @@ const view = (state, {updateState, dispatch}) => {
 																						tooltip: problem.tooltip || ''
 																					}
 																				});
+																				}
 																			}}
-																			title="Double-click to edit"
-																			style={{cursor: 'pointer'}}
+																			title={(state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? '' : 'Double-click to edit'}
+																			style={{cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer'}}
 																		>
 																			{problem.label || problem.name}
 																		</span>,
@@ -5864,7 +5949,7 @@ const view = (state, {updateState, dispatch}) => {
 																																				});
 																																			}}
 																																			title="Edit problem"
-																																			style={{marginLeft: '8px'}}
+																																			style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '8px'}}
 																																		>
 																																			✏️
 																																		</button>,
@@ -5876,7 +5961,7 @@ const view = (state, {updateState, dispatch}) => {
 																			problemName: problem.label || problem.name
 																		})}
 																		title="Delete problem"
-																			style={{marginLeft: '8px'}}
+																			style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '8px'}}
 																	>
 																		<XIcon />
 																	</button>,
@@ -5889,7 +5974,7 @@ const view = (state, {updateState, dispatch}) => {
 																				problemLabel: problem.label || problem.name
 																			});
 																		}}
-																		style={{marginLeft: '8px'}}
+																		style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '8px'}}
 																	>
 																		📦
 																	</button>
@@ -6210,13 +6295,15 @@ const view = (state, {updateState, dispatch}) => {
 																									<span
 																										key="goal-label"
 																										className="goal-label"
-																										style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
+																										style={{flex: 1, cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer', color: '#374151', fontWeight: '500'}}
 																										title="Double-click to edit goal"
 																										ondblclick={() => {
+																											if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
 																											dispatch('GET_GOAL_DETAILS', {
 																												goalId: goal.id,
 																												problemId: problem.id
 																											});
+																											}
 																										}}
 																									>
 																										{isLoading ? 'Loading...' : (goal.label || goal.name)}
@@ -6224,7 +6311,7 @@ const view = (state, {updateState, dispatch}) => {
 																																										<button
 																																											key="edit-btn"
 																																											className="edit-btn"
-																																											style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																																											style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
 																																											title="Edit goal"
 																																											onclick={() => dispatch('GET_GOAL_DETAILS', {
 																																												goalId: goal.id,
@@ -6236,7 +6323,7 @@ const view = (state, {updateState, dispatch}) => {
 																									<button
 																										key="delete-btn"
 																										className="cancel-relationship-btn"
-																										style={{marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
+																										style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
 																										title="Delete goal"
 																										onclick={() => dispatch('DELETE_GOAL', {
 																											answerId: state.relationshipModalAnswerId,
@@ -6618,13 +6705,15 @@ const view = (state, {updateState, dispatch}) => {
 
 																																<span
 																																	className="intervention-label"
-																																	style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
+																																	style={{flex: 1, cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer', color: '#374151', fontWeight: '500'}}
 																																	title="Double-click to edit intervention"
 																																	ondblclick={() => {
+																																		if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
 																																		dispatch('GET_INTERVENTION_DETAILS', {
 																																			interventionId: intervention.id,
 																																			goalId: goal.id
 																																		});
+																																		}
 																																	}}
 																																>
 																																	{isLoading ? 'Loading...' : intervention.label}
@@ -6645,7 +6734,7 @@ const view = (state, {updateState, dispatch}) => {
 																																</span>
 																																																									<button
 																																																										className="edit-btn"
-																																																										style={{
+																																																										style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', 
 																																																											marginLeft: '12px',
 																																																											fontSize: '12px',
 																																																											fontWeight: 'normal',
@@ -6663,7 +6752,7 @@ const view = (state, {updateState, dispatch}) => {
 																																																									</button>
 																																<button
 																																	className="delete-intervention-btn"
-																																	style={{
+																																	style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', 
 																																		marginLeft: '12px',
 																																		fontSize: '12px',
 																																		fontWeight: 'normal',
@@ -6714,7 +6803,7 @@ const view = (state, {updateState, dispatch}) => {
 																									})()}
 
 																									{/* Add New Intervention */}
-																									<div className="add-intervention" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
+																									<div className="add-intervention" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																										{/* Loading overlay for intervention save */}
 																										{state.savingInterventions[goal.id] && (
 																											<LoadingOverlay message="Processing..." />
@@ -6984,7 +7073,7 @@ const view = (state, {updateState, dispatch}) => {
 																	})()}
 
 																	{/* Add New Goal */}
-																	<div className="add-goal" style={{marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
+																	<div className="add-goal" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px', position: 'relative'}}>
 																		{/* Loading overlay for goal save */}
 																		{state.savingGoals[problem.id] && (
 																			<LoadingOverlay message="Processing..." />
@@ -7217,7 +7306,7 @@ const view = (state, {updateState, dispatch}) => {
 										})()}
 
 										{/* Add New Problem */}
-										<div className="add-relationship">
+										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}>
 											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
 												<input
 													type="text"
@@ -7378,6 +7467,7 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 										<h4>Barriers</h4>
 
+
 										{/* Existing Barriers */}
 										{(() => {
 											const answerId = state.relationshipModalAnswerId;
@@ -7396,6 +7486,7 @@ const view = (state, {updateState, dispatch}) => {
 																			barrierId: barrier.id
 																		})
 																	}}
+															style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}
 																	title="Delete barrier"
 																>
 																	<XIcon />
@@ -7417,7 +7508,7 @@ const view = (state, {updateState, dispatch}) => {
 										})()}
 
 										{/* Add New Barrier */}
-										<div className="add-relationship">
+										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}>
 											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
 												<input
 													type="text"
