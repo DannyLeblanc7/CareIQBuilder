@@ -669,7 +669,7 @@ const view = (state, {updateState, dispatch}) => {
 							>
 								🔄 Refresh
 							</button>
-							{(state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) ? [
+							{(state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && state.currentAssessment?.content_source !== 'MCG' ? [
 								<button 
 									key="edit-btn"
 									className={`mode-toggle-btn ${state.builderMode ? 'active' : ''}`}
@@ -712,7 +712,12 @@ const view = (state, {updateState, dispatch}) => {
 								</button>,
 								// Individual save buttons will be shown per question instead of holistic save
 							] : null}
-							{state.currentAssessment?.status === 'published' ? [
+							{state.currentAssessment?.content_source === 'MCG' ? [
+								<span key="mcg-indicator" className="published-indicator">
+									🔒 MCG Assessment - Read Only
+								</span>,
+							] : null}
+							{state.currentAssessment?.status === 'published' && state.currentAssessment?.content_source !== 'MCG' ? [
 								<span key="published-indicator" className="published-indicator">
 									📋 Published Version - Read Only
 								</span>,
@@ -746,7 +751,7 @@ const view = (state, {updateState, dispatch}) => {
 									Create New Version
 								</button>
 							] : null}
-							{state.currentAssessment?.status === 'unpublished' ? [
+							{state.currentAssessment?.status === 'unpublished' && state.currentAssessment?.content_source !== 'MCG' ? [
 								<span key="unpublished-indicator" className="published-indicator">
 									📋 Unpublished Version - Read Only
 								</span>,
@@ -4115,23 +4120,6 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 
-									{/* Allow MCG Content - Can toggle until saved, then locked if enabled */}
-									<div className="form-group">
-										<label>Allow MCG Content:</label>
-										<div className="checkbox-group">
-											<input
-												type="checkbox"
-												id="allowMcgContent"
-												checked={state.assessmentDetailsPanel.allowMcgContent || false}
-												disabled={!isFieldEditable('allowMcgContent') || state.assessmentDetailsPanel.originalAllowMcgContent}
-												onchange={(e) => dispatch('UPDATE_ASSESSMENT_DETAIL_FIELD', {
-													field: 'allowMcgContent',
-													value: e.target.checked
-												})}
-											/>
-											<label htmlFor="allowMcgContent">Enable</label>
-										</div>
-									</div>
 								</div>
 
 								{/* RIGHT COLUMN */}
@@ -4291,6 +4279,7 @@ const view = (state, {updateState, dispatch}) => {
 							</button>
 							<button
 								className="btn-save"
+								disabled={state.assessmentDetailsPanel.contentSource === 'MCG'}
 								onclick={() => dispatch('SAVE_ASSESSMENT_DETAILS')}
 							>
 								Save Changes
@@ -4662,18 +4651,6 @@ const view = (state, {updateState, dispatch}) => {
 									<option value="draft">Save as Draft and Submit</option>
 									<option value="submit">Submit Only</option>
 								</select>
-							</div>
-
-							{/* Allow MCG Content */}
-							<div className="form-field">
-								<label style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500'}}>
-									<input
-										type="checkbox"
-										checked={state.newAssessmentForm.allowMcgContent}
-										onchange={(e) => dispatch('UPDATE_NEW_ASSESSMENT_FIELD', {fieldName: 'allowMcgContent', value: e.target.checked})}
-									/>
-									Allow MCG Content
-								</label>
 							</div>
 
 							{/* Enable "Select All PGI Elements" */}
