@@ -15450,10 +15450,24 @@ createCustomElement('cadal-careiq-builder', {
 			const updatedQuestions = [...state.currentQuestions.questions];
 			updatedQuestions[questionIndex] = replacementQuestion;
 
+			// CRITICAL: Clear any OLD question/answer changes before adding library changes
+			// This prevents orphaned changes from sticking around after library replacement
+			const cleanedQuestionChanges = {...state.questionChanges};
+			delete cleanedQuestionChanges[targetQuestionId];
+
+			const cleanedAnswerChanges = {...state.answerChanges};
+			// Remove any old answer changes that belonged to this question
+			Object.keys(cleanedAnswerChanges).forEach(answerId => {
+				const answerChange = cleanedAnswerChanges[answerId];
+				if (answerChange.questionId === targetQuestionId || answerChange.question_id === targetQuestionId) {
+					delete cleanedAnswerChanges[answerId];
+				}
+			});
+
 			// Update question changes tracking with library question status
 			const questionChangeKey = targetQuestionId;
 			const updatedQuestionChanges = {
-				...state.questionChanges,
+				...cleanedQuestionChanges,
 				[questionChangeKey]: {
 					action: 'library_replace',  // Special action for library replacement
 					questionId: targetQuestionId,
@@ -15480,7 +15494,7 @@ createCustomElement('cadal-careiq-builder', {
 			};
 
 			// Track all library answers in answerChanges
-			const updatedAnswerChanges = { ...state.answerChanges };
+			const updatedAnswerChanges = { ...cleanedAnswerChanges };
 			replacementQuestion.answers.forEach((answer, index) => {
 				const answerChangeKey = answer.ids.id;
 				const originalLibraryAnswer = libraryQuestion.answers[index];
@@ -20957,6 +20971,8 @@ createCustomElement('cadal-careiq-builder', {
 			updateState({
 				questionChanges: updatedQuestionChanges,
 				answerChanges: updatedAnswerChanges,
+				pendingQuestionAnswers: null,
+				pendingQuestionMetadata: null,
 			currentQuestions: {
 				...state.currentQuestions,
 				questions: updatedQuestions
