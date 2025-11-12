@@ -4182,8 +4182,8 @@ const view = (state, {updateState, dispatch}) => {
 											>
 												<option value="use_default" selected={state.assessmentDetailsPanel.responseLogging === 'use_default'}>Use Org Default</option>
 												<option value="disabled" selected={state.assessmentDetailsPanel.responseLogging === 'disabled'}>Disabled</option>
-												<option value="draft" selected={state.assessmentDetailsPanel.responseLogging === 'draft'}>Save as Draft and Submit</option>
-												<option value="submit" selected={state.assessmentDetailsPanel.responseLogging === 'submit'}>Submit Only</option>
+												<option value="draft" selected={state.assessmentDetailsPanel.responseLogging === 'draft'}>Draft and Submit</option>
+												<option value="submit" selected={state.assessmentDetailsPanel.responseLogging === 'submit'}>Submit</option>
 											</select>
 										) : (
 											<div className="readonly-field">{
@@ -4191,8 +4191,8 @@ const view = (state, {updateState, dispatch}) => {
 													const value = state.assessmentDetailsPanel.responseLogging;
 													if (value === 'use_default') return 'Use Org Default';
 													if (value === 'disabled') return 'Disabled';
-													if (value === 'draft') return 'Save as Draft and Submit';
-													if (value === 'submit') return 'Submit Only';
+													if (value === 'draft') return 'Draft and Submit';
+													if (value === 'submit') return 'Submit';
 													return 'Use Org Default';
 												})()
 											}</div>
@@ -4363,10 +4363,9 @@ const view = (state, {updateState, dispatch}) => {
 									})}
 								>
 									<option value="use_default" selected={state.publishPanel.responseLogging === 'use_default'}>Use Org Default</option>
-									<option value="disabled" selected={state.publishPanel.responseLogging === 'disabled'}>Disable</option>
-									<option value="auto_save_draft_submit" selected={state.publishPanel.responseLogging === 'auto_save_draft_submit'}>Auto-save, Draft and Submit</option>
-									<option value="save_draft_submit" selected={state.publishPanel.responseLogging === 'save_draft_submit'}>Save as Draft and Submit</option>
-									<option value="submit_only" selected={state.publishPanel.responseLogging === 'submit_only'}>Submit Only</option>
+									<option value="disabled" selected={state.publishPanel.responseLogging === 'disabled'}>Disabled</option>
+									<option value="draft" selected={state.publishPanel.responseLogging === 'draft'}>Draft and Submit</option>
+									<option value="submit" selected={state.publishPanel.responseLogging === 'submit'}>Submit</option>
 								</select>
 							</div>
 						</div>
@@ -4648,8 +4647,8 @@ const view = (state, {updateState, dispatch}) => {
 								>
 									<option value="use_default">Use Org Default</option>
 									<option value="disabled">Disabled</option>
-									<option value="draft">Save as Draft and Submit</option>
-									<option value="submit">Submit Only</option>
+									<option value="draft">Draft and Submit</option>
+									<option value="submit">Submit</option>
 								</select>
 							</div>
 
