@@ -2775,6 +2775,8 @@ const view = (state, {updateState, dispatch}) => {
 																							if (answer.counts.problems > 0) pgiLabels.push(`P: ${answer.counts.problems}`);
 																							if (answer.counts.triggered_guidelines > 0) pgiLabels.push(`G: ${answer.counts.triggered_guidelines}`);
 																							if (answer.counts.barriers > 0) pgiLabels.push(`B: ${answer.counts.barriers}`);
+																		if (answer.counts.triggered_questions > 0) pgiLabels.push(`Q: ${answer.counts.triggered_questions}`);
+																		if (answer.counts.evidence > 0) pgiLabels.push(`E: ${answer.counts.evidence}`);
 
 																							return (
 																								<span
@@ -2802,9 +2804,43 @@ const view = (state, {updateState, dispatch}) => {
 																									{pgiLabels.join(' ')}
 																								</span>
 																							);
-																						}
+																					}
 
-																						return null;
+																					// Show badge for triggered questions and/or evidence (when no PGI)
+																					if ((answer.counts.triggered_questions || 0) > 0 || (answer.counts.evidence || 0) > 0) {
+																						const labels = [];
+																			if (answer.counts.triggered_questions > 0) labels.push(`Q: ${answer.counts.triggered_questions}`);
+																			if (answer.counts.evidence > 0) labels.push(`E: ${answer.counts.evidence}`);
+
+																						return (
+																							<span
+																								className="pgi-badge clickable"
+																								style={{
+																									marginLeft: '8px',
+																									padding: '2px 6px',
+																									backgroundColor: '#dbeafe',
+																									color: '#1e40af',
+																									borderRadius: '10px',
+																									fontSize: '11px',
+																									fontWeight: '500',
+																									cursor: 'pointer',
+																									border: '1px solid #93c5fd'
+																								}}
+																								onclick={(e) => {
+																									e.stopPropagation();
+																									e.preventDefault();
+																									dispatch('OPEN_PGI_MODAL', {
+																										answerId: answer.ids.id
+																									});
+																								}}
+																								title="Click to view relationships"
+																							>
+																								{labels.join(' ')}
+																							</span>
+																						);
+																					}
+
+																					return null;
 																					})()}
 																				</span>
 																			</label>
@@ -10289,7 +10325,8 @@ createCustomElement('cadal-careiq-builder', {
 				relationshipTypeaheadText: '',
 				relationshipTypeaheadResults: [],
 				relationshipTypeaheadLoading: false,
-				currentGuidelineSearchAnswerId: null
+				currentGuidelineSearchAnswerId: null,
+			builderMode: action.payload?.status === 'published' || action.payload?.status === 'unpublished' ? false : true
 			});
 			
 			// Re-select the section we were editing, or auto-select first section
@@ -10484,6 +10521,13 @@ createCustomElement('cadal-careiq-builder', {
 			// Debug: log the questions structure to understand triggered_questions format
 			questionsWithSortedAnswers.forEach((question, qIndex) => {
 				question.answers?.forEach((answer, aIndex) => {
+				if (qIndex === 0 && aIndex === 0) {
+					console.log("=== FIRST ANSWER STRUCTURE ===" );
+					console.log("answer.counts:", answer.counts);
+					console.log("answer.triggered_questions:", answer.triggered_questions);
+					console.log("Full answer keys:", Object.keys(answer));
+					console.log("================================");
+				}
 					if (answer.triggered_questions && answer.triggered_questions.length > 0) {
 					}
 				});
