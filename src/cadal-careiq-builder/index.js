@@ -11557,18 +11557,24 @@ createCustomElement('cadal-careiq-builder', {
 				// New question - use new 2-step process
 				if (question.type === 'Text' || question.type === 'Date' || question.type === 'Numeric') {
 					// Step 1: Add question to section (no answers needed)
-					// Get the most current voice value from questionChanges if available
+					// Get the most current values from questionChanges if available (check questionChanges FIRST)
 					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
+					const currentTooltip = state.questionChanges?.[questionId]?.tooltip !== undefined
+						? state.questionChanges?.[questionId]?.tooltip
+						: (question.tooltip || '');
+					const currentCustomAttributes = state.questionChanges?.[questionId]?.custom_attributes !== undefined
+						? state.questionChanges?.[questionId]?.custom_attributes
+						: (question.custom_attributes || {});
 
 					const questionData = {
 						label: question.label,
 						type: question.type,
 						required: question.required,
-						tooltip: question.tooltip || '',
+						tooltip: currentTooltip,
 						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
-						custom_attributes: {},
+						custom_attributes: currentCustomAttributes,
 						available: false,
 						has_quality_measures: false
 					};
@@ -11594,8 +11600,14 @@ createCustomElement('cadal-careiq-builder', {
 					console.log('SAVE_QUESTION_IMMEDIATELY - questionChanges voice:', state.questionChanges?.[questionId]?.voice);
 					console.log('SAVE_QUESTION_IMMEDIATELY - Full questionChanges:', state.questionChanges?.[questionId]);
 
-					// Get the most current voice value from questionChanges if available
+					// Get the most current values from questionChanges if available (check questionChanges FIRST)
 					const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
+					const currentTooltip = state.questionChanges?.[questionId]?.tooltip !== undefined
+						? state.questionChanges?.[questionId]?.tooltip
+						: (question.tooltip || '');
+					const currentCustomAttributes = state.questionChanges?.[questionId]?.custom_attributes !== undefined
+						? state.questionChanges?.[questionId]?.custom_attributes
+						: (question.custom_attributes || {});
 
 					console.log('SAVE_QUESTION_IMMEDIATELY - Final currentVoice:', currentVoice);
 
@@ -11603,11 +11615,11 @@ createCustomElement('cadal-careiq-builder', {
 						label: question.label,
 						type: question.type,
 						required: question.required,
-						tooltip: question.tooltip || '',
+						tooltip: currentTooltip,
 						voice: currentVoice,
 						sort_order: question.sort_order,
 						alternative_wording: '',
-						custom_attributes: {},
+						custom_attributes: currentCustomAttributes,
 						available: false,
 						has_quality_measures: false
 					};
@@ -11706,7 +11718,7 @@ createCustomElement('cadal-careiq-builder', {
 
 				dispatch('UPDATE_QUESTION_API', {
 					questionData: {
-						questionId: questionId,
+						questionId: question.isLibraryQuestion ? question.libraryQuestionId : questionId,
 						label: question.label,
 						type: question.type,
 						required: question.required,
@@ -15183,7 +15195,7 @@ createCustomElement('cadal-careiq-builder', {
 						voice: question.voice || 'Patient',
 						sort_order: question.sort_order,
 						alternative_wording: '',
-						custom_attributes: {},
+						custom_attributes: question.custom_attributes || {},
 						available: false,
 						has_quality_measures: false
 					},
@@ -15198,7 +15210,7 @@ createCustomElement('cadal-careiq-builder', {
 					voice: question.voice || 'Patient',
 					sort_order: question.sort_order,
 					alternative_wording: '',
-					custom_attributes: {},
+					custom_attributes: question.custom_attributes || {},
 					available: false,
 					has_quality_measures: false
 				};
@@ -17992,7 +18004,10 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[questionId]: {
 						...(state.questionChanges?.[questionId] || {}),
-						action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+						// Preserve special actions ('add', 'library_replace'), otherwise 'update'
+						action: (state.questionChanges?.[questionId]?.action === 'add' || state.questionChanges?.[questionId]?.action === 'library_replace')
+							? state.questionChanges?.[questionId]?.action
+							: 'update',
 						questionId: questionId,
 						tooltip: newTooltip
 					}
@@ -18198,7 +18213,10 @@ createCustomElement('cadal-careiq-builder', {
 					...state.questionChanges,
 					[itemId]: {
 						...(state.questionChanges?.[itemId] || {}),
-						action: state.questionChanges?.[itemId]?.action === 'add' ? 'add' : 'update',
+						// Preserve special actions ('add', 'library_replace'), otherwise 'update'
+						action: (state.questionChanges?.[itemId]?.action === 'add' || state.questionChanges?.[itemId]?.action === 'library_replace')
+							? state.questionChanges?.[itemId]?.action
+							: 'update',
 						questionId: itemId,
 						custom_attributes: Object.keys(customAttributes).length > 0 ? customAttributes : undefined
 					}
@@ -18964,10 +18982,10 @@ createCustomElement('cadal-careiq-builder', {
 						const backendQuestionData = {
 							label: questionData.label,
 							type: questionData.type,
-							tooltip: questionData.tooltip || '',
+							tooltip: currentQuestion?.tooltip || questionData.tooltip || '',
 							alternative_wording: '',
 							sort_order: questionData.sort_order,
-							custom_attributes: {},
+							custom_attributes: currentQuestion?.custom_attributes || questionData.custom_attributes || {},
 							voice: currentQuestion?.voice || questionData.voice || 'Patient',
 							required: currentQuestion?.required ?? questionData.required ?? false,
 							available: false,
@@ -19008,17 +19026,25 @@ createCustomElement('cadal-careiq-builder', {
 						const libraryQuestionData = {
 							label: currentQuestion.label,
 							type: currentQuestion.type,
-							tooltip: questionData.tooltip || currentQuestion.tooltip || '',
+							tooltip: currentQuestion.tooltip || questionData.tooltip || '',
 							alternative_wording: questionData.alternative_wording || '',
 							sort_order: currentQuestion.sort_order || 0,
-							custom_attributes: {},
-							voice: questionData.voice || currentQuestion.voice || 'Patient',
-							required: questionData.required ?? currentQuestion.required ?? false,
+							custom_attributes: currentQuestion.custom_attributes || questionData.custom_attributes || {},
+							voice: currentQuestion.voice || questionData.voice || 'Patient',
+							required: currentQuestion.required ?? questionData.required ?? false,
 							available: false,
 							has_quality_measures: false,
 							library_id: currentQuestion.libraryQuestionId // Include library ID
 
 						};
+
+						// DEBUG: Log what we're about to send to the backend
+						console.log('🔍 LIBRARY_REPLACE PAYLOAD:', JSON.stringify(libraryQuestionData, null, 2));
+						console.log('🔍 currentQuestion.custom_attributes:', currentQuestion.custom_attributes);
+						console.log('🔍 questionData.custom_attributes:', questionData.custom_attributes);
+						console.log('🔍 Full currentQuestion object:', currentQuestion);
+						console.log('🔍 Full questionData object:', questionData);
+
 						dispatch('ADD_QUESTION_TO_SECTION_API', {
 							questionData: libraryQuestionData,
 							sectionId: state.selectedSection,
@@ -19033,7 +19059,7 @@ createCustomElement('cadal-careiq-builder', {
 
 						// Prepare data for backend API using actual current values
 						const backendQuestionData = {
-							questionId: questionId,
+							questionId: currentQuestion && currentQuestion.isLibraryQuestion ? currentQuestion.libraryQuestionId : questionId,
 							label: currentQuestion ? currentQuestion.label : questionData.label,
 							tooltip: currentQuestion ? (currentQuestion.tooltip || '') : (questionData.tooltip || ''),
 							alternative_wording: questionData.alternative_wording || 'string',
@@ -19460,7 +19486,8 @@ createCustomElement('cadal-careiq-builder', {
 					required: questionData.required || false,
 					voice: questionData.voice || 'Patient',
 					tooltip: questionData.tooltip || '',
-					alternative_wording: questionData.alternative_wording || ''
+					alternative_wording: questionData.alternative_wording || '',
+					custom_attributes: questionData.custom_attributes || {}
 				};
 			} else {
 				// Regular question - use full payload
@@ -19744,9 +19771,23 @@ createCustomElement('cadal-careiq-builder', {
 
 		'UPDATE_QUESTION_ERROR': (coeffects) => {
 			const {action, updateState, state} = coeffects;
-			const errorMessage = action.payload?.error?.message || action.payload?.message || 'Failed to update question';
 
-			console.error('Update question failed:', errorMessage);
+			// Extract backend error message - check multiple possible locations
+			let errorMessage = 'Failed to update question';
+			const payload = action.payload;
+
+			// Check for detail array (FastAPI/Pydantic validation errors)
+			if (payload?.detail && Array.isArray(payload.detail) && payload.detail.length > 0) {
+				errorMessage = payload.detail[0].msg || 'Validation error';
+			} else if (payload?.error?.message) {
+				errorMessage = payload.error.message;
+			} else if (payload?.message) {
+				errorMessage = payload.message;
+			} else if (payload?.error) {
+				errorMessage = payload.error;
+			}
+
+			console.error('Update question failed:', errorMessage, 'Full payload:', payload);
 
 			// Clear saving state on error
 			const questionId = state.lastSavedQuestionId;

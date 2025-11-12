@@ -71,9 +71,36 @@ var requestData = request.body.data;  // ServiceNow wraps in .data automatically
 ```
 
 ### CareIQ Services Script Include Pattern
-- **Correct instantiation**: `var careiqServices = new x_cadal_careiq_e_0.CareIQServices();`
+- **Correct instantiation**: `var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();`
 - **Application scope**: All CareIQ Script Includes are in the `x_cadal_careiq_e_0` scope
 - **Use `Delta CareIQ Services - Consolidated.js`** as single source of truth for new methods
+
+### Token Refresh Pattern (CareIQ Services)
+**PROBLEM**: Normal users cannot re-authenticate when CareIQ platform token expires. Admin users work fine.
+
+**ROOT CAUSE**: `GlideRecordSecure.setValue()` doesn't work from scoped apps on global tables (sys_properties), even with proper ACLs and `canWrite()` returning true. This is a ServiceNow scope isolation limitation.
+
+**SOLUTION**: Use `gs.setProperty()` instead of `GlideRecordSecure.setValue()` in the `getToken()` method:
+```javascript
+// Validate user has permission first
+if (gr_sysProperties.canWrite()) {
+    // Use gs.setProperty() because GlideRecordSecure.setValue() doesn't work from scoped apps
+    gs.setProperty('x_cadal_careiq_e_0.careiq.platform.token', token);
+
+    // Verify the update worked
+    var verifyToken = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token');
+    if (verifyToken === token) {
+        return true;
+    }
+}
+```
+
+**APP REVIEW NOTES**:
+- Must request exception for `gs.setProperty()` usage
+- Remove `getRowCount()` calls to avoid scalability warnings
+- Comprehensive logging added for diagnostics
+
+**STATUS (2025-11-11)**: Fix applied to `CareIQ Services.js`. Awaiting app review approval for gs.setProperty() usage.
 
 ### CRITICAL: Save/Cancel Button Display Fix
 **PROBLEM**: Save/Cancel buttons don't disappear after saving question changes, even though `questionChanges` state is cleared correctly.
@@ -290,6 +317,87 @@ if (sectionData.action === 'add' || sectionId.startsWith('temp_')) {
     dispatch('MAKE_SECTION_UPDATE_REQUEST', {requestBody, sectionId});
 }
 ```
+
+### CRITICAL: Library Question Update Pattern
+**PROBLEM**: When editing tooltip or custom_attributes on library questions, changes fail to save with error:
+```
+Error: Input should be a valid UUID, invalid character: expected an optional prefix of `urn:uuid:` followed by [0-9a-fA-F-], found `t` at 1
+Input: "temp_1762896771467_1pvx8dxqp"
+```
+
+**KEY OBSERVATION**: Editing "required" field works, but tooltip/custom_attributes fail!
+
+**ROOT CAUSE**: Action preservation inconsistency!
+- Library questions get `action: 'library_replace'` in `questionChanges` state
+- Library questions have temp IDs (`temp_xxx`) and go through ADD_QUESTION_TO_SECTION_API
+- `UPDATE_QUESTION_REQUIRED` handler (line ~11134) preserves BOTH 'add' AND 'library_replace' actions
+- `SAVE_TOOLTIP_EDIT` handler (line ~17995) only preserved 'add', NOT 'library_replace'
+- `SAVE_CUSTOM_ATTRIBUTES` handler (line ~18201) only preserved 'add', NOT 'library_replace'
+
+**RESULT**: When tooltip/custom_attributes changed, action changed from 'library_replace' to 'update', causing library questions to go through UPDATE_QUESTION_API (wrong path) instead of ADD_QUESTION_TO_SECTION_API (correct path).
+
+**SOLUTION**: Update action preservation in both handlers to match UPDATE_QUESTION_REQUIRED pattern:
+```javascript
+// BEFORE (wrong - loses 'library_replace'):
+action: state.questionChanges?.[questionId]?.action === 'add' ? 'add' : 'update',
+
+// AFTER (correct - preserves 'library_replace'):
+action: (state.questionChanges?.[questionId]?.action === 'add' || state.questionChanges?.[questionId]?.action === 'library_replace')
+    ? state.questionChanges?.[questionId]?.action
+    : 'update',
+```
+
+**LOCATIONS FIXED**:
+1. Line ~17996 in `SAVE_TOOLTIP_EDIT` handler
+2. Line ~18205 in `SAVE_CUSTOM_ATTRIBUTES` handler
+
+**ERROR HANDLING**: Also improved `UPDATE_QUESTION_ERROR` handler to properly extract backend validation errors from FastAPI/Pydantic `detail` array format.
+
+**AFFECTED OPERATIONS**: Editing tooltip or custom_attributes on newly added library questions (with temp IDs).
+
+**ADDITIONAL FIX 1**: Custom attributes were hardcoded to empty objects `{}` in all ADD_QUESTION_TO_SECTION_API calls. Fixed 6 locations to use `question.custom_attributes || {}` instead:
+1. Line ~11577 in SAVE_QUESTION_IMMEDIATELY (Text/Date/Numeric)
+2. Line ~11616 in SAVE_QUESTION_IMMEDIATELY (Single Select/Multiselect)
+3. Line ~15186 in CONTINUE_QUESTION_SAVE_AFTER_CHECK (Text/Date/Numeric)
+4. Line ~15201 in CONTINUE_QUESTION_SAVE_AFTER_CHECK (Single Select/Multiselect)
+5. Line ~18988 in SAVE_ALL_CHANGES (action === 'add')
+6. Line ~19032 in SAVE_ALL_CHANGES (action === 'library_replace')
+
+**ADDITIONAL FIX 2**: When building questionData payload, tooltip and custom_attributes were read directly from `question` object, but should check `questionChanges` FIRST like the working `voice` field pattern:
+```javascript
+// WORKING PATTERN (voice):
+const currentVoice = state.questionChanges?.[questionId]?.voice || question.voice || 'Patient';
+
+// FIXED PATTERN (custom_attributes):
+const currentCustomAttributes = state.questionChanges?.[questionId]?.custom_attributes !== undefined
+    ? state.questionChanges?.[questionId]?.custom_attributes
+    : (question.custom_attributes || {});
+```
+
+**WHY**: `SAVE_CUSTOM_ATTRIBUTES` and `SAVE_TOOLTIP_EDIT` update BOTH the question object in `state.currentQuestions.questions` AND the `state.questionChanges`. When user edits custom attributes on a library question and clicks Save, the most recent values exist in `questionChanges` and must be checked first.
+
+**LOCATIONS FIXED**:
+- Lines ~11560-11604 in SAVE_QUESTION_IMMEDIATELY (both Text/Date/Numeric and Single Select/Multiselect)
+- Line ~18985 in SAVE_ALL_CHANGES (action === 'add')
+- Lines ~19029, ~19032-19034 in SAVE_ALL_CHANGES (action === 'library_replace') - made consistent to check currentQuestion first
+
+**STATUS (2025-11-11)**: ✅ **RESOLVED** - Fixed action preservation, hardcoded empty custom_attributes, and added questionChanges priority check for tooltip/custom_attributes fields.
+
+**CRITICAL DUAL BUG FIX (2025-11-11)**: Both frontend AND server-side were stripping `custom_attributes` for library questions!
+
+**BUG #1 - Frontend (line ~19490 in index.js)**: The `ADD_QUESTION_TO_SECTION_API` action handler built different request payloads:
+- **Library questions**: "minimal payload" with NO `custom_attributes`
+- **Regular questions**: Full payload WITH `custom_attributes`
+
+**FIX #1**: Added `custom_attributes: questionData.custom_attributes || {}` to line 19490 in the library question requestBodyData.
+
+**BUG #2 - Server-side (line 1455 in CareIQ Services.js)**: The `builderAddQuestionToSection` method also had different payloads:
+- **Library questions**: "minimal payload" with NO `custom_attributes`
+- **Regular questions**: Full payload WITH `custom_attributes`
+
+**FIX #2**: Added `custom_attributes: custom_attributes || {}` to line 1455 in the library question payload.
+
+**ROOT CAUSE**: Both frontend AND server-side were using "minimal payloads" for library questions that excluded custom_attributes. Postman testing confirmed the CareIQ backend accepts and stores `custom_attributes` correctly - both bugs were in the middleware layers.
 
 ## PGI (Problem-Goal-Intervention) Patterns
 

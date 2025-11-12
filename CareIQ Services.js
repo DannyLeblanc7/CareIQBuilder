@@ -30,7 +30,8 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
             version: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.version'),
             clientId: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.id'),
             oToken: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.otoken'),
-            apiKey: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.apikey')
+            apiKey: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.apikey'),
+            careIQPlatformStaticURL: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.staticurl')
         };
         
         return config;
@@ -55,7 +56,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
     
     _buildEndpoint: function(path) {
         var config = this._getConfig();
-        return 'https://' + config.app + '.' + config.region + '.careiq.cadalysapp.com/api/' + config.version + path;
+        return 'https://' + config.app + '.' + config.region + config.careIQPlatformStaticURL + config.version + path;
     },
     
     _createRESTMessage: function(name, endpoint) {
@@ -184,60 +185,169 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
             return input; // Return original on error
         }
     },
-
 	getToken: function() {
 		try {
+			// Log who is calling this and their context
+			this._log('======== AUTH TOKEN REFRESH START ========', true);
+			this._log('Auth - User: ' + gs.getUserName() + ' (ID: ' + gs.getUserID() + ')', true);
+			this._log('Auth - User roles: ' + gs.getUser().getRoles(), true);
+
 			var config = this._getConfig();
-			
-			// Validate required values
-			if (!this._validateConfig(config, ['app', 'region', 'version', 'apiKey', 'oToken', 'clientId'])) {
-				return;
+
+			// Log current token for comparison
+			if (config.token) {
+				this._log('Auth - Current token prefix: ' + config.token.substring(0, 10) + '...', true);
+				this._log('Auth - Current token length: ' + config.token.length, true);
+			} else {
+				this._log('Auth - Current token is NULL or empty', true);
 			}
-			
+
+			// Validate required values
+			this._log('Auth - Validating config...', true);
+			if (!this._validateConfig(config, ['app', 'region', 'version', 'apiKey', 'oToken', 'clientId'])) {
+				this._logError('Auth - Config validation FAILED');
+				return false;
+			}
+			this._log('Auth - Config validation PASSED', true);
+
 			// Build the full endpoint URL
 			var endpoint = this._buildEndpoint('/auth/token');
-			
+			this._log('Auth - Token endpoint: ' + endpoint, true);
+
 			// Create REST message
+			this._log('Auth - Creating REST message...', true);
 			var r = new sn_ws.RESTMessageV2();
-			r.setHttpMethod('post'); 
+			r.setHttpMethod('post');
 			r.setEndpoint(endpoint);
 			r.setRequestHeader('x-api-key', config.apiKey);
 			r.setRequestHeader('o-token', config.oToken);
 			r.setRequestHeader('x-client-id', config.clientId);
-			
+			this._log('Auth - REST message created with headers set', true);
+
 			// Execute the callout
+			this._log('Auth - Executing token request to CareIQ...', true);
 			var response = this._executeRequest(r, 'Auth');
 			var status = response.getStatusCode();
-			
+
+			this._log('Auth - Token request completed with status: ' + status, true);
+
 			// Handle success
 			if (status === 200) {
+				this._log('Auth - Status 200 received, processing response...', true);
+
 				var responseBody = response.getBody();
+				this._log('Auth - Response body length: ' + responseBody.length + ' characters', true);
+
 				var json = JSON.parse(responseBody);
+				this._log('Auth - Response parsed successfully', true);
+
 				var token = json.access_token;
-				
+
 				if (token) {
-					// Save token to sys_properties
-					var gr = new GlideRecordSecure('sys_properties');
-					if (gr.isValid()) {  // ✅ Add validation
-						gr.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
-						gr.query();
-						
-						if (gr.next()) {
-							gr.value = token;
-							gr.update();
-							this._log('Auth - Token updated successfully', false);
+					this._log('Auth - New token extracted from response', true);
+					this._log('Auth - New token prefix: ' + token.substring(0, 10) + '...', true);
+					this._log('Auth - New token length: ' + token.length, true);
+
+					// Validate permissions before updating
+					this._log('Auth - Validating user permissions to update token...', true);
+
+					var gr_sysProperties = new GlideRecordSecure('sys_properties');
+					this._log('Auth - GlideRecordSecure object created', true);
+
+					// Check if GlideRecordSecure is valid
+					if (gr_sysProperties.isValid()) {
+						this._log('Auth - GlideRecordSecure.isValid() returned TRUE', true);
+
+						gr_sysProperties.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
+						this._log('Auth - Query added for token property', true);
+
+						gr_sysProperties.query();
+						this._log('Auth - Query executed', true);
+
+						if (gr_sysProperties.next()) {
+							this._log('Auth - Record found, validating permissions...', true);
+							this._log('Auth - Record sys_id: ' + gr_sysProperties.getUniqueValue(), true);
+
+							// Log current value before update
+							var oldToken = gr_sysProperties.getValue('value');
+							if (oldToken) {
+								this._log('Auth - Old token in DB prefix: ' + oldToken.substring(0, 10) + '...', true);
+								this._log('Auth - Old token in DB length: ' + oldToken.length, true);
+							} else {
+								this._log('Auth - Old token in DB is NULL or empty', true);
+							}
+
+							// Check if user can update this record
+							if (gr_sysProperties.canWrite()) {
+								this._log('Auth - canWrite() returned TRUE - user has permission to update', true);
+							} else {
+								this._logError('Auth - canWrite() returned FALSE - USER DOES NOT HAVE PERMISSION');
+								return false;
+							}
+
+							// Use gs.setProperty() because GlideRecordSecure.setValue() doesn't work from scoped apps
+							// We've already validated the user has permission via canWrite() above
+							this._log('Auth - User has permission, using gs.setProperty() to update token...', true);
+
+							try {
+								gs.setProperty('x_cadal_careiq_e_0.careiq.platform.token', token);
+								this._log('Auth - gs.setProperty() completed without error', true);
+
+								// Verify the update worked by reading it back
+								this._log('Auth - Verifying token was actually saved...', true);
+								var verifyToken = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token');
+
+								if (verifyToken) {
+									this._log('Auth - Verified token prefix: ' + verifyToken.substring(0, 10) + '...', true);
+									this._log('Auth - Verified token length: ' + verifyToken.length, true);
+
+									if (verifyToken === token) {
+										this._log('Auth - VERIFICATION PASSED: Token updated successfully', true);
+										this._log('Auth - Token refresh completed SUCCESSFULLY', true);
+										this._log('======== AUTH TOKEN REFRESH END (SUCCESS) ========', true);
+										return true;
+									} else {
+										this._logError('Auth - VERIFICATION FAILED: Saved token does not match new token');
+										this._logError('Auth - Expected prefix: ' + token.substring(0, 10) + '...');
+										this._logError('Auth - Actual prefix: ' + verifyToken.substring(0, 10) + '...');
+										return false;
+									}
+								} else {
+									this._logError('Auth - VERIFICATION FAILED: Token is NULL after gs.setProperty()');
+									return false;
+								}
+
+							} catch (updateEx) {
+								this._logError('Auth - EXCEPTION during gs.setProperty(): ' + updateEx.message);
+								return false;
+							}
+
 						} else {
-							this._logError('Auth - Token property not found');
+							this._logError('Auth - Token property NOT FOUND in sys_properties table');
+							this._logError('Auth - Property name: x_cadal_careiq_e_0.careiq.platform.token');
+							return false;
 						}
 					} else {
-						this._logError('Auth - Unable to access sys_properties table');
+						this._logError('Auth - GlideRecordSecure.isValid() returned FALSE');
+						this._logError('Auth - User does not have read access to sys_properties table');
+						return false;
 					}
 				} else {
-					this._logError('Auth - Token not found in response');
+					this._logError('Auth - access_token not found in response body');
+					this._logError('Auth - Response body keys: ' + Object.keys(json).join(', '));
+					return false;
 				}
+			} else {
+				this._logError('Auth - Token refresh failed with non-200 status: ' + status);
+				this._logError('Auth - Response body: ' + response.getBody());
+				return false;
 			}
 		} catch (ex) {
-			this._logError('Auth - Exception: ' + ex.message);
+			this._logError('Auth - EXCEPTION occurred during token refresh');
+			this._logError('Auth - Exception message: ' + ex.message);
+			this._logError('Auth - Exception toString: ' + ex.toString());
+			this._log('======== AUTH TOKEN REFRESH END (EXCEPTION) ========', true);
+			return false;
 		}
 	},
     searchAssessments: function(useCase, searchValue, admin, useCaseCategories) {
@@ -625,10 +735,10 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			}
 
 			// Create new GlideRecord for the specified table
-			var gr = new GlideRecordSecure(tableName);
+			var gr_dynamicTable = new GlideRecordSecure(tableName);
 			
 			// ✅ Validate table exists
-			if (!gr.isValid()) {
+			if (!gr_dynamicTable.isValid()) {
 				this._logError('CreateRecord - Invalid table name: ' + tableName);
 				return JSON.stringify({
 					error: true,
@@ -642,8 +752,8 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			for (var field in recordObject) {
 				if (recordObject.hasOwnProperty(field)) {
 					// ✅ Validate field exists before setting
-					if (gr.isValidField(field)) {
-						gr.setValue(field, recordObject[field]);
+					if (gr_dynamicTable.isValidField(field)) {
+						gr_dynamicTable.setValue(field, recordObject[field]);
 						fieldCount++;
 						this._log('CreateRecord - Set field "' + field + '" with value type: ' + typeof recordObject[field], false);
 					} else {
@@ -655,7 +765,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			this._log('CreateRecord - Set ' + fieldCount + ' fields on record', false);
 			
 			// Insert the record
-			var newRecordId = gr.insert();
+			var newRecordId = gr_dynamicTable.insert();
 			
 			if (newRecordId) {
 				this._log('CreateRecord - Record created successfully with ID: ' + newRecordId, false);
@@ -738,9 +848,9 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				});
 			}			
 			// Create GlideRecord for the specified table
-			var gr = new GlideRecordSecure(tableName);
+			var gr_dynamicTableRead = new GlideRecordSecure(tableName);
 
-			if (!gr.isValid()) {
+			if (!gr_dynamicTableRead.isValid()) {
 				this._logError('QueryRecords - Invalid table name: ' + tableName);
 				return JSON.stringify({
 					error: true,
@@ -750,7 +860,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			}			
 			// Add systemId query condition first if provided
 			if (systemId && typeof systemId === 'string' && systemId.trim() !== '') {
-				gr.addQuery('sys_id', systemId.trim());
+				gr_dynamicTableRead.addQuery('sys_id', systemId.trim());
 				this._log('QueryRecords - Added sys_id query condition: ' + systemId.trim(), false);
 			}
 			
@@ -758,7 +868,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			var conditionCount = 0;
 			for (var field in queryConditions) {
 				if (queryConditions.hasOwnProperty(field)) {
-					gr.addQuery(field, queryConditions[field]);
+					gr_dynamicTableRead.addQuery(field, queryConditions[field]);
 					conditionCount++;
 					this._log('QueryRecords - Added query condition: ' + field + ' = ' + queryConditions[field], false);
 				}
@@ -766,47 +876,43 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			
 			// Add order by if specified
 			if (orderBy) {
-				gr.orderBy(orderBy);
+				gr_dynamicTableRead.orderBy(orderBy);
 				this._log('QueryRecords - Added order by: ' + orderBy, false);
 			}
 			
 			// Set limit if specified
 			if (limit > 0) {
-				gr.setLimit(limit);
+				gr_dynamicTableRead.setLimit(limit);
 				this._log('QueryRecords - Set limit: ' + limit, false);
 			}
 			
 			// Execute query
-			gr.query();
+			gr_dynamicTableRead.query();
 			
 			var records = [];
 			var recordCount = 0;
 			
 			// Process results
-			while (gr.next()) {
+			while (gr_dynamicTableRead.next()) {
 				var record = {};
 				
 				// If no specific fields requested, return all accessible fields
 				if (fieldsToReturn.length === 0) {
 					// Get all field names for this table
-					//var elements = gr.getElements();
-					//for (var i = 0; i < elements.size(); i++) {
-					//	var element = elements.get(i);
-					//	var fieldName = element.getName();
-					var elements = gr.getElements();
+					var elements = gr_dynamicTableRead.getElements();
 					var elementCount = elements.size();
 					for (var i = 0; i < elementCount; i++) {
 						//var element = elements[i];  // Changed from .get(i) to [i]
 						var element = elements.get(i);
 						var fieldName = element.getName();
-						record[fieldName] = gr.getDisplayValue(fieldName);
+						record[fieldName] = gr_dynamicTableRead.getDisplayValue(fieldName);
 					}
 				} else {
 					// Return only specified fields
 					for (var j = 0; j < fieldsToReturn.length; j++) {
 						var fieldName = fieldsToReturn[j];
-						if (gr.isValidField(fieldName)) {
-							record[fieldName] = gr.getDisplayValue(fieldName);
+						if (gr_dynamicTableRead.isValidField(fieldName)) {
+							record[fieldName] = gr_dynamicTableRead.getDisplayValue(fieldName);
 						} else {
 							this._log('QueryRecords - Warning: Field "' + fieldName + '" does not exist in table "' + tableName + '"', true);
 						}
@@ -814,7 +920,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				}
 				
 				// Always include sys_id for record identification
-				record.sys_id = gr.getUniqueValue();
+				record.sys_id = gr_dynamicTableRead.getUniqueValue();
 				
 				records.push(record);
 				recordCount++;
@@ -1337,16 +1443,17 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			var requestBody;
 
 			if (library_id) {
-				// Library question - include editable fields (tooltip, voice, required, alternative_wording)
+				// Library question - minimal payload (only sort_order and library_id)
 				requestBody = {
 					sort_order: sort_order || 0,
 					library_id: library_id,
 					tooltip: tooltip || '',
+					custom_attributes: custom_attributes || {},
 					voice: voice || 'Patient',
 					required: required || false,
 					alternative_wording: alternative_wording || ''
 				};
-				this._log('AddQuestionToSection - Using payload for library question: ' + library_id + ', required: ' + (required || false) + ', voice: ' + (voice || 'Patient') + ', tooltip length: ' + (tooltip ? tooltip.length : 0), false);
+				this._log('AddQuestionToSection - Using minimal payload for library question: ' + library_id, false);
 			} else {
 				// Regular question - full payload
 				requestBody = {
@@ -1363,7 +1470,14 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				};
 			}
 
-			r.setRequestBody(JSON.stringify(requestBody));
+			// DEBUG: Log the actual request body being sent to CareIQ backend
+			var requestBodyString = JSON.stringify(requestBody);
+			this._log('AddQuestionToSection - Request body being sent to CareIQ: ' + requestBodyString, false);
+			if (requestBody.custom_attributes) {
+				this._log('AddQuestionToSection - custom_attributes in payload: ' + JSON.stringify(requestBody.custom_attributes), false);
+			}
+
+			r.setRequestBody(requestBodyString);
 
 			var response = this._executeRequestWithRetry(r, 'AddQuestionToSection');
 			return response.getBody();
@@ -1457,7 +1571,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			return '{"error": "' + e.message + '"}';
 		}
 	},
-	builderGetGuidelineTemplates: function(useCase, offset, limit, latestVersionOnly, searchValue) {
+	builderGetGuidelineTemplates: function(useCase, offset, limit, contentSource, latestVersionOnly, searchValue) {
 		try {
 			var config = this._getConfig();
 
@@ -1993,15 +2107,15 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			var payload = {};
 
 			// Map form fields to API payload
-			if (requestData.effectiveDate !== undefined) payload.effective_date = requestData.effectiveDate;
-			if (requestData.endDate !== undefined) payload.end_date = requestData.endDate;
-			if (requestData.reviewDate !== undefined) payload.review_date = requestData.reviewDate;
-			if (requestData.nextReviewDate !== undefined) payload.next_review_date = requestData.nextReviewDate;
-			if (requestData.useCaseCategory !== undefined) payload.use_case_category_id = requestData.useCaseCategory;
-			if (requestData.usage !== undefined) payload.usage = requestData.usage;
-			if (requestData.policyNumber !== undefined) payload.policy_number = requestData.policyNumber;
-			if (requestData.versionName !== undefined) payload.version_name = requestData.versionName;
-			if (requestData.contentSource !== undefined) payload.content_source = requestData.contentSource;
+			if (requestData.effectiveDate) payload.effective_date = requestData.effectiveDate;
+			if (requestData.endDate) payload.end_date = requestData.endDate;
+			if (requestData.reviewDate) payload.review_date = requestData.reviewDate;
+			if (requestData.nextReviewDate) payload.next_review_date = requestData.nextReviewDate;
+			if (requestData.useCaseCategory) payload.use_case_category_id = requestData.useCaseCategory;
+			if (requestData.usage) payload.usage = requestData.usage;
+			if (requestData.policyNumber) payload.policy_number = requestData.policyNumber;
+			if (requestData.versionName) payload.version_name = requestData.versionName;
+			if (requestData.contentSource) payload.content_source = requestData.contentSource;
 
 			// Handle boolean fields
 			if (requestData.allowMcgContent !== undefined) {
