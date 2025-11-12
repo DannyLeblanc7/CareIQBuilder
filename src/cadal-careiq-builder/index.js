@@ -7933,20 +7933,43 @@ const view = (state, {updateState, dispatch}) => {
 																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px'}}>
 																								⏳ Loading interventions...
 																							</div>
-																						) : interventions && interventions.length > 0 ? (
-																							interventions.map((intervention, iIndex) => (
-																								<div key={iIndex} style={{
-																									padding: '8px',
-																									backgroundColor: '#eff6ff',
-																									borderLeft: '2px solid #3b82f6',
-																									borderRadius: '4px',
-																									marginBottom: '6px',
-																									fontSize: '13px'
-																								}}>
-																									{intervention.label || intervention.name}
-																								</div>
-																							))
-																						) : (
+																			) : interventions && interventions.length > 0 ? ((() => {
+																				const groupedInterventions = {};
+																				interventions.forEach(intervention => {
+																					const category = intervention.category || 'Uncategorized';
+																					if (!groupedInterventions[category]) {
+																						groupedInterventions[category] = [];
+																					}
+																					groupedInterventions[category].push(intervention);
+																				});
+
+																				return Object.keys(groupedInterventions).sort().map((category, catIndex) => [
+																					<div key={catIndex + '-header'} style={{
+																						fontSize: '12px',
+																						fontWeight: '600',
+																						color: '#6b7280',
+																						marginBottom: '6px',
+																						marginTop: catIndex > 0 ? '12px' : '0',
+																						textTransform: 'uppercase',
+																						letterSpacing: '0.5px'
+																					}}>
+																						{category}
+																					</div>,
+																					...groupedInterventions[category].map((intervention, iIndex) => (
+																						<div key={catIndex + '-' + iIndex} style={{
+																							padding: '8px',
+																							backgroundColor: '#eff6ff',
+																							borderLeft: '2px solid #3b82f6',
+																							borderRadius: '4px',
+																							marginBottom: '6px',
+																							fontSize: '13px'
+																						}}>
+																							{intervention.label || intervention.name}
+																						</div>
+																					))
+																				].flat());
+																			})())
+																						: (
 																							<div style={{padding: '8px', color: '#6b7280', fontSize: '12px', fontStyle: 'italic'}}>
 																								No interventions found
 																							</div>
