@@ -2375,10 +2375,10 @@ const view = (state, {updateState, dispatch}) => {
 
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
-																									{ key: 'problems', label: 'P' },
 																									{ key: 'triggered_questions', label: 'Q' },
-																									{ key: 'evidence', label: 'E' },
-																									{ key: 'barriers', label: 'B' }
+																									{ key: 'problems', label: 'P' },
+																									{ key: 'barriers', label: 'B' },
+																									{ key: 'evidence', label: 'E' }
 																								];
 
 																								const displayCounts = labels
@@ -2772,10 +2772,10 @@ const view = (state, {updateState, dispatch}) => {
 
 																						if (hasPGI) {
 																							const pgiLabels = [];
-																							if (answer.counts.problems > 0) pgiLabels.push(`P: ${answer.counts.problems}`);
 																							if (answer.counts.triggered_guidelines > 0) pgiLabels.push(`G: ${answer.counts.triggered_guidelines}`);
-																							if (answer.counts.barriers > 0) pgiLabels.push(`B: ${answer.counts.barriers}`);
 																		if (answer.counts.triggered_questions > 0) pgiLabels.push(`Q: ${answer.counts.triggered_questions}`);
+																							if (answer.counts.problems > 0) pgiLabels.push(`P: ${answer.counts.problems}`);
+																							if (answer.counts.barriers > 0) pgiLabels.push(`B: ${answer.counts.barriers}`);
 																		if (answer.counts.evidence > 0) pgiLabels.push(`E: ${answer.counts.evidence}`);
 
 																							return (
@@ -2876,10 +2876,10 @@ const view = (state, {updateState, dispatch}) => {
 																																																																									{(() => {
 																																																																										const labels = [
 																																																																											{ key: 'triggered_guidelines', label: 'G' },
-																																																																											{ key: 'problems', label: 'P' },
 																																																																											{ key: 'triggered_questions', label: 'Q' },
-																																																																											{ key: 'evidence', label: 'E' },
-																																																																											{ key: 'barriers', label: 'B' }
+																																																																											{ key: 'problems', label: 'P' },
+																																																																											{ key: 'barriers', label: 'B' },
+																																																																											{ key: 'evidence', label: 'E' }
 																																																																										];
 																																																																										const displayCounts = labels
 																																																																											.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
@@ -3334,10 +3334,10 @@ const view = (state, {updateState, dispatch}) => {
 
 																								const labels = [
 																									{ key: 'triggered_guidelines', label: 'G' },
-																									{ key: 'problems', label: 'P' },
 																									{ key: 'triggered_questions', label: 'Q' },
-																									{ key: 'evidence', label: 'E' },
-																									{ key: 'barriers', label: 'B' }
+																									{ key: 'problems', label: 'P' },
+																									{ key: 'barriers', label: 'B' },
+																									{ key: 'evidence', label: 'E' }
 																								];
 
 																								const displayCounts = labels
@@ -3729,8 +3729,8 @@ const view = (state, {updateState, dispatch}) => {
 
 																						if (hasPGI) {
 																							const pgiLabels = [];
-																							if (answer.counts.problems > 0) pgiLabels.push(`P: ${answer.counts.problems}`);
 																							if (answer.counts.triggered_guidelines > 0) pgiLabels.push(`G: ${answer.counts.triggered_guidelines}`);
+																							if (answer.counts.problems > 0) pgiLabels.push(`P: ${answer.counts.problems}`);
 																							if (answer.counts.barriers > 0) pgiLabels.push(`B: ${answer.counts.barriers}`);
 
 																							return (
@@ -3797,10 +3797,10 @@ const view = (state, {updateState, dispatch}) => {
 																																																																									{(() => {
 																																																																										const labels = [
 																																																																											{ key: 'triggered_guidelines', label: 'G' },
-																																																																											{ key: 'problems', label: 'P' },
 																																																																											{ key: 'triggered_questions', label: 'Q' },
-																																																																											{ key: 'evidence', label: 'E' },
-																																																																											{ key: 'barriers', label: 'B' }
+																																																																											{ key: 'problems', label: 'P' },
+																																																																											{ key: 'barriers', label: 'B' },
+																																																																											{ key: 'evidence', label: 'E' }
 																																																																										];
 																																																																										const displayCounts = labels
 																																																																											.filter(item => answer.counts[item.key] && answer.counts[item.key] > 0)
