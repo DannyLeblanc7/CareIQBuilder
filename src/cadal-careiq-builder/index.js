@@ -11368,28 +11368,36 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId} = action.payload;
 
-			// Remove question from local state immediately (optimistic update)
-			const updatedQuestions = state.currentQuestions.questions.filter(question =>
-				question.ids.id !== questionId
-			);
+			// For temp questions (not saved to backend yet), remove immediately
+			if (questionId.startsWith('temp_')) {
+				const updatedQuestions = state.currentQuestions.questions.filter(question =>
+					question.ids.id !== questionId
+				);
 
-			updateState({
-				currentQuestions: {
-					...state.currentQuestions,
-					questions: updatedQuestions
-				}
-			});
+				updateState({
+					currentQuestions: {
+						...state.currentQuestions,
+						questions: updatedQuestions
+					}
+				});
 
-			// Auto-delete from backend immediately (only if not temp ID)
-			if (!questionId.startsWith('temp_')) {
-				dispatch('DELETE_QUESTION_API', { questionId });
-			} else {
-				// Show toast for temp questions
 				dispatch('SHOW_TOAST', {
 					type: 'success',
 					message: 'Question removed successfully!'
 				});
+				return;
 			}
+
+			// For saved questions: Set loading state and call backend API
+			// Do NOT remove the question immediately - let the success handler do it after backend confirms
+			updateState({
+				deletingQuestions: {
+					...state.deletingQuestions,
+					[questionId]: true
+				}
+			});
+
+			dispatch('DELETE_QUESTION_API', { questionId });
 		},
 
 		'SAVE_QUESTION_BUNDLE': (coeffects) => {
@@ -20666,8 +20674,8 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			// The question was already removed locally by DELETE_QUESTION handler
-			// Now refresh the section to update relationship badges
+			// Backend delete successful - refresh the section to remove the question from UI
+			// and update relationship badges
 			updateState({
 				deletingQuestions: updatedDeletingQuestions,
 				questionsLoading: true, // Show spinner during refresh
