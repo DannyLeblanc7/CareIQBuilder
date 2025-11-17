@@ -13072,6 +13072,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_SCORING_MODEL': (coeffects) => {
+			const {dispatch} = coeffects;
+			const {modelId, modelLabel} = coeffects.action.payload;
+
+			// Show confirmation dialog before deleting
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Deleting a scoring model cannot be reverted, are you sure?',
+				pendingAction: {
+					type: 'CONFIRM_DELETE_SCORING_MODEL',
+					payload: { modelId, modelLabel }
+				}
+			});
+		},
+
+		'CONFIRM_DELETE_SCORING_MODEL': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const {modelId, modelLabel} = coeffects.action.payload;
 
