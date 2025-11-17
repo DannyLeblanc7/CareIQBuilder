@@ -4042,7 +4042,10 @@
 }
 
 .typeahead-dropdown {
-  /* Position will be set by JavaScript */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   background: white;
   border: 1px solid #d1d5db;
   border-top: none;
