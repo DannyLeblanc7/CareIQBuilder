@@ -10780,7 +10780,7 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state, dispatch} = coeffects;
 			const {questionId, answerId, questionType} = action.payload;
 			let newSelectedAnswers = {...state.selectedAnswers};
-			
+
 			// Handle different question types
 			if (questionType === 'Single Select') {
 				// Single select: replace any existing selection
@@ -10792,28 +10792,42 @@ createCustomElement('cadal-careiq-builder', {
 				}
 				const currentSelections = newSelectedAnswers[questionId];
 				const answerIndex = currentSelections.indexOf(answerId);
-				
+
 				if (answerIndex > -1) {
 					// Answer already selected, remove it
 					newSelectedAnswers[questionId] = currentSelections.filter(id => id !== answerId);
 				} else {
 					// Answer not selected, add it
 					newSelectedAnswers[questionId] = [...currentSelections, answerId];
+
+					// CRITICAL FIX: When selecting a non-mutually exclusive answer,
+					// remove any mutually exclusive answers that are currently selected
+					const question = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+					const selectedAnswer = question?.answers?.find(a => a.ids.id === answerId);
+
+					if (selectedAnswer && !selectedAnswer.mutually_exclusive) {
+						// This is a non-mutually exclusive answer being selected
+						// Remove any mutually exclusive answers from current selections
+						newSelectedAnswers[questionId] = newSelectedAnswers[questionId].filter(selectedAnswerId => {
+							const answer = question?.answers?.find(a => a.ids.id === selectedAnswerId);
+							return !answer?.mutually_exclusive;
+						});
+					}
 				}
 			}
-			
+
 			// Check if we need to load relationships for this answer to get triggered questions
-			const answerWasSelected = (questionType === 'Single Select') || 
+			const answerWasSelected = (questionType === 'Single Select') ||
 									  (questionType === 'Multiselect' && newSelectedAnswers[questionId].includes(answerId));
 			if (answerWasSelected && !state.answerRelationships[answerId] && !state.relationshipsLoading[answerId]) {
 				dispatch('LOAD_ANSWER_RELATIONSHIPS', {
 					answerId: answerId
 				});
 			}
-			
+
 			// Calculate visible questions based on answer relationships
 			const visibleQuestions = calculateVisibleQuestions(newSelectedAnswers, state.currentQuestions?.questions || [], state.answerRelationships);
-			
+
 			updateState({
 				selectedAnswers: newSelectedAnswers,
 				visibleQuestions: visibleQuestions
