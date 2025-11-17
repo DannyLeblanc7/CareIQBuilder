@@ -21236,6 +21236,16 @@ createCustomElement('cadal-careiq-builder', {
 		'REPLACE_ANSWER_WITH_LIBRARY': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {answerId, libraryAnswerData} = action.payload;
+
+			// CRITICAL: Find which question this answer belongs to BEFORE replacing it
+			let parentQuestionId = null;
+			for (const question of state.currentQuestions.questions) {
+				if (question.answers?.some(a => a.ids.id === answerId)) {
+					parentQuestionId = question.ids.id;
+					break;
+				}
+			}
+
 			// Find the answer and replace it with library data
 			const updatedQuestions = state.currentQuestions.questions.map(question => ({
 				...question,
@@ -21265,10 +21275,13 @@ createCustomElement('cadal-careiq-builder', {
 			}));
 
 			// Track this answer as changed for saving
+			// CRITICAL FIX: Include questionId so cleanup logic can find orphaned answers
 			const answerChanges = {
 				...state.answerChanges,
 				[answerId]: {
 					action: 'library_replace',
+					questionId: parentQuestionId,  // CRITICAL: Track which question this answer belongs to
+					question_id: parentQuestionId,  // Include both formats for compatibility
 					isLibraryAnswer: true,
 					library_id: libraryAnswerData.id,
 					libraryStatus: 'unmodified',
