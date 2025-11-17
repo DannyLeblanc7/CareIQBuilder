@@ -9513,15 +9513,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'PUBLISH_ASSESSMENT': (coeffects) => {
-			const {action, dispatch} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
 
-			// Show confirmation dialog before opening publish panel
-			dispatch('SHOW_CONFIRMATION_DIALOG', {
-				message: 'Are you sure you want to publish this assessment? Once published, it cannot be edited. You will need to create a new version to make changes.',
-				pendingAction: {
-					type: 'CONFIRM_PUBLISH_ASSESSMENT',
-					payload: {assessmentId, assessmentTitle}
+			// Open the publish panel directly (confirmation moved to save button)
+			updateState({
+				publishPanel: {
+					isOpen: true,
+					assessmentId: assessmentId,
+					versionName: state.currentAssessment?.version_name || assessmentTitle,
+					effectiveDate: state.currentAssessment?.effective_date || '',
+					endDate: state.currentAssessment?.end_date || '',
+					reviewDate: state.currentAssessment?.review_date || '',
+					nextReviewDate: state.currentAssessment?.next_review_date || '',
+					responseLogging: state.currentAssessment?.settings?.store_responses || 'use_default'
 				}
 			});
 		},
@@ -9530,7 +9535,8 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, updateState, state} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
 
-			// Open the publish panel with pre-populated data
+			// DEPRECATED: This action is no longer used (panel opens directly now)
+			// Keeping for backwards compatibility
 			updateState({
 				publishPanel: {
 					isOpen: true,
@@ -9575,6 +9581,19 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
+			const {dispatch} = coeffects;
+
+			// Show confirmation dialog before publishing
+			dispatch('SHOW_CONFIRMATION_DIALOG', {
+				message: 'Are you sure you want to publish this assessment? Once published, it cannot be edited. You will need to create a new version to make changes.',
+				pendingAction: {
+					type: 'CONFIRM_SUBMIT_PUBLISH_ASSESSMENT',
+					payload: {}
+				}
+			});
+		},
+
+		'CONFIRM_SUBMIT_PUBLISH_ASSESSMENT': (coeffects) => {
 			const {updateState, state, dispatch} = coeffects;
 			const publishData = state.publishPanel;
 			// Close panel, show publishing message, and set loading state
