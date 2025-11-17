@@ -677,10 +677,12 @@ const view = (state, {updateState, dispatch}) => {
 								>
 									🔧 Edit Mode
 								</button>,
-								<button 
+								<button
 									key="preview-btn"
 									className={`mode-toggle-btn ${!state.builderMode ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_BUILDER_MODE', {mode: false})}
+									disabled={hasAnyUnsavedChanges(state)}
+									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : 'Preview assessment'}
 								>
 									👁️ Preview Mode
 								</button>,
@@ -688,6 +690,8 @@ const view = (state, {updateState, dispatch}) => {
 									key="edit-relationships-btn"
 									className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
+									disabled={hasAnyUnsavedChanges(state)}
+									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : 'Edit relationships'}
 								>
 									🔗 Edit Relationships
 								</button>,
@@ -695,8 +699,8 @@ const view = (state, {updateState, dispatch}) => {
 									key="edit-scoring-btn"
 									className={`mode-toggle-btn ${state.scoringPanelOpen ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_SCORING_MODE')}
-									disabled={state.selectedScoringModel}
-									title={state.selectedScoringModel ? 'Save or cancel current scoring changes first' : 'Open scoring models panel'}
+									disabled={state.selectedScoringModel || hasAnyUnsavedChanges(state)}
+									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : (state.selectedScoringModel ? 'Save or cancel current scoring changes first' : 'Open scoring models panel')}
 								>
 									🎯 Edit Scoring
 								</button>,
@@ -707,6 +711,8 @@ const view = (state, {updateState, dispatch}) => {
 										assessmentId: state.currentAssessmentId,
 										assessmentTitle: state.currentAssessment?.title
 									})}
+									disabled={hasAnyUnsavedChanges(state)}
+									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : 'Publish assessment'}
 								>
 									🚀 Publish
 								</button>,
@@ -762,6 +768,8 @@ const view = (state, {updateState, dispatch}) => {
                                         assessmentId: state.currentAssessmentId,
                                         assessmentTitle: state.currentAssessment?.title
                                     })}
+                                    disabled={hasAnyUnsavedChanges(state)}
+                                    title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : 'Publish assessment'}
                                 >
                                     🚀 Publish
                                 </button>,
