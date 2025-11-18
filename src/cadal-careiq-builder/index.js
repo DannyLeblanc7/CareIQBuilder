@@ -5314,7 +5314,7 @@ const view = (state, {updateState, dispatch}) => {
 										})()}
 
 										{/* Add New Guideline */}
-										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : ''}}>
+										<div className="add-relationship" style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', position: 'relative'}}>
 											<div className="input-with-actions" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
 												<input
 													type="text"
@@ -5335,11 +5335,6 @@ const view = (state, {updateState, dispatch}) => {
 															if (e.key === 'Escape') {
 																dispatch('GUIDELINE_TYPEAHEAD_HIDE');
 															}
-														},
-														blur: () => {
-															setTimeout(() => {
-																dispatch('GUIDELINE_TYPEAHEAD_HIDE');
-															}, 150);
 														}
 													}}
 												/>
@@ -5404,7 +5399,26 @@ const view = (state, {updateState, dispatch}) => {
 											</div>
 
 											{state.relationshipTypeaheadResults.length > 0 && (
-												<div className="typeahead-dropdown">
+												<div className="typeahead-dropdown"
+													hook-insert={(vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[placeholder="Search for guidelines..."]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+													hook-update={(oldVnode, vnode) => {
+														const input = vnode.elm.parentElement.querySelector('input[placeholder="Search for guidelines..."]');
+														if (input) {
+															const rect = input.getBoundingClientRect();
+															vnode.elm.style.top = `${rect.bottom}px`;
+															vnode.elm.style.left = `${rect.left}px`;
+															vnode.elm.style.width = `${rect.width}px`;
+														}
+													}}
+												>
 													{state.relationshipTypeaheadResults.map((guideline, index) => (
 														<div
 															key={guideline.id}
