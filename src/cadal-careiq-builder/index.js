@@ -5822,20 +5822,12 @@ const view = (state, {updateState, dispatch}) => {
 																									}}
 																								/>
 																								<button
-																									onclick={() => {
+																									onclick={(e) => {
+																										e.stopPropagation();
 																										const newAttributes = {...state.editingProblemData.custom_attributes};
 																										delete newAttributes[key];
 																										updateState({
 																											editingProblemData: {
-																												...state.editingProblemData,
-																												custom_attributes: newAttributes
-																											}
-																										});
-																										// Auto-save after removing custom attribute
-																										dispatch('SAVE_PROBLEM_EDITS', {
-																											answerId: answerId,
-																											problemId: problem.id,
-																											editData: {
 																												...state.editingProblemData,
 																												custom_attributes: newAttributes
 																											}
@@ -6200,19 +6192,12 @@ const view = (state, {updateState, dispatch}) => {
 																																}}
 																															/>
 																															<button
-																																onclick={() => {
+																																onclick={(e) => {
+																																	e.stopPropagation();
 																																	const newAttributes = {...state.editingGoalData.custom_attributes};
 																																	delete newAttributes[key];
 																																	updateState({
 																																		editingGoalData: {
-																																			...state.editingGoalData,
-																																			custom_attributes: newAttributes
-																																		}
-																																	});
-																																	// Auto-save after removing custom attribute
-																																	dispatch('SAVE_GOAL_EDITS', {
-																																		goalId: goal.id,
-																																		goalData: {
 																																			...state.editingGoalData,
 																																			custom_attributes: newAttributes
 																																		}
@@ -6606,19 +6591,12 @@ const view = (state, {updateState, dispatch}) => {
 																																							}}
 																																						/>
 																																						<button
-																																							onclick={() => {
+																																							onclick={(e) => {
+																																								e.stopPropagation();
 																																								const newAttributes = {...state.editingInterventionData.custom_attributes};
 																																								delete newAttributes[key];
 																																								updateState({
 																																									editingInterventionData: {
-																																										...state.editingInterventionData,
-																																										custom_attributes: newAttributes
-																																									}
-																																								});
-																																								// Auto-save after removing custom attribute
-																																								dispatch('SAVE_INTERVENTION_EDITS', {
-																																									interventionId: intervention.id,
-																																									interventionData: {
 																																										...state.editingInterventionData,
 																																										custom_attributes: newAttributes
 																																									}
