@@ -11711,9 +11711,12 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
-			// Validate question label is not blank
-			if (!question.label || question.label.trim() === '') {
-				// Clear saving state on validation error
+
+			// Validate question label is not blank - check questionChanges first
+			const currentLabel = state.questionChanges?.[questionId]?.label !== undefined
+				? state.questionChanges?.[questionId]?.label
+				: question.label;
+			if (!currentLabel || currentLabel.trim() === '') {
 				const updatedSavingQuestions = {...state.savingQuestions};
 				delete updatedSavingQuestions[questionId];
 				updateState({
@@ -11807,7 +11810,7 @@ createCustomElement('cadal-careiq-builder', {
 					});
 				}
 
-				const currentQuestionLabel = question.label.toLowerCase().trim();
+				const currentQuestionLabel = (state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label).toLowerCase().trim();
 				if (existingQuestions.includes(currentQuestionLabel)) {
 					updateState({
 						systemMessages: [
@@ -11815,7 +11818,7 @@ createCustomElement('cadal-careiq-builder', {
 
 							{
 								type: 'error',
-								message: `Question "${question.label}" already exists in this section. Please use a different name.`,
+								message: `Question "${state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label}" already exists in this section. Please use a different name.`,
 								timestamp: new Date().toISOString()
 							}
 						]
@@ -11837,7 +11840,7 @@ createCustomElement('cadal-careiq-builder', {
 							...(state.systemMessages || []),
 							{
 								type: 'info',
-								message: `Checking if "${question.label}" matches a library question...`,
+								message: `Checking if "${state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label}" matches a library question...`,
 								timestamp: new Date().toISOString()
 							}
 						]
@@ -11845,7 +11848,7 @@ createCustomElement('cadal-careiq-builder', {
 
 					// Search for exact library matches using generic typeahead
 					dispatch('GENERIC_TYPEAHEAD_SEARCH', {
-						searchText: question.label,
+						searchText: state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label,
 						type: 'question',
 						isPreSaveCheck: true // Flag to identify this as pre-save library check
 					});
@@ -11864,7 +11867,7 @@ createCustomElement('cadal-careiq-builder', {
 						: (question.custom_attributes || {});
 
 					const questionData = {
-						label: question.label,
+						label: state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: currentTooltip,
@@ -11909,7 +11912,7 @@ createCustomElement('cadal-careiq-builder', {
 					console.log('SAVE_QUESTION_IMMEDIATELY - Final currentVoice:', currentVoice);
 
 					const questionData = {
-						label: question.label,
+						label: state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: currentTooltip,
@@ -11937,7 +11940,7 @@ createCustomElement('cadal-careiq-builder', {
 					dispatch('ADD_QUESTION_API', {
 						questionData: {
 							sectionId: state.selectedSection,
-							label: question.label,
+							label: state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label,
 							type: question.type,
 							required: question.required,
 							tooltip: question.tooltip || '',
@@ -12016,7 +12019,7 @@ createCustomElement('cadal-careiq-builder', {
 				dispatch('UPDATE_QUESTION_API', {
 					questionData: {
 						questionId: question.isLibraryQuestion ? question.libraryQuestionId : questionId,
-						label: question.label,
+						label: state.questionChanges?.[questionId]?.label !== undefined ? state.questionChanges?.[questionId]?.label : question.label,
 						type: question.type,
 						required: question.required,
 						tooltip: question.tooltip || '',
@@ -19151,7 +19154,11 @@ createCustomElement('cadal-careiq-builder', {
 			if (questionChanges.length > 0) {
 				questionChanges.forEach(questionId => {
 					const questionData = questionChangesData[questionId];
-					if (!questionData.label || questionData.label.trim() === '') {
+					// Get label from questionData if present, otherwise look up from actual question
+					const questionLabel = questionData.label !== undefined 
+						? questionData.label
+						: state.currentQuestions?.questions?.find(q => q.ids.id === questionId)?.label;
+					if (!questionLabel || questionLabel.trim() === '') {
 						validationErrors.push('Question text cannot be blank. Please enter a question.');
 					}
 				});
@@ -19339,10 +19346,10 @@ createCustomElement('cadal-careiq-builder', {
 							});
 						}
 
-						const currentQuestionLabel = questionData.label.toLowerCase().trim();
+						const currentQuestionLabel = (questionData.label !== undefined ? questionData.label : state.currentQuestions?.questions?.find(q => q.ids.id === questionId)?.label || '').toLowerCase().trim();
 
 						if (existingQuestions.includes(currentQuestionLabel)) {
-							validationErrors.push(`Question "${questionData.label}" already exists in this section. Please use a different name.`);
+							validationErrors.push(`Question "${currentQuestionLabel}" already exists in this section. Please use a different name.`);
 						}
 					}
 				});
@@ -19489,7 +19496,7 @@ createCustomElement('cadal-careiq-builder', {
 
 						// Step 1: Add question to section (NO answers in this call)
 						const backendQuestionData = {
-							label: questionData.label,
+							label: currentQuestion?.label || questionData.label || '',
 							type: questionData.type,
 							tooltip: currentQuestion?.tooltip || questionData.tooltip || '',
 							alternative_wording: '',
@@ -19569,7 +19576,7 @@ createCustomElement('cadal-careiq-builder', {
 						// Prepare data for backend API using actual current values
 						const backendQuestionData = {
 							questionId: currentQuestion && currentQuestion.isLibraryQuestion ? currentQuestion.libraryQuestionId : questionId,
-							label: currentQuestion ? currentQuestion.label : questionData.label,
+							label: currentQuestion ? currentQuestion.label : (questionData.label || ''),
 							tooltip: currentQuestion ? (currentQuestion.tooltip || '') : (questionData.tooltip || ''),
 							alternative_wording: questionData.alternative_wording || 'string',
 							required: currentQuestion ? (currentQuestion.required || false) : (questionData.required || false),
