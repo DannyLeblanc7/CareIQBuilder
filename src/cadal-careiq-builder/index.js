@@ -6655,30 +6655,33 @@ const view = (state, {updateState, dispatch}) => {
 																																			Custom Attributes
 																																		</label>
 																																		<div style={{border: '1px solid #d1d5db', borderRadius: '4px', padding: '12px', backgroundColor: '#f9fafb'}}>
-																																			{(state.editingInterventionData?.custom_attributes && Object.keys(state.editingInterventionData.custom_attributes).length > 0) ? (
-																																				Object.entries(state.editingInterventionData.custom_attributes).map(([key, value], index) => (
+																																																																																																																																				{(state.editingInterventionData?.custom_attributes && state.editingInterventionData.custom_attributes.length > 0) ? (
+																																																																																																																																					state.editingInterventionData.custom_attributes.map((attr, index) => (
 																																					<div key={index} style={{display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center'}}>
 																																						<input
 																																							type="text"
 																																							placeholder="Key"
-																																							value={key}
-																																							oninput={(e) => {
-																																								const oldKey = key;
-																																								const newKey = e.target.value;
-																																								const newAttributes = {...state.editingInterventionData.custom_attributes};
-																																								delete newAttributes[oldKey];
-																																								newAttributes[newKey] = value;
-																																								updateState({
-																																									editingInterventionData: {
-																																										...state.editingInterventionData,
-																																										custom_attributes: newAttributes
-																																									}
-																																								});
-																																							}}
+																																																																																																																																								value={attr.key}
+																																																																																																																																								oninput={(e) => {
+																																																																																																																																								const newKey = e.target.value;
+																																																																																																																																								const updatedAttrs = [...state.editingInterventionData.custom_attributes];
+																																																																																																																																								updatedAttrs[index] = {key: newKey, value: attr.value};
+																																																																																																																																								updateState({
+																																																																																																																																									editingInterventionData: {
+																																																																																																																																										...state.editingInterventionData,
+																																																																																																																																										custom_attributes: updatedAttrs
+																																																																																																																																									}
+																																																																																																																																								});
+																																																																																																																																								}}
 																																							style={{
 																																								flex: '1',
 																																								padding: '6px 8px',
-																																								border: '1px solid #d1d5db',
+																																																																																																																																								border: (() => {
+																																																																																																																																									const isDuplicate = state.editingInterventionData.custom_attributes.some((item, idx) =>
+																																																																																																																																										idx !== index && item.key === attr.key && attr.key !== ''
+																																																																																																																																									);
+																																																																																																																																									return isDuplicate ? '2px solid #dc3545' : '1px solid #d1d5db';
+																																																																																																																																								})(),
 																																								borderRadius: '4px',
 																																								fontSize: '12px'
 																																							}}
@@ -6686,18 +6689,18 @@ const view = (state, {updateState, dispatch}) => {
 																																						<input
 																																							type="text"
 																																							placeholder="Value"
-																																							value={value}
-																																							oninput={(e) => {
-																																								updateState({
-																																									editingInterventionData: {
-																																										...state.editingInterventionData,
-																																										custom_attributes: {
-																																											...state.editingInterventionData.custom_attributes,
-																																											[key]: e.target.value
-																																										}
-																																									}
-																																								});
-																																							}}
+																																																																																																																																								value={attr.value}
+																																																																																																																																								oninput={(e) => {
+																																																																																																																																								const newValue = e.target.value;
+																																																																																																																																								const updatedAttrs = [...state.editingInterventionData.custom_attributes];
+																																																																																																																																								updatedAttrs[index] = {key: attr.key, value: newValue};
+																																																																																																																																								updateState({
+																																																																																																																																									editingInterventionData: {
+																																																																																																																																										...state.editingInterventionData,
+																																																																																																																																										custom_attributes: updatedAttrs
+																																																																																																																																									}
+																																																																																																																																								});
+																																																																																																																																								}}
 																																							style={{
 																																								flex: '1',
 																																								padding: '6px 8px',
@@ -6707,17 +6710,16 @@ const view = (state, {updateState, dispatch}) => {
 																																							}}
 																																						/>
 																																						<button
-																																							onclick={(e) => {
-																																								e.stopPropagation();
-																																								const newAttributes = {...state.editingInterventionData.custom_attributes};
-																																								delete newAttributes[key];
-																																								updateState({
-																																									editingInterventionData: {
-																																										...state.editingInterventionData,
-																																										custom_attributes: newAttributes
-																																									}
-																																								});
-																																							}}
+																																																																																																																																								onclick={(e) => {
+																																																																																																																																									e.stopPropagation();
+																																																																																																																																								const updatedAttrs = state.editingInterventionData.custom_attributes.filter((_, idx) => idx !== index);
+																																																																																																																																								updateState({
+																																																																																																																																									editingInterventionData: {
+																																																																																																																																										...state.editingInterventionData,
+																																																																																																																																										custom_attributes: updatedAttrs
+																																																																																																																																									}
+																																																																																																																																								});
+																																																																																																																																								}}
 																																							style={{
 																																								background: '#6b7280',
 																																								color: 'white',
@@ -6731,6 +6733,16 @@ const view = (state, {updateState, dispatch}) => {
 																																						>
 																																							✗
 																																						</button>
+																																																																																																																																							{(() => {
+																																																																																																																																								const isDuplicate = state.editingInterventionData.custom_attributes.some((item, idx) =>
+																																																																																																																																									idx !== index && item.key === attr.key && attr.key !== ''
+																																																																																																																																								);
+																																																																																																																																								return isDuplicate ? (
+																																																																																																																																									<span style={{color: '#dc3545', fontSize: '11px', marginLeft: '8px', fontWeight: '500'}}>
+																																																																																																																																										⚠️ Duplicate key
+																																																																																																																																									</span>
+																																																																																																																																								) : null;
+																																																																																																																																							})()}
 																																					</div>
 																																				))
 																																			) : (
@@ -6738,20 +6750,58 @@ const view = (state, {updateState, dispatch}) => {
 																																					No custom attributes. Click "Add Attribute" to get started.
 																																				</p>
 																																			)}
+																																																																																																																																								{(() => {
+																																																																																																																																									const attrs = state.editingInterventionData.custom_attributes || [];
+																																																																																																																																									const hasDuplicates = attrs.some((item1, idx1) =>
+																																																																																																																																										attrs.some((item2, idx2) =>
+																																																																																																																																											idx1 !== idx2 && item1.key !== ''&& item1.key === item2.key
+																																																																																																																																										)
+																																																																																																																																									);
+																																																																																																																																									return hasDuplicates ? (
+																																																																																																																																										<div style={{
+																																																																																																																																											color: '#dc3545',
+																																																																																																																																											fontSize: '12px',
+																																																																																																																																											marginBottom: '8px',
+																																																																																																																																											fontWeight: '500',
+																																																																																																																																											padding: '8px',
+																																																																																																																																											backgroundColor: '#fee2e2',
+																																																																																																																																											borderRadius: '4px',
+																																																																																																																																											border: '1px solid #dc3545'
+																																																																																																																																										}}>
+																																																																																																																																											⚠️ Duplicate keys detected. Please fix before saving or adding more attributes.
+																																																																																																																																										</div>
+																																																																																																																																									) : null;
+																																																																																																																																								})()}
 																																			<button
-																																				onclick={() => {
-																																					updateState({
-																																						editingInterventionData: {
-																																							...state.editingInterventionData,
-																																							custom_attributes: {
-																																								...state.editingInterventionData.custom_attributes,
-																																								'': ''
-																																							}
-																																						}
-																																					});
-																																				}}
+																																																																																																																																									disabled={(() => {
+																																																																																																																																										const attrs = state.editingInterventionData.custom_attributes || [];
+																																																																																																																																										return attrs.some((item1, idx1) =>
+																																																																																																																																											attrs.some((item2, idx2) =>
+																																																																																																																																												idx1 !== idx2 && item1.key !== ''&& item1.key === item2.key
+																																																																																																																																											)
+																																																																																																																																										);
+																																																																																																																																									})()}
+																																																																																																																																									onclick={() => {
+																																																																																																																																										updateState({
+																																																																																																																																											editingInterventionData: {
+																																																																																																																																												...state.editingInterventionData,
+																																																																																																																																											custom_attributes: [
+																																																																																																																																												...state.editingInterventionData.custom_attributes,
+																																																																																																																																												{key: '', value: ''}
+																																																																																																																																											]
+																																																																																																																																											}
+																																																																																																																																										});
+																																																																																																																																									}}
 																																				style={{
-																																					background: '#3b82f6',
+																																																																																																																																									background: (() => {
+																																																																																																																																										const attrs = state.editingInterventionData.custom_attributes || [];
+																																																																																																																																										const hasDuplicates = attrs.some((item1, idx1) =>
+																																																																																																																																											attrs.some((item2, idx2) =>
+																																																																																																																																												idx1 !== idx2 && item1.key !== ''&& item1.key === item2.key
+																																																																																																																																											)
+																																																																																																																																										);
+																																																																																																																																										return hasDuplicates ? '#94a3b8' : '#3b82f6';
+																																																																																																																																									})(),
 																																					color: 'white',
 																																					border: 'none',
 																																					padding: '6px 12px',
@@ -6774,7 +6824,15 @@ const view = (state, {updateState, dispatch}) => {
 																																				color: 'white',
 																																				border: 'none',
 																																				borderRadius: '4px',
-																																				cursor: 'pointer',
+																																																																																																																																									cursor: (() => {
+																																																																																																																																										const attrs = state.editingInterventionData.custom_attributes || [];
+																																																																																																																																										const hasDuplicates = attrs.some((item1, idx1) =>
+																																																																																																																																											attrs.some((item2, idx2) =>
+																																																																																																																																												idx1 !== idx2 && item1.key !== ''&& item1.key === item2.key
+																																																																																																																																											)
+																																																																																																																																										);
+																																																																																																																																										return hasDuplicates ? 'not-allowed' : 'pointer';
+																																																																																																																																									})(),
 																																				fontWeight: '500'
 																																			}}
 																																			onclick={() => {
@@ -16994,27 +17052,23 @@ createCustomElement('cadal-careiq-builder', {
 		'GET_INTERVENTION_DETAILS': (coeffects) => {
 			const {action, state, updateState, dispatch} = coeffects;
 			const {interventionId, goalId} = action.payload;
-			// Show loading state for the specific intervention and store goal ID
-			updateState({
-				editingInterventionId: interventionId,
-				editingInterventionData: null, // Clear previous data while loading
-				interventionDetailsLoading: interventionId,
-				editingInterventionGoalId: goalId // Store the goal ID for later use
-			});
-
-			// Store fallback data in case the API call fails
+			// Store fallback data and set it immediately to avoid null access
 			const fallbackData = {
 				label: `Intervention ${interventionId}`,
 				alternative_wording: '',
 				tooltip: '',
-				category: 'assist'
+				category: 'assist',
+				custom_attributes: []
 			};
-
-			// Store fallback data in case the API call fails
+			
+			// Show loading state for the specific intervention and store goal ID
 			updateState({
+				editingInterventionId: interventionId,
+				editingInterventionData: fallbackData, // Use fallback immediately to avoid null
+				interventionDetailsLoading: interventionId,
+				editingInterventionGoalId: goalId, // Store the goal ID for later use
 				interventionDetailsFallback: fallbackData
 			});
-
 			// Prepare the request body for the API call
 			const requestBody = JSON.stringify({
 				interventionId: interventionId
@@ -17040,8 +17094,12 @@ createCustomElement('cadal-careiq-builder', {
 						label: action.payload.label || action.payload.name || '',
 						alternative_wording: action.payload.alternative_wording || '',
 						tooltip: action.payload.tooltip || '',
-						category: action.payload.category || 'assist',
-						custom_attributes: action.payload.custom_attributes || {}
+					category: action.payload.category || 'assist',
+					// Convert custom_attributes from object to array for UI handling
+					custom_attributes: (() => {
+						const customAttrsObj = action.payload.custom_attributes || {};
+						return Object.entries(customAttrsObj).map(([key, value]) => ({key, value}));
+					})()
 					}
 				});
 			} else {
@@ -17051,12 +17109,11 @@ createCustomElement('cadal-careiq-builder', {
 					alternative_wording: '',
 					tooltip: '',
 					category: 'assist',
-					custom_attributes: {}
+					custom_attributes: []
 				};
 				updateState({
 					editingInterventionData: {
 						...fallbackData,
-						custom_attributes: fallbackData.custom_attributes || {}
 					},
 					interventionDetailsFallback: null
 				});
@@ -17075,7 +17132,8 @@ createCustomElement('cadal-careiq-builder', {
 					label: '',
 					alternative_wording: '',
 					tooltip: '',
-					category: 'assist'
+					category: 'assist',
+					custom_attributes: []
 				},
 				interventionDetailsFallback: null,
 				systemMessages: [...(state.systemMessages || []), {
@@ -17121,6 +17179,59 @@ createCustomElement('cadal-careiq-builder', {
 				return; // Don't clear editing state - keep save/cancel buttons
 			}
 
+			// VALIDATION: Check for duplicate custom attribute keys
+			const customAttrsArray = interventionData.custom_attributes || [];
+			const keys = customAttrsArray.map(item => item.key).filter(k => k !== '');
+			const hasDuplicates = keys.length !== new Set(keys).size;
+			
+			if (hasDuplicates) {
+				updateState({
+					systemMessages: [...(state.systemMessages || []), {
+						type: 'error',
+						message: 'Cannot save: Duplicate custom attribute keys detected. Please fix before saving.',
+						timestamp: new Date().toISOString()
+					}],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save: Duplicate custom attribute keys detected. Please fix before saving.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return;
+			}
+			
+			// VALIDATION: Check for empty keys
+			const hasEmptyKeys = customAttrsArray.some(item => item.key === '');
+			if (hasEmptyKeys) {
+				updateState({
+					systemMessages: [...(state.systemMessages || []), {
+						type: 'error',
+						message: 'Cannot save: Custom attributes cannot have empty keys. Please remove empty entries.',
+						timestamp: new Date().toISOString()
+					}],
+					modalSystemMessages: state.relationshipPanelOpen ? [
+						...(state.modalSystemMessages || []),
+						{
+							type: 'error',
+							message: 'Cannot save: Custom attributes cannot have empty keys. Please remove empty entries.',
+							timestamp: new Date().toISOString()
+						}
+					] : state.modalSystemMessages
+				});
+				return;
+			}
+			
+			// CONVERSION: Convert custom_attributes array back to object for API
+			const customAttrsObj = customAttrsArray.reduce((acc, item) => {
+				if (item.key !== '') {
+					acc[item.key] = item.value;
+				}
+				return acc;
+			}, {});
+
 			// Store goal ID before clearing it
 			const goalId = state.editingInterventionGoalId;
 
@@ -17155,7 +17266,7 @@ createCustomElement('cadal-careiq-builder', {
 				alternative_wording: interventionData.alternative_wording,
 				tooltip: interventionData.tooltip,
 				category: interventionData.category,
-				custom_attributes: interventionData.custom_attributes || {},
+				custom_attributes: customAttrsObj,
 				goal_id: goalId
 			});
 			// Make the API call
