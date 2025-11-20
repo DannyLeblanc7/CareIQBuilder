@@ -6067,27 +6067,16 @@ const view = (state, {updateState, dispatch}) => {
 																		</span>,
 																		<span
 																			className="relationship-label"
-																			ondblclick={() => {
-																				// Fetch full problem details before editing
-																				if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
-																				dispatch('FETCH_PROBLEM_DETAILS', {
-																					problemId: problem.id,
-																					fallbackData: {
-																						label: problem.label || problem.name,
-																						alternative_wording: problem.alternative_wording || '',
-																						tooltip: problem.tooltip || ''
-																					}
-																				});
-																				}
-																			}}
-																			title={(state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? '' : 'Double-click to edit'}
-																			style={{cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer'}}
+																			onclick={() => dispatch('TOGGLE_PROBLEM_EXPANSION', {
+																				problemId: problem.id
+																			})}
+																			style={{cursor: 'pointer'}}
 																		>
 																			{problem.label || problem.name}
 																		</span>,
 																																		<button
 																																			className="edit-btn"
-																																			onclick={() => {
+																																			onclick={(e) => { e.stopPropagation();
 																																				dispatch('FETCH_PROBLEM_DETAILS', {
 																																					problemId: problem.id,
 																																					fallbackData: {
@@ -6104,11 +6093,11 @@ const view = (state, {updateState, dispatch}) => {
 																																		</button>,
 																	<button
 																		className="cancel-relationship-btn"
-																		onclick={() => dispatch('DELETE_PROBLEM_RELATIONSHIP', {
+																		onclick={(e) => { e.stopPropagation(); dispatch('DELETE_PROBLEM_RELATIONSHIP', {
 																			answerId: answerId,
 																			problemId: problem.id,
 																			problemName: problem.label || problem.name
-																		})}
+																		})}}
 																		title="Delete problem"
 																			style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '8px'}}
 																	>
@@ -6117,7 +6106,7 @@ const view = (state, {updateState, dispatch}) => {
 																	<button
 																		className="save-bundle-btn"
 																		title="Save Problem Bundle to Library"
-																		onclick={() => {
+																		onclick={(e) => { e.stopPropagation();
 																			dispatch('SAVE_PROBLEM_BUNDLE', {
 																				problemId: problem.id,
 																				problemLabel: problem.label || problem.name
@@ -6495,16 +6484,10 @@ const view = (state, {updateState, dispatch}) => {
 																									<span
 																										key="goal-label"
 																										className="goal-label"
-																										style={{flex: 1, cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer', color: '#374151', fontWeight: '500'}}
-																										title="Double-click to edit goal"
-																										ondblclick={() => {
-																											if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
-																											dispatch('GET_GOAL_DETAILS', {
-																												goalId: goal.id,
-																												problemId: problem.id
-																											});
-																											}
-																										}}
+																																						onclick={() => dispatch('TOGGLE_GOAL_EXPANSION', {
+																																							goalId: goal.id
+																																						})}
+																																						style={{flex: 1, cursor: 'pointer', color: '#374151', fontWeight: '500'}}
 																									>
 																										{isLoading ? 'Loading...' : (goal.label || goal.name)}
 																									</span>,
@@ -6513,10 +6496,10 @@ const view = (state, {updateState, dispatch}) => {
 																																											className="edit-btn"
 																																											style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
 																																											title="Edit goal"
-																																											onclick={() => dispatch('GET_GOAL_DETAILS', {
+																																											onclick={(e) => { e.stopPropagation(); dispatch('GET_GOAL_DETAILS', {
 																																												goalId: goal.id,
 																																												problemId: problem.id
-																																											})}
+																																											})}}
 																																										>
 																																											✏️
 																																										</button>,
@@ -6525,12 +6508,12 @@ const view = (state, {updateState, dispatch}) => {
 																										className="cancel-relationship-btn"
 																										style={{display: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'none' : '', marginLeft: '12px', fontSize: '12px', padding: '4px 8px'}}
 																										title="Delete goal"
-																										onclick={() => dispatch('DELETE_GOAL', {
+																										onclick={(e) => { e.stopPropagation(); dispatch('DELETE_GOAL', {
 																											answerId: state.relationshipModalAnswerId,
 																											goalId: goal.id,
 																											goalName: goal.label || goal.name,
 																											problemId: problem.id
-																										})}
+																										})}}
 																									>
 																										<XIcon />
 																									</button>
@@ -6956,16 +6939,7 @@ const view = (state, {updateState, dispatch}) => {
 
 																																<span
 																																	className="intervention-label"
-																																	style={{flex: 1, cursor: (state.currentAssessment?.status === 'published' || state.currentAssessment?.status === 'unpublished') ? 'default' : 'pointer', color: '#374151', fontWeight: '500'}}
-																																	title="Double-click to edit intervention"
-																																	ondblclick={() => {
-																																		if (state.currentAssessment?.status !== 'published' && state.currentAssessment?.status !== 'unpublished') {
-																																		dispatch('GET_INTERVENTION_DETAILS', {
-																																			interventionId: intervention.id,
-																																			goalId: goal.id
-																																		});
-																																		}
-																																	}}
+																																																										style={{flex: 1, color: '#374151', fontWeight: '500'}}
 																																>
 																																	{isLoading ? 'Loading...' : intervention.label}
 																																</span>
@@ -6992,7 +6966,7 @@ const view = (state, {updateState, dispatch}) => {
 																																																											padding: '4px 8px'
 																																																										}}
 																																																										title="Edit intervention"
-																																																										onclick={() => {
+																																																										onclick={(e) => { e.stopPropagation();
 																																																											dispatch('GET_INTERVENTION_DETAILS', {
 																																																												interventionId: intervention.id,
 																																																												goalId: goal.id
@@ -7013,7 +6987,7 @@ const view = (state, {updateState, dispatch}) => {
 																																	}}
 																																	title={state.deletingInterventions[intervention.id] ? "Deleting..." : "Delete intervention"}
 																																	disabled={state.deletingInterventions[intervention.id]}
-																																	onclick={() => {
+																																	onclick={(e) => { e.stopPropagation();
 																																		if (!state.deletingInterventions[intervention.id]) {
 																																			dispatch('DELETE_INTERVENTION', {
 																																				answerId: state.relationshipModalAnswerId,
