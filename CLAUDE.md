@@ -249,6 +249,244 @@ This is the **WORKING PATTERN** used by question, answer, goal, and intervention
 - Prevents stuck loading states
 - Used by all working typeaheads (questions, answers, goals, interventions)
 
+### CRITICAL: Duplicate Custom Attributes Fix Pattern (2025-11-20)
+**PROBLEM**: JavaScript objects can't have duplicate keys - when user types a duplicate key, the first entry disappears because objects merge duplicate keys.
+
+**SOLUTION**: Use array storage during editing, convert to object for API calls.
+
+**✅ VERIFIED WORKING PATTERN** (Applied to Problems custom attributes v1.0.077):
+
+#### 1. Data Loading - Convert Object to Array
+In `GET_PROBLEM_DETAILS_SUCCESS` handler (lines ~13475-13501):
+```javascript
+// Convert custom_attributes from object to array for UI handling
+const customAttrsObj = action.payload.custom_attributes || {};
+const customAttrsArray = Object.entries(customAttrsObj).map(([key, value]) => ({key, value}));
+
+updateState({
+    editingProblemData: {
+        label: action.payload.label || '',
+        custom_attributes: customAttrsArray  // Array instead of object
+    }
+});
+```
+
+#### 2. UI Rendering - Array-Based Handlers
+**Empty Check**: `state.editingProblemData.custom_attributes.length > 0`
+
+**Map Function**: `state.editingProblemData.custom_attributes.map((attr, index) => (`
+
+**Key Input Handler**:
+```javascript
+oninput={(e) => {
+    const newKey = e.target.value;
+    const updatedAttrs = [...state.editingProblemData.custom_attributes];
+    updatedAttrs[index] = {key: newKey, value: attr.value};
+    updateState({
+        editingProblemData: {
+            ...state.editingProblemData,
+            custom_attributes: updatedAttrs
+        }
+    });
+}}
+```
+
+**Value Input Handler**:
+```javascript
+oninput={(e) => {
+    const newValue = e.target.value;
+    const updatedAttrs = [...state.editingProblemData.custom_attributes];
+    updatedAttrs[index] = {key: attr.key, value: newValue};
+    updateState({
+        editingProblemData: {
+            ...state.editingProblemData,
+            custom_attributes: updatedAttrs
+        }
+    });
+}}
+```
+
+**Remove Button**:
+```javascript
+onclick={(e) => {
+    e.stopPropagation();
+    const updatedAttrs = state.editingProblemData.custom_attributes.filter((_, idx) => idx !== index);
+    updateState({
+        editingProblemData: {
+            ...state.editingProblemData,
+            custom_attributes: updatedAttrs
+        }
+    });
+}}
+```
+
+**Add Button**:
+```javascript
+onclick={() => {
+    updateState({
+        editingProblemData: {
+            ...state.editingProblemData,
+            custom_attributes: [
+                ...state.editingProblemData.custom_attributes,
+                {key: '', value: ''}
+            ]
+        }
+    });
+}}
+```
+
+#### 3. Duplicate Detection - Real-time Visual Feedback
+**Red Border on Key Input**:
+```javascript
+style={{
+    flex: '1',
+    padding: '6px 8px',
+    border: (() => {
+        const isDuplicate = state.editingProblemData.custom_attributes.some((item, idx) =>
+            idx !== index && item.key === attr.key && attr.key !== ''
+        );
+        return isDuplicate ? '2px solid #dc3545' : '1px solid #d1d5db';
+    })(),
+    borderRadius: '4px',
+    fontSize: '12px'
+}}
+```
+
+**Inline Error Message** (after remove button):
+```javascript
+{(() => {
+    const isDuplicate = state.editingProblemData.custom_attributes.some((item, idx) =>
+        idx !== index && item.key === attr.key && attr.key !== ''
+    );
+    return isDuplicate ? (
+        <span style={{color: '#dc3545', fontSize: '11px', marginLeft: '8px', fontWeight: '500'}}>
+            ⚠️ Duplicate key
+        </span>
+    ) : null;
+})()}
+```
+
+**Warning Banner** (before Add Attribute button):
+```javascript
+{(() => {
+    const attrs = state.editingProblemData.custom_attributes || [];
+    const hasDuplicates = attrs.some((item1, idx1) =>
+        attrs.some((item2, idx2) =>
+            idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+        )
+    );
+    return hasDuplicates ? (
+        <div style={{
+            color: '#dc3545',
+            fontSize: '12px',
+            marginBottom: '8px',
+            fontWeight: '500',
+            padding: '8px',
+            backgroundColor: '#fee2e2',
+            borderRadius: '4px',
+            border: '1px solid #dc3545'
+        }}>
+            ⚠️ Duplicate keys detected. Please fix before saving or adding more attributes.
+        </div>
+    ) : null;
+})()}
+```
+
+**Disabled Add Button**:
+```javascript
+<button
+    disabled={(() => {
+        const attrs = state.editingProblemData.custom_attributes || [];
+        return attrs.some((item1, idx1) =>
+            attrs.some((item2, idx2) =>
+                idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+            )
+        );
+    })()}
+    style={{
+        background: (() => {
+            const attrs = state.editingProblemData.custom_attributes || [];
+            const hasDuplicates = attrs.some((item1, idx1) =>
+                attrs.some((item2, idx2) =>
+                    idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+                )
+            );
+            return hasDuplicates ? '#94a3b8' : '#3b82f6';
+        })(),
+        cursor: (() => {
+            const attrs = state.editingProblemData.custom_attributes || [];
+            const hasDuplicates = attrs.some((item1, idx1) =>
+                attrs.some((item2, idx2) =>
+                    idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+                )
+            );
+            return hasDuplicates ? 'not-allowed' : 'pointer';
+        })(),
+        // ... other static styles
+    }}
+>
+```
+
+#### 4. Save Validation - Array to Object Conversion
+In `SAVE_PROBLEM_EDITS` handler (lines ~12724-12834):
+```javascript
+'SAVE_PROBLEM_EDITS': (coeffects) => {
+    const customAttrsArray = editData.custom_attributes || [];
+
+    // Validation: Check for duplicates
+    const keys = customAttrsArray.map(item => item.key).filter(k => k !== '');
+    const hasDuplicates = keys.length !== new Set(keys).size;
+    if (hasDuplicates) {
+        updateState({
+            systemMessages: [...(state.systemMessages || []), {
+                type: 'error',
+                message: 'Cannot save: Duplicate custom attribute keys detected.',
+                timestamp: new Date().toISOString()
+            }]
+        });
+        return;
+    }
+
+    // Validation: Check for empty keys
+    const hasEmptyKeys = customAttrsArray.some(item => item.key === '');
+    if (hasEmptyKeys) {
+        updateState({
+            systemMessages: [...(state.systemMessages || []), {
+                type: 'error',
+                message: 'Cannot save: Custom attributes cannot have empty keys.',
+                timestamp: new Date().toISOString()
+            }]
+        });
+        return;
+    }
+
+    // Conversion: Array to Object for API
+    const customAttrsObj = customAttrsArray.reduce((acc, item) => {
+        if (item.key !== '') {
+            acc[item.key] = item.value;
+        }
+        return acc;
+    }, {});
+
+    const requestBody = JSON.stringify({
+        problemId: problemId,
+        custom_attributes: customAttrsObj,  // Send object to API
+        // ... other fields
+    });
+
+    dispatch('MAKE_UPDATE_PROBLEM_REQUEST', {requestBody});
+}
+```
+
+**KEY INSIGHTS**:
+- Arrays allow duplicate keys to coexist for validation UI
+- Convert Object → Array on load, Array → Object on save
+- Use index-based updates, not key-based
+- IIFE functions in JSX for real-time duplicate detection
+- Defense in depth: UI validation + save handler validation
+
+**NEXT STEPS**: Apply same pattern to Goals and Interventions custom attributes.
+
 ## State Management Patterns
 
 ### Local Changes Then Save
@@ -544,3 +782,9 @@ After a period of failures, the Edit/Write tools began working normally again wi
 NEVER REVERT, RESTORE, OR OVERWRITE ANY FILE WITHOUT EXPLICIT USER APPROVAL.
 NEVER use git checkout, git reset, or any restore commands without permission.
 ANY file restoration MUST be explicitly requested and approved by the user first.
+# CRITICAL GIT RULES
+**NEVER DIRECTLY USE GIT COMMANDS** - User handles all git operations (commit, push, revert, etc.)
+- DO NOT run git add, git commit, git push, git checkout, git reset, or any git commands
+- User manages their own git workflow and backups
+- You can run Node.js scripts and other build/test commands freely without asking
+- Only git operations require user approval
