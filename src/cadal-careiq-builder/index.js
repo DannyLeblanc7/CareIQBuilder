@@ -4862,7 +4862,12 @@ const view = (state, {updateState, dispatch}) => {
 											style={{
 												flex: '1',
 												padding: '8px',
-												border: '1px solid #ddd',
+												border: (() => {
+												const isDuplicate = state.customAttributesData.some((item, idx) =>
+													idx !== index && item.key === attribute.key && attribute.key !== ''
+												);
+												return isDuplicate ? '2px solid #dc3545' : '1px solid #ddd';
+											})(),
 												borderRadius: '4px',
 												zIndex: '10001',
 												position: 'relative'
@@ -4907,6 +4912,16 @@ const view = (state, {updateState, dispatch}) => {
 										>
 											✗
 										</button>
+																	{(() => {
+																		const isDuplicate = state.customAttributesData.some((item, idx) =>
+																			idx !== index && item.key === attribute.key && attribute.key !== ''
+																		);
+																		return isDuplicate ? (
+																			<span style={{color: '#dc3545', fontSize: '11px', marginLeft: '8px', fontWeight: '500'}}>
+																				⚠️ Duplicate key
+																			</span>
+																		) : null;
+																	})()}
 									</div>
 								))
 							) : (
@@ -4915,26 +4930,74 @@ const view = (state, {updateState, dispatch}) => {
 								</p>
 							)}
 
-							<div style={{marginTop: '15px', marginBottom: '20px'}}>
-								<button
-									onclick={() => dispatch('ADD_CUSTOM_ATTRIBUTE_ROW')}
-									style={{
-										background: '#28a745',
-										color: 'white',
-										border: 'none',
-										padding: '8px 12px',
-										borderRadius: '4px',
-										cursor: 'pointer',
-										fontSize: '14px',
-										zIndex: '10001',
-										position: 'relative'
-									}}
-								>
-									+ Add Attribute
-								</button>
-							</div>
-						</div>
+											{(() => {
+												const attrs = state.customAttributesData || [];
+												const hasDuplicates = attrs.some((item1, idx1) =>
+													attrs.some((item2, idx2) =>
+														idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+													)
+												);
+												return hasDuplicates ? (
+													<div style={{
+														color: '#dc3545',
+														fontSize: '12px',
+														marginBottom: '8px',
+														fontWeight: '500',
+														padding: '8px',
+														backgroundColor: '#fee2e2',
+														borderRadius: '4px',
+														border: '1px solid #dc3545'
+													}}>
+														⚠️ Duplicate keys detected. Please fix before saving or adding more attributes.
+													</div>
+												) : null;
+											})()}
 
+
+											<div style={{marginTop: '15px', marginBottom: '20px'}}>
+												<button
+													disabled={(() => {
+														const attrs = state.customAttributesData || [];
+														return attrs.some((item1, idx1) =>
+															attrs.some((item2, idx2) =>
+																idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+															)
+														);
+													})()}
+													onclick={() => dispatch('ADD_CUSTOM_ATTRIBUTE_ROW')}
+													style={{
+														background: (() => {
+															const attrs = state.customAttributesData || [];
+															const hasDuplicates = attrs.some((item1, idx1) =>
+																attrs.some((item2, idx2) =>
+																	idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+																)
+															);
+															return hasDuplicates ? '#94a3b8' : '#28a745';
+														})(),
+														color: 'white',
+														border: 'none',
+														padding: '8px 12px',
+														borderRadius: '4px',
+														cursor: (() => {
+															const attrs = state.customAttributesData || [];
+															const hasDuplicates = attrs.some((item1, idx1) =>
+																attrs.some((item2, idx2) =>
+																	idx1 !== idx2 && item1.key !== '' && item1.key === item2.key
+																)
+															);
+															return hasDuplicates ? 'not-allowed' : 'pointer';
+														})(),
+														fontSize: '14px',
+														zIndex: '10001',
+														position: 'relative'
+													}}
+												>
+													+ Add Attribute
+												</button>
+											</div>
+
+										</div>
 						<div className="modal-buttons" style={{
 							display: 'flex',
 							gap: '10px',
@@ -18606,6 +18669,18 @@ createCustomElement('cadal-careiq-builder', {
 				// Show validation error
 				updateState({
 					customAttributesValidationError: 'All custom attribute keys and values must be filled in. Remove empty rows or fill them out.'
+				});
+				return; // Stop save process
+			}
+
+			// VALIDATION: Check for duplicate custom attribute keys
+			const keys = state.customAttributesData.map(item => item.key.trim()).filter(k => k !== '');
+			const hasDuplicates = keys.length !== new Set(keys).size;
+
+			if (hasDuplicates) {
+				// Show validation error
+				updateState({
+					customAttributesValidationError: 'Duplicate custom attribute keys detected. Each key must be unique.'
 				});
 				return; // Stop save process
 			}
