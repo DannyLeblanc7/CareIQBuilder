@@ -1887,25 +1887,27 @@ const view = (state, {updateState, dispatch}) => {
 																		</button>
 																	</div>
 																]}
-																<button
-																	className="delete-question-btn"
-																	title="Delete Question"
-																	disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
-																	style={state.isMobileView ? {
-																		flexShrink: '0',
-																		minWidth: '40px',
-																		marginBottom: '0.5rem'
-																	} : {}}
-																	onclick={(e) => {
-																		e.stopPropagation();
-																		e.preventDefault();
-																		dispatch('DELETE_QUESTION', {
-																			questionId: question.ids.id
-																		});
-																	}}
-																>
-																	🗑️
-																</button>
+																{!question.isUnsaved && (
+																	<button
+																		className="delete-question-btn"
+																		title="Delete Question"
+																		disabled={hasAnyUnsavedChanges(state) && !question.isUnsaved}
+																		style={state.isMobileView ? {
+																			flexShrink: '0',
+																			minWidth: '40px',
+																			marginBottom: '0.5rem'
+																		} : {}}
+																		onclick={(e) => {
+																			e.stopPropagation();
+																			e.preventDefault();
+																			dispatch('DELETE_QUESTION', {
+																				questionId: question.ids.id
+																			});
+																		}}
+																	>
+																		🗑️
+																	</button>
+																)}
 																{question.isUnsaved && (question.type === 'Single Select' || question.type === 'Multiselect') && !question.ids.id.startsWith('temp_') && (
 																	<button
 																		className="save-bundle-btn"
