@@ -950,6 +950,16 @@ const view = (state, {updateState, dispatch}) => {
 										)}
 									</div>
 								</div>
+								<div style={{
+									padding: '8px 16px',
+									fontSize: '12px',
+									color: '#6b7280',
+									fontStyle: 'italic',
+									backgroundColor: '#f9fafb',
+									borderBottom: '1px solid #e5e7eb'
+								}}>
+									Double click on sections to edit or delete
+								</div>
 								{state.currentAssessment.sections && state.currentAssessment.sections.length > 0 ? (
 									<div className="sections-list">
 										{state.currentAssessment.sections
@@ -10284,22 +10294,29 @@ createCustomElement('cadal-careiq-builder', {
 		'SEARCH_ASSESSMENTS': (coeffects) => {
 			const {action, state, updateState} = coeffects;
 			const {searchTerm} = action.payload;
-			
+
 			if (!state.assessments) return;
-			
-			const filtered = searchTerm.trim() === '' ? state.assessments : 
-				state.assessments.filter(assessment => 
+
+			// First, apply search filter
+			const searchFiltered = searchTerm.trim() === '' ? state.assessments :
+				state.assessments.filter(assessment =>
 					assessment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 					assessment.policy_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
 					assessment.use_case_category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 					assessment.usage.toLowerCase().includes(searchTerm.toLowerCase())
 				);
-			
+
+			// Then, apply MCG filter if checkbox is not checked
+			const filtered = state.includeMcgAssessments
+				? searchFiltered
+				: searchFiltered.filter(a => a.content_source !== 'MCG');
+
 			updateState({
 				filteredAssessments: filtered,
 				assessmentsPagination: {
 					...state.assessmentsPagination,
-					displayPage: 0
+					displayPage: 0,
+					totalPages: Math.ceil(filtered.length / state.assessmentsPagination.displayPageSize)
 				}
 			});
 		},
@@ -10308,10 +10325,21 @@ createCustomElement('cadal-careiq-builder', {
 			const {action, state, updateState} = coeffects;
 			const {includeMcg} = action.payload;
 
-			// Client-side filtering: apply filter to existing assessments
+			// Apply search filter first if there's an active search
+			let assessmentsToFilter = state.assessments;
+			if (state.searchTerm && state.searchTerm.trim() !== '') {
+				assessmentsToFilter = state.assessments.filter(assessment =>
+					assessment.title.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+					assessment.policy_number.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+					assessment.use_case_category.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+					assessment.usage.toLowerCase().includes(state.searchTerm.toLowerCase())
+				);
+			}
+
+			// Then apply MCG filter
 			const filteredAssessments = includeMcg
-				? state.assessments  // Show all
-				: state.assessments.filter(a => a.content_source !== 'MCG');  // Exclude MCG
+				? assessmentsToFilter  // Show all
+				: assessmentsToFilter.filter(a => a.content_source !== 'MCG');  // Exclude MCG
 
 			updateState({
 				includeMcgAssessments: includeMcg,
