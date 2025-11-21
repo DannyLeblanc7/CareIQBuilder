@@ -3917,8 +3917,8 @@ const view = (state, {updateState, dispatch}) => {
 											);
 										})}
 
-										{/* Add Question Button - only show in edit mode for draft assessments, and NOT for parent sections */}
-										{state.builderMode && state.currentAssessment?.status === 'draft' && !isParentSection(state) && (
+										{/* Add Question Button - only show in edit mode for draft assessments, when a section is selected, and NOT for parent sections */}
+										{state.builderMode && state.currentAssessment?.status === 'draft' && state.selectedSection && !isParentSection(state) && (
 											<button
 												className="add-question-btn"
 												disabled={hasAnyUnsavedChanges(state)}
@@ -10686,6 +10686,14 @@ createCustomElement('cadal-careiq-builder', {
 				selectedSectionLabel: null,
 				currentQuestions: null,
 				questionsLoading: false
+			});
+
+			// Reload assessments to show any changes
+			dispatch('FETCH_ASSESSMENTS', {
+				offset: 0,
+				limit: 1000,
+				latestVersionOnly: true,
+				searchValue: state.searchTerm || ''
 			});
 		},
 
