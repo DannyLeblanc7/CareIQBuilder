@@ -690,8 +690,8 @@ const view = (state, {updateState, dispatch}) => {
 									key="edit-relationships-btn"
 									className={`mode-toggle-btn ${state.showRelationships ? 'active' : ''}`}
 									onclick={() => dispatch('TOGGLE_EDIT_RELATIONSHIPS')}
-									disabled={hasAnyUnsavedChanges(state)}
-									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : 'Edit relationships'}
+									disabled={hasAnyUnsavedChanges(state) || !state.builderMode}
+									title={hasAnyUnsavedChanges(state) ? 'Save or cancel current changes first' : (!state.builderMode ? 'Exit preview mode to edit relationships' : 'Edit relationships')}
 								>
 									🔗 Edit Relationships
 								</button>,
@@ -3929,7 +3929,7 @@ const view = (state, {updateState, dispatch}) => {
 			{state.editingTooltip && (
 				<div className="modal-overlay" onclick={(e) => {
 					if (e.target.className === 'modal-overlay') {
-						dispatch('SAVE_TOOLTIP_EDIT');
+						dispatch('CANCEL_TOOLTIP_EDIT');
 					}
 				}}>
 					<div className="tooltip-modal">
@@ -3937,7 +3937,7 @@ const view = (state, {updateState, dispatch}) => {
 							<h3>Edit Tooltip</h3>
 							<button
 								className="modal-close"
-								onclick={() => dispatch('SAVE_TOOLTIP_EDIT')}
+								onclick={() => dispatch('CANCEL_TOOLTIP_EDIT')}
 							>
 								×
 							</button>
@@ -10979,12 +10979,15 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'TOGGLE_BUILDER_MODE': (coeffects) => {
-			const {action, updateState} = coeffects;
+			const {action, updateState, state} = coeffects;
 			const {mode} = action.payload;
 			updateState({
 				builderMode: mode,
 				// Reset answer selections when switching to preview mode
 				selectedAnswers: mode ? {} : {},
+				// Close Edit Relationships mode when entering preview mode
+				showRelationships: mode ? state.showRelationships : false,
+				relationshipModalAnswerId: mode ? state.relationshipModalAnswerId : null,
 				visibleQuestions: mode ? [] : []
 			});
 		},
@@ -18569,6 +18572,18 @@ createCustomElement('cadal-careiq-builder', {
 					answerChanges: updatedAnswerChanges
 				});
 			}
+		},
+
+		'CANCEL_TOOLTIP_EDIT': (coeffects) => {
+			const {updateState} = coeffects;
+			// Just close the modal and discard any changes
+			updateState({
+				editingTooltip: null,
+				editingTooltipText: null,
+				editingTooltipOriginalText: null,
+				editingTooltipQuestionId: null,
+				editingTooltipAnswerId: null
+			});
 		},
 
 		// Custom Attributes Modal Actions
