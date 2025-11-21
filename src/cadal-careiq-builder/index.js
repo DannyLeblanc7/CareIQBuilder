@@ -1953,6 +1953,24 @@ const view = (state, {updateState, dispatch}) => {
 													)}
 												</div>
 
+												{/* Validation Error Message */}
+												{state.questionValidationErrors && state.questionValidationErrors[question.ids.id] && (
+													<div style={{
+														backgroundColor: '#f8d7da',
+														color: '#721c24',
+														border: '1px solid #f5c6cb',
+														borderRadius: '4px',
+														padding: '10px',
+														margin: '10px 0',
+														display: 'flex',
+														alignItems: 'center',
+														gap: '8px'
+													}}>
+														<span style={{fontSize: '16px'}}>⚠️</span>
+														<span><strong>Error:</strong> {state.questionValidationErrors[question.ids.id]}</span>
+													</div>
+												)}
+
 												{state.libraryQuestionLoading === question.ids.id && (
 													<div className="library-loading-overlay" style={{
 														padding: '10px',
@@ -11305,6 +11323,10 @@ createCustomElement('cadal-careiq-builder', {
 				return question;
 			});
 
+			// Clear any validation error for this question when changing type
+			const updatedValidationErrors = {...(state.questionValidationErrors || {})};
+			delete updatedValidationErrors[questionId];
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
@@ -11320,7 +11342,8 @@ createCustomElement('cadal-careiq-builder', {
 						questionId: questionId,
 						type: newType
 					}
-				}
+				},
+				questionValidationErrors: updatedValidationErrors // Clear validation error
 			});
 		},
 
@@ -11483,12 +11506,17 @@ createCustomElement('cadal-careiq-builder', {
 				}
 			};
 
+			// Clear any validation error for this question when adding an answer
+			const updatedValidationErrors = {...(state.questionValidationErrors || {})};
+			delete updatedValidationErrors[questionId];
+
 			updateState({
 				currentQuestions: {
 					...state.currentQuestions,
 					questions: updatedQuestions
 				},
-				answerChanges: answerChanges // Track the new answer for save
+				answerChanges: answerChanges, // Track the new answer for save
+				questionValidationErrors: updatedValidationErrors // Clear validation error
 			});
 		},
 
@@ -11770,6 +11798,32 @@ createCustomElement('cadal-careiq-builder', {
 					});
 					return;
 				}
+			}
+
+			// Validate Single Select and Multiselect questions have at least 1 answer with text
+			if (question.type === 'Single Select' || question.type === 'Multiselect') {
+				// Count active answers (not deleted) that have non-blank labels
+				const activeAnswersWithText = question.answers?.filter(a => !a.isDeleted && a.label && a.label.trim() !== '') || [];
+				if (activeAnswersWithText.length === 0) {
+					// Clear saving state on validation error
+					const updatedSavingQuestions = {...state.savingQuestions};
+					delete updatedSavingQuestions[questionId];
+					updateState({
+						savingQuestions: updatedSavingQuestions,
+						questionValidationErrors: {
+							...(state.questionValidationErrors || {}),
+							[questionId]: `${question.type} questions must have at least 1 answer. Please add an answer before saving.`
+						}
+					});
+					return;
+				}
+			}
+
+			// Clear any previous validation error for this question
+			if (state.questionValidationErrors && state.questionValidationErrors[questionId]) {
+				const updatedValidationErrors = {...state.questionValidationErrors};
+				delete updatedValidationErrors[questionId];
+				updateState({ questionValidationErrors: updatedValidationErrors });
 			}
 
 			// Check if there are answer changes for this question - if so, use SAVE_ALL_CHANGES
@@ -21486,6 +21540,11 @@ createCustomElement('cadal-careiq-builder', {
 			const updatedQuestions = state.currentQuestions.questions.map(q =>
 				q.ids.id === questionId ? {...q, isUnsaved: false} : q
 			);
+
+			// Clear any validation error for this question
+			const updatedValidationErrors = {...(state.questionValidationErrors || {})};
+			delete updatedValidationErrors[questionId];
+
 			updateState({
 				questionChanges: updatedQuestionChanges,
 				answerChanges: updatedAnswerChanges,
@@ -21494,7 +21553,8 @@ createCustomElement('cadal-careiq-builder', {
 			currentQuestions: {
 				...state.currentQuestions,
 				questions: updatedQuestions
-			}
+			},
+				questionValidationErrors: updatedValidationErrors // Clear validation error
 			});
 
 			// Reload section to get fresh data from server
