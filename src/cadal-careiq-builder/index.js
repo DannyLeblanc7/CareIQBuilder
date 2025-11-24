@@ -11682,13 +11682,21 @@ createCustomElement('cadal-careiq-builder', {
 				return;
 			}
 
+			// Find the question being deleted to store its sort_order
+			const questionToDelete = state.currentQuestions?.questions?.find(q => q.ids.id === questionId);
+			const deletedQuestionInfo = questionToDelete ? {
+				sort_order: questionToDelete.sort_order,
+				sectionId: state.selectedSection
+			} : null;
+
 			// For saved questions: Set loading state and call backend API
 			// Do NOT remove the question immediately - let the success handler do it after backend confirms
 			updateState({
 				deletingQuestions: {
 					...state.deletingQuestions,
 					[questionId]: true
-				}
+				},
+				deletedQuestionInfo: deletedQuestionInfo // Store for sort_order renumbering after delete
 			});
 
 			dispatch('DELETE_QUESTION_API', { questionId });
@@ -20454,8 +20462,7 @@ createCustomElement('cadal-careiq-builder', {
 		}),
 
 		'UPDATE_QUESTION_SUCCESS': (coeffects) => {
-			const {action, updateState, state} = coeffects;
-
+			const {action, updateState, state, dispatch} = coeffects;
 
 			// Clear questionChanges for the saved question
 			const questionId = state.lastSavedQuestionId;
@@ -20468,6 +20475,76 @@ createCustomElement('cadal-careiq-builder', {
 			const updatedSavingQuestions = {...state.savingQuestions};
 			if (questionId) {
 				delete updatedSavingQuestions[questionId];
+			}
+
+			// Check if we're processing sort_order updates after a question deletion
+			if (state.pendingQuestionSortUpdates && state.pendingQuestionSortUpdates > 0) {
+				const remainingUpdates = state.pendingQuestionSortUpdates - 1;
+
+				if (remainingUpdates === 0) {
+					// All sort_order updates complete
+					const moveContext = state.pendingQuestionMoveContext;
+
+					if (moveContext) {
+						// This was part of a question move - now refresh target section
+						updateState({
+							questionChanges: updatedQuestionChanges,
+							lastSavedQuestionId: null,
+							savingQuestions: updatedSavingQuestions,
+							pendingQuestionSortUpdates: 0,
+							pendingQuestionMoveContext: null,
+							questionMoveRefreshInProgress: moveContext,
+							systemMessages: [
+								...(state.systemMessages || []),
+								{
+									type: 'success',
+									message: 'Question renumbering complete! Moving question...',
+									timestamp: new Date().toISOString()
+								}
+							]
+						});
+
+						// Refresh target section for the move
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: moveContext.targetSectionId,
+							sectionLabel: moveContext.targetSectionLabel
+						});
+					} else {
+						// Normal delete - reload current section
+						updateState({
+							questionChanges: updatedQuestionChanges,
+							lastSavedQuestionId: null,
+							savingQuestions: updatedSavingQuestions,
+							pendingQuestionSortUpdates: 0,
+							questionsLoading: true,
+							systemMessages: [
+								...(state.systemMessages || []),
+								{
+									type: 'success',
+									message: 'Question renumbering complete! Reloading...',
+									timestamp: new Date().toISOString()
+								}
+							]
+						});
+
+						// Reload section to show updated sort orders
+						if (state.selectedSection) {
+							dispatch('FETCH_SECTION_QUESTIONS', {
+								sectionId: state.selectedSection,
+								sectionLabel: state.selectedSectionLabel
+							});
+						}
+					}
+				} else {
+					// More updates pending, just decrement counter
+					updateState({
+						questionChanges: updatedQuestionChanges,
+						lastSavedQuestionId: null,
+						savingQuestions: updatedSavingQuestions,
+						pendingQuestionSortUpdates: remainingUpdates
+					});
+				}
+				return;
 			}
 
 			// Just show success message - no refresh needed
@@ -21288,49 +21365,133 @@ createCustomElement('cadal-careiq-builder', {
 				delete updatedDeletingQuestions[questionId];
 			}
 
-			// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
-			if (state.pendingQuestionMove) {
-				const moveContext = state.pendingQuestionMove;
-
-				// Store move context for SECTION_QUESTIONS_SUCCESS to use
-				// Don't change selected section or show message yet - wait until refresh completes
-				updateState({
-					deletingQuestions: updatedDeletingQuestions,
-					pendingQuestionMove: null, // Clear the move context
-					questionMoveRefreshInProgress: moveContext  // Store full context for success handler
-					// Keep movingQuestion: true during refresh
-				});
-
-				// Refresh target section
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: moveContext.targetSectionId,
-					sectionLabel: moveContext.targetSectionLabel
-				});
-
-				return;
-			}
-
-			// Backend delete successful - refresh the section to remove the question from UI
-			// and update relationship badges
 			updateState({
 				deletingQuestions: updatedDeletingQuestions,
-				questionsLoading: true, // Show spinner during refresh
 				systemMessages: [
 					...(state.systemMessages || []),
 					{
 						type: 'success',
-						message: 'Question deleted successfully! Refreshing section...',
+						message: 'Question deleted successfully!',
 						timestamp: new Date().toISOString()
 					}
 				]
 			});
 
-			// Refresh current section to update relationship badges
-			if (state.selectedSection) {
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: state.selectedSection,
-					sectionLabel: state.selectedSectionLabel
+			// Renumber remaining questions' sort_order
+			const deletedInfo = state.deletedQuestionInfo;
+			if (deletedInfo && state.currentQuestions?.questions) {
+				const questionsToUpdate = [];
+
+				// Find all questions in the same section with sort_order > deleted question's sort_order
+				state.currentQuestions.questions.forEach(question => {
+					if (question.sort_order > deletedInfo.sort_order) {
+						questionsToUpdate.push({
+							questionId: question.ids.id,
+							label: question.label,
+							type: question.type,
+							required: question.required || false,
+							tooltip: question.tooltip || '',
+							voice: question.voice || 'Patient',
+							sort_order: question.sort_order - 1,
+							alternative_wording: question.alternative_wording || '',
+							custom_attributes: question.custom_attributes || {},
+							available: question.available || false,
+							has_quality_measures: question.has_quality_measures || false
+						});
+					}
 				});
+
+				if (questionsToUpdate.length > 0) {
+					// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+					const isQuestionMove = state.pendingQuestionMove ? true : false;
+					const moveContext = isQuestionMove ? state.pendingQuestionMove : null;
+
+					// Store pending update count and context
+					updateState({
+						pendingQuestionSortUpdates: questionsToUpdate.length,
+						deletedQuestionInfo: null, // Clear the deleted question info
+						pendingQuestionMoveContext: moveContext, // Store move context for after renumbering
+						pendingQuestionMove: null, // Clear the move flag
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Renumbering ${questionsToUpdate.length} question(s)...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Send UPDATE_QUESTION_API for each question
+					questionsToUpdate.forEach(questionData => {
+						dispatch('UPDATE_QUESTION_API', {
+							questionData: questionData,
+							questionId: questionData.questionId
+						});
+					});
+				} else {
+					// No questions to renumber
+					updateState({
+						deletedQuestionInfo: null
+					});
+
+					// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+					if (state.pendingQuestionMove) {
+						const moveContext = state.pendingQuestionMove;
+
+						// Store move context for SECTION_QUESTIONS_SUCCESS to use
+						updateState({
+							pendingQuestionMove: null,
+							questionMoveRefreshInProgress: moveContext
+						});
+
+						// Refresh target section
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: moveContext.targetSectionId,
+							sectionLabel: moveContext.targetSectionLabel
+						});
+					} else {
+						// Normal delete - refresh current section
+						updateState({
+							questionsLoading: true
+						});
+
+						if (state.selectedSection) {
+							dispatch('FETCH_SECTION_QUESTIONS', {
+								sectionId: state.selectedSection,
+								sectionLabel: state.selectedSectionLabel
+							});
+						}
+					}
+				}
+			} else {
+				// No deleted question info
+				// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
+				if (state.pendingQuestionMove) {
+					const moveContext = state.pendingQuestionMove;
+
+					updateState({
+						pendingQuestionMove: null,
+						questionMoveRefreshInProgress: moveContext
+					});
+
+					dispatch('FETCH_SECTION_QUESTIONS', {
+						sectionId: moveContext.targetSectionId,
+						sectionLabel: moveContext.targetSectionLabel
+					});
+				} else {
+					// Normal delete - refresh current section
+					updateState({
+						questionsLoading: true
+					});
+
+					if (state.selectedSection) {
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: state.selectedSection,
+							sectionLabel: state.selectedSectionLabel
+						});
+					}
+				}
 			}
 		},
 
