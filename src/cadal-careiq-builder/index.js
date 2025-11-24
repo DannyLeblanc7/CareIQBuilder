@@ -18053,6 +18053,7 @@ createCustomElement('cadal-careiq-builder', {
 
 			let updatedSections;
 			let isParentSection = false;
+			let deletedSectionInfo = null;
 
 			// Check if this is a parent section (top level)
 			const parentSectionToDelete = state.currentAssessment.sections.find(section => section.id === sectionId);
@@ -18060,9 +18061,32 @@ createCustomElement('cadal-careiq-builder', {
 			if (parentSectionToDelete) {
 				// This is a parent section - remove it completely from the sections array
 				isParentSection = true;
+				deletedSectionInfo = {
+					isParent: true,
+					sort_order: parentSectionToDelete.sort_order
+				};
 				updatedSections = state.currentAssessment.sections.filter(section => section.id !== sectionId);
 			} else {
-				// This is a child section - remove it from parent sections' subsections
+				// This is a child section - find which parent it belongs to and its sort_order
+				let parentSectionId = null;
+				let childSortOrder = null;
+
+				for (const section of state.currentAssessment.sections) {
+					const childSection = section.subsections?.find(sub => sub.id === sectionId);
+					if (childSection) {
+						parentSectionId = section.id;
+						childSortOrder = childSection.sort_order;
+						break;
+					}
+				}
+
+				deletedSectionInfo = {
+					isParent: false,
+					parentSectionId: parentSectionId,
+					sort_order: childSortOrder
+				};
+
+				// Remove it from parent sections' subsections
 				updatedSections = state.currentAssessment.sections.map(section => ({
 					...section,
 					subsections: section.subsections?.filter(subsection => subsection.id !== sectionId) || []
@@ -18075,7 +18099,8 @@ createCustomElement('cadal-careiq-builder', {
 					sections: updatedSections
 				},
 				selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
-				selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel
+				selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel,
+				deletedSectionInfo: deletedSectionInfo // Store for sort_order renumbering after delete
 			});
 
 			// Auto-delete from backend immediately (only if not temp ID)
@@ -18196,11 +18221,85 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 
-			// Reload assessment data to refresh the section list and reset to first section
-			if (state.currentAssessmentId) {
-				dispatch('FETCH_ASSESSMENT_DETAILS', {
-					assessmentId: state.currentAssessmentId
-				});
+			// Renumber remaining sections' sort_order
+			const deletedInfo = state.deletedSectionInfo;
+			if (deletedInfo && state.currentAssessment?.sections) {
+				const sectionsToUpdate = [];
+
+				if (deletedInfo.isParent) {
+					// Parent section deleted - renumber all parent sections after it
+					state.currentAssessment.sections.forEach(section => {
+						if (section.sort_order > deletedInfo.sort_order) {
+							sectionsToUpdate.push({
+								sectionId: section.id,
+								label: section.label,
+								sort_order: section.sort_order - 1,
+								tooltip: section.tooltip || '',
+								alternative_wording: section.alternative_wording || '',
+								required: section.required || false,
+								custom_attributes: section.custom_attributes || {}
+							});
+						}
+					});
+				} else {
+					// Child section deleted - renumber all child sections after it in the same parent
+					const parentSection = state.currentAssessment.sections.find(s => s.id === deletedInfo.parentSectionId);
+					if (parentSection && parentSection.subsections) {
+						parentSection.subsections.forEach(subsection => {
+							if (subsection.sort_order > deletedInfo.sort_order) {
+								sectionsToUpdate.push({
+									sectionId: subsection.id,
+									label: subsection.label,
+									sort_order: subsection.sort_order - 1,
+									tooltip: subsection.tooltip || '',
+									alternative_wording: subsection.alternative_wording || '',
+									required: subsection.required || false,
+									custom_attributes: subsection.custom_attributes || {}
+								});
+							}
+						});
+					}
+				}
+
+				if (sectionsToUpdate.length > 0) {
+					// Store pending update count and mark that we're doing sort updates
+					updateState({
+						pendingSectionSortUpdates: sectionsToUpdate.length,
+						deletedSectionInfo: null, // Clear the deleted section info
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Renumbering ${sectionsToUpdate.length} section(s)...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Send UPDATE_SECTION_API for each section
+					sectionsToUpdate.forEach(sectionData => {
+						dispatch('UPDATE_SECTION_API', {
+							sectionData: sectionData
+						});
+					});
+				} else {
+					// No sections to renumber, reload immediately
+					updateState({
+						deletedSectionInfo: null
+					});
+					if (state.currentAssessmentId) {
+						dispatch('FETCH_ASSESSMENT_DETAILS', {
+							assessmentId: state.currentAssessmentId
+						});
+					}
+				}
+			} else {
+				// No deleted section info, reload immediately
+				if (state.currentAssessmentId) {
+					dispatch('FETCH_ASSESSMENT_DETAILS', {
+						assessmentId: state.currentAssessmentId
+					});
+				}
 			}
 		},
 
@@ -21337,6 +21436,43 @@ createCustomElement('cadal-careiq-builder', {
 			const updatedSectionChanges = {...state.sectionChanges};
 			if (sectionId) {
 				delete updatedSectionChanges[sectionId];
+			}
+
+			// Check if we're processing sort_order updates after a section deletion
+			if (state.pendingSectionSortUpdates && state.pendingSectionSortUpdates > 0) {
+				const remainingUpdates = state.pendingSectionSortUpdates - 1;
+
+				if (remainingUpdates === 0) {
+					// All sort_order updates complete - reload assessment
+					updateState({
+						updatingSections: updatedUpdatingSections,
+						sectionChanges: updatedSectionChanges,
+						pendingSectionSortUpdates: 0,
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Section renumbering complete! Reloading...',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Reload assessment to show updated sort orders
+					if (state.currentAssessmentId) {
+						dispatch('FETCH_ASSESSMENT_DETAILS', {
+							assessmentId: state.currentAssessmentId
+						});
+					}
+				} else {
+					// More updates pending, just decrement counter
+					updateState({
+						updatingSections: updatedUpdatingSections,
+						sectionChanges: updatedSectionChanges,
+						pendingSectionSortUpdates: remainingUpdates
+					});
+				}
+				return;
 			}
 
 			// The section was already updated locally by SAVE_SECTION_IMMEDIATELY or reordering
