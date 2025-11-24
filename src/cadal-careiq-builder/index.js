@@ -11593,6 +11593,15 @@ createCustomElement('cadal-careiq-builder', {
 					answerChanges: updatedAnswerChanges
 				});
 			} else {
+				// Find the answer being deleted to store its sort_order for renumbering
+				let answerToDelete = null;
+				for (const question of state.currentQuestions.questions) {
+					if (question.ids.id === questionId) {
+						answerToDelete = question.answers?.find(a => a.ids.id === answerId);
+						break;
+					}
+				}
+
 				// Real answer - mark for deletion, don't remove from UI yet
 				const updatedQuestions = state.currentQuestions.questions.map(question => {
 					if (question.ids.id === questionId) {
@@ -11618,7 +11627,8 @@ createCustomElement('cadal-careiq-builder', {
 					...state.answerChanges,
 					[answerId]: {
 						action: 'delete',
-						questionId: questionId
+						questionId: questionId,
+						sort_order: answerToDelete ? answerToDelete.sort_order : null // Store for renumbering
 					}
 				};
 
@@ -19938,6 +19948,8 @@ createCustomElement('cadal-careiq-builder', {
 
 						dispatch('DELETE_ANSWER_API', {
 							answerId: answerId,
+							questionId: answerData.questionId,
+							sort_order: answerData.sort_order,
 							suppressMessage: true // Suppress individual success message during bulk save
 						});
 					} else if (answerData.action === 'update') {
@@ -20308,8 +20320,20 @@ createCustomElement('cadal-careiq-builder', {
 		},
 
 		'DELETE_ANSWER_API': (coeffects) => {
-			const {action, dispatch} = coeffects;
-			const {answerId, suppressMessage} = action.payload;
+			const {action, dispatch, updateState} = coeffects;
+			const {answerId, questionId, sort_order, suppressMessage} = action.payload;
+
+			// Store deleted answer info for renumbering after successful deletion
+			if (questionId && sort_order) {
+				updateState({
+					deletedAnswerInfo: {
+						answerId: answerId,
+						questionId: questionId,
+						sort_order: sort_order
+					}
+				});
+			}
+
 			// Prepare request body following the established pattern (direct fields, no data wrapper)
 			const requestBody = JSON.stringify({
 				answerId: answerId
@@ -20363,6 +20387,41 @@ createCustomElement('cadal-careiq-builder', {
 				updateState({
 					skipAnswerUpdateReload: false
 				});
+			}
+
+			// Check if we're processing sort_order updates after an answer deletion
+			if (state.pendingAnswerSortUpdates && state.pendingAnswerSortUpdates > 0) {
+				const remainingUpdates = state.pendingAnswerSortUpdates - 1;
+
+				if (remainingUpdates === 0) {
+					// All sort_order updates complete - reload section
+					updateState({
+						pendingAnswerSortUpdates: 0,
+						questionsLoading: true,
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'success',
+								message: 'Answer renumbering complete! Reloading...',
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Reload section to show updated sort orders
+					if (state.selectedSection) {
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: state.selectedSection,
+							sectionLabel: state.selectedSectionLabel
+						});
+					}
+				} else {
+					// More updates pending, just decrement counter
+					updateState({
+						pendingAnswerSortUpdates: remainingUpdates
+					});
+				}
+				return;
 			}
 
 			// Default behavior: NO reload (same as questions)
@@ -21303,10 +21362,10 @@ createCustomElement('cadal-careiq-builder', {
 
 		'DELETE_ANSWER_SUCCESS': (coeffects) => {
 			const {action, updateState, state, dispatch} = coeffects;
+
 			updateState({
 				systemMessages: [
 					...(state.systemMessages || []),
-
 					{
 						type: 'success',
 						message: 'Answer deleted successfully!',
@@ -21315,13 +21374,79 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 
-			// Refresh the questions for the current section to clear isUnsaved flags
-			if (state.selectedSection) {
-				dispatch('FETCH_SECTION_QUESTIONS', {
-					sectionId: state.selectedSection,
-					config: state.careiqConfig,
-					accessToken: state.accessToken
-				});
+			// Renumber remaining answers' sort_order
+			const deletedInfo = state.deletedAnswerInfo;
+			if (deletedInfo && deletedInfo.sort_order && state.currentQuestions?.questions) {
+				const answersToUpdate = [];
+
+				// Find the question and all its answers with sort_order > deleted answer's sort_order
+				for (const question of state.currentQuestions.questions) {
+					if (question.ids.id === deletedInfo.questionId) {
+						if (question.answers) {
+							question.answers.forEach(answer => {
+								// Only renumber non-deleted answers with higher sort_order
+								if (!answer.isDeleted && answer.sort_order > deletedInfo.sort_order) {
+									answersToUpdate.push({
+										answerId: answer.ids.id,
+										label: answer.label,
+										tooltip: answer.tooltip || '',
+										sort_order: answer.sort_order - 1,
+										score: answer.score !== undefined ? answer.score : null,
+										secondary_input: answer.secondary_input || false,
+										mutually_exclusive: answer.mutually_exclusive || false,
+										alternative_wording: answer.alternative_wording || '',
+										custom_attributes: answer.custom_attributes || {}
+									});
+								}
+							});
+						}
+						break;
+					}
+				}
+
+				if (answersToUpdate.length > 0) {
+					// Store pending update count
+					updateState({
+						pendingAnswerSortUpdates: answersToUpdate.length,
+						deletedAnswerInfo: null, // Clear the deleted answer info
+						systemMessages: [
+							...(state.systemMessages || []),
+							{
+								type: 'info',
+								message: `Renumbering ${answersToUpdate.length} answer(s)...`,
+								timestamp: new Date().toISOString()
+							}
+						]
+					});
+
+					// Send UPDATE_ANSWER_API for each answer
+					answersToUpdate.forEach(answerData => {
+						dispatch('UPDATE_ANSWER_API', {
+							answerData: answerData,
+							skipReload: true // Skip reload for each individual update
+						});
+					});
+				} else {
+					// No answers to renumber, reload immediately
+					updateState({
+						deletedAnswerInfo: null
+					});
+
+					if (state.selectedSection) {
+						dispatch('FETCH_SECTION_QUESTIONS', {
+							sectionId: state.selectedSection,
+							sectionLabel: state.selectedSectionLabel
+						});
+					}
+				}
+			} else {
+				// No deleted answer info or sort_order, reload immediately
+				if (state.selectedSection) {
+					dispatch('FETCH_SECTION_QUESTIONS', {
+						sectionId: state.selectedSection,
+						sectionLabel: state.selectedSectionLabel
+					});
+				}
 			}
 		},
 
