@@ -10860,7 +10860,10 @@ createCustomElement('cadal-careiq-builder', {
 				selectedSection: null,
 				selectedSectionLabel: null,
 				currentQuestions: null,
-				questionsLoading: false
+				questionsLoading: false,
+			searchTerm: '',
+			filteredAssessments: null,
+			assessments: null
 			});
 
 			// Reload assessments to show any changes
@@ -10868,7 +10871,7 @@ createCustomElement('cadal-careiq-builder', {
 				offset: 0,
 				limit: 1000,
 				latestVersionOnly: true,
-				searchValue: state.searchTerm || ''
+				searchValue: ''
 			});
 		},
 
