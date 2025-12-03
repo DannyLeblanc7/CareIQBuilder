@@ -136,6 +136,44 @@ const view = (state, {updateState, dispatch}) => {
 		return false;
 	};
 
+	// Check if the currently selected section is unsaved (not yet persisted to backend)
+	// Unsaved sections have temp IDs or isNew property
+	const isUnsavedSection = (state) => {
+		if (!state.selectedSection || !state.currentAssessment?.sections) {
+			return false;
+		}
+
+		const sectionId = state.selectedSection;
+
+		// Quick check: if ID starts with 'temp_', it's definitely unsaved
+		if (sectionId.startsWith('temp_')) {
+			return true;
+		}
+
+		// Find the section - could be a parent section or a child section (subsection)
+		let section = state.currentAssessment.sections.find(s => s.id === sectionId);
+
+		// If not found in parent sections, search subsections
+		if (!section) {
+			for (const parentSection of state.currentAssessment.sections) {
+				if (parentSection.subsections) {
+					const foundSubsection = parentSection.subsections.find(sub => sub.id === sectionId);
+					if (foundSubsection) {
+						section = foundSubsection;
+						break;
+					}
+				}
+			}
+		}
+
+		// Check if section has isNew property
+		if (section && section.isNew === true) {
+			return true;
+		}
+
+		return false;
+	};
+
 	// Auto-scroll system message box to bottom after render
 	setTimeout(() => {
 		const systemWindows = document.querySelectorAll('.careiq-builder .system-window');
@@ -3927,8 +3965,8 @@ const view = (state, {updateState, dispatch}) => {
 											);
 										})}
 
-										{/* Add Question Button - only show in edit mode for draft assessments, when a section is selected, and NOT for parent sections */}
-										{state.builderMode && state.currentAssessment?.status === 'draft' && state.selectedSection && !isParentSection(state) && (
+										{/* Add Question Button - only show in edit mode for draft assessments, when a section is selected, and NOT for parent sections or unsaved sections */}
+										{state.builderMode && state.currentAssessment?.status === 'draft' && state.selectedSection && !isParentSection(state) && !isUnsavedSection(state) && (
 											<button
 												className="add-question-btn"
 												disabled={hasAnyUnsavedChanges(state)}
@@ -17526,7 +17564,7 @@ createCustomElement('cadal-careiq-builder', {
 					...state.currentAssessment,
 					sections: updatedSections
 				},
-				selectedSection: newSection,
+				selectedSection: newSectionId,
 				editingSectionId: newSectionId, // Auto-edit the new section
 				editingSectionName: '', // Start with empty name for editing
 				// Track this as a new addition for backend saving
@@ -17598,7 +17636,7 @@ createCustomElement('cadal-careiq-builder', {
 					...state.currentAssessment,
 					sections: updatedSections
 				},
-				selectedSection: newSection,
+				selectedSection: newSectionId,
 				editingSectionId: newSectionId, // Auto-edit the new section
 				editingSectionName: '', // Start with empty name for editing
 				// Track this as a new addition for backend saving
