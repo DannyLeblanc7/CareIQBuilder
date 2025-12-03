@@ -12003,6 +12003,30 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Validate Single Select and Multiselect questions have at least 1 answer with text
 			if (question.type === 'Single Select' || question.type === 'Multiselect') {
+				// First, validate all answers for blank text
+				if (question.answers && question.answers.length > 0) {
+					const blankAnswers = question.answers.filter(a =>
+						!a.isDeleted && (!a.label || a.label.trim() === '')
+					);
+
+					if (blankAnswers.length > 0) {
+					// Clear saving state on validation error
+					const updatedSavingQuestions = {...state.savingQuestions};
+					delete updatedSavingQuestions[questionId];
+					updateState({
+						savingQuestions: updatedSavingQuestions,
+						questionValidationErrors: {
+							...(state.questionValidationErrors || {}),
+							[questionId]: 'Answer text cannot be blank. Please enter text for all answers or delete the blank answer.'
+						}
+					});
+						return;
+					}
+				}
+			}
+
+			// Validate Single Select and Multiselect questions have at least 1 answer with text
+			if (question.type === 'Single Select' || question.type === 'Multiselect') {
 				// Count active answers (not deleted) that have non-blank labels
 				const activeAnswersWithText = question.answers?.filter(a => !a.isDeleted && a.label && a.label.trim() !== '') || [];
 				if (activeAnswersWithText.length === 0) {
