@@ -104,6 +104,86 @@ const view = (state, {updateState, dispatch}) => {
 		</div>
 	);
 
+	// Confirmation Modal Component - reusable confirmation dialog
+	const ConfirmationModal = ({message, onConfirm, onCancel, confirmText = "Confirm", cancelText = "Cancel"}) => (
+		<div
+			style={{
+				position: "fixed",
+				top: 0,
+				left: 0,
+				width: "100%",
+				height: "100%",
+				backgroundColor: "rgba(0, 0, 0, 0.6)",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				justifyContent: "center",
+				zIndex: 999999,
+				pointerEvents: "auto"
+			}}
+			onclick={(e) => {
+				e.stopPropagation();
+				e.preventDefault();
+			}}
+		>
+			<div style={{
+				backgroundColor: "#fff",
+				padding: "24px",
+				borderRadius: "12px",
+				boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+				display: "flex",
+				flexDirection: "column",
+				gap: "20px",
+				minWidth: "400px",
+				maxWidth: "500px"
+			}}>
+				<div style={{
+					fontSize: "16px",
+					color: "#111827",
+					lineHeight: "1.5"
+				}}>
+					{message}
+				</div>
+				<div style={{
+					display: "flex",
+					gap: "12px",
+					justifyContent: "flex-end"
+				}}>
+					<button
+						onclick={onCancel}
+						style={{
+							padding: "8px 16px",
+							borderRadius: "6px",
+							border: "1px solid #d1d5db",
+							backgroundColor: "#fff",
+							color: "#374151",
+							fontSize: "14px",
+							fontWeight: "500",
+							cursor: "pointer"
+						}}
+					>
+						{cancelText}
+					</button>
+					<button
+						onclick={onConfirm}
+						style={{
+							padding: "8px 16px",
+							borderRadius: "6px",
+							border: "none",
+							backgroundColor: "#dc3545",
+							color: "#fff",
+							fontSize: "14px",
+							fontWeight: "500",
+							cursor: "pointer"
+						}}
+					>
+						{confirmText}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+
 	// Helper function to check if there are any unsaved changes
 	// Only counts questions/answers that have been EDITED (isUnsaved: true)
 	// NOT just newly added questions that haven't been touched yet
@@ -197,6 +277,17 @@ const view = (state, {updateState, dispatch}) => {
 			{/* Global modal loading overlay for publishing assessment */}
 			{state.publishingAssessment && (
 				<LoadingOverlay message="Publishing assessment..." isModal={true} />
+			)}
+
+			{/* Section edit confirmation modal */}
+			{state.showSectionEditConfirmation && (
+				<ConfirmationModal
+					message="This section hasn't been saved yet. Do you want to discard your changes?"
+					confirmText="Discard Changes"
+					cancelText="Go Back to Editing"
+					onConfirm={() => dispatch('CONFIRM_DISCARD_SECTION_EDIT')}
+					onCancel={() => dispatch('CANCEL_DISCARD_SECTION_EDIT')}
+				/>
 			)}
 
 			<h1>CareIQ Builder</h1>
@@ -971,7 +1062,13 @@ const view = (state, {updateState, dispatch}) => {
 										{state.builderMode && (state.currentAssessment?.status === 'draft' || !state.currentAssessment?.status) && (
 											<button
 												className="add-section-btn"
-												onclick={() => dispatch('ADD_SECTION')}
+												onclick={() => {
+													if (state.editingSectionId) {
+														dispatch('SHOW_SECTION_EDIT_CONFIRMATION');
+													} else {
+														dispatch('ADD_SECTION');
+													}
+												}}
 												title="Add new parent section"
 											>
 												+
@@ -1125,10 +1222,16 @@ const view = (state, {updateState, dispatch}) => {
 																	({(section.subsections || []).length} subsections)
 																</span>
 
-																{state.builderMode && state.currentAssessment?.status === 'draft' && state.editingSectionId !== section.id && (
+																{state.builderMode && state.currentAssessment?.status === 'draft' && (
 																	<button
 																		className="add-child-section-btn"
-																		onclick={() => dispatch('ADD_CHILD_SECTION', {parentSectionId: section.id})}
+																		onclick={() => {
+																		if (state.editingSectionId) {
+																			dispatch('SHOW_SECTION_EDIT_CONFIRMATION');
+																		} else {
+																			dispatch('ADD_CHILD_SECTION', {parentSectionId: section.id});
+																		}
+																		}}
 																		title="Add child section"
 																		style={{
 																			marginLeft: 'auto',
@@ -1269,14 +1372,19 @@ const view = (state, {updateState, dispatch}) => {
 																	dispatch('DRAG_SECTION_END');
 																}}
 																onclick={(e) => {
-																	// Only handle click if we're not in edit mode and not clicking on edit/delete elements
-																	if (state.editingSectionId !== subsection.id && 
-																		!e.target.closest('.section-name-edit-container') &&
+																	// Don't handle if clicking on edit/delete elements
+																	if (!e.target.closest('.section-name-edit-container') &&
 																		!e.target.closest('.delete-section-btn')) {
-																		dispatch('SELECT_SECTION', {
-																			sectionId: subsection.id,
-																			sectionLabel: subsection.label
-																		});
+																		// If we're editing a section, show confirmation modal
+																		if (state.editingSectionId && state.editingSectionId !== subsection.id) {
+																			dispatch('SHOW_SECTION_EDIT_CONFIRMATION');
+																		} else if (!state.editingSectionId) {
+																			// Only select if not in edit mode
+																			dispatch('SELECT_SECTION', {
+																				sectionId: subsection.id,
+																				sectionLabel: subsection.label
+																			});
+																		}
 																	}
 																}}
 															>
@@ -8781,6 +8889,7 @@ createCustomElement('cadal-careiq-builder', {
 		// Section editing state
 		editingSectionId: null,
 		editingSectionName: null,
+		showSectionEditConfirmation: false,
 		// Sections auto-save (no change tracking needed)
 		// Question editing state
 		editingQuestionId: null,
@@ -17853,23 +17962,39 @@ createCustomElement('cadal-careiq-builder', {
 			// Check if we're canceling a new section that should be removed
 			const editingSectionId = state.editingSectionId;
 			let shouldRemoveSection = false;
+			let isParentSection = false;
 
 			if (editingSectionId) {
-				// Find the section being edited
-				const sectionToCheck = state.currentAssessment?.sections?.find(section =>
-					section.subsections?.some(subsection => subsection.id === editingSectionId)
+				// First check if it's a parent section
+				const parentSectionToCheck = state.currentAssessment?.sections?.find(section =>
+					section.id === editingSectionId
 				);
 
-				if (sectionToCheck) {
-					const subsectionToCheck = sectionToCheck.subsections?.find(subsection =>
-						subsection.id === editingSectionId
+				if (parentSectionToCheck) {
+					// It's a parent section
+					isParentSection = true;
+					// Remove if it's new (has isNew flag or temp ID) and has empty/blank label
+					if ((parentSectionToCheck.isNew || editingSectionId.startsWith('temp_')) &&
+						(!parentSectionToCheck.label || parentSectionToCheck.label.trim() === '')) {
+						shouldRemoveSection = true;
+					}
+				} else {
+					// Not a parent section, check if it's a child section (subsection)
+					const sectionToCheck = state.currentAssessment?.sections?.find(section =>
+						section.subsections?.some(subsection => subsection.id === editingSectionId)
 					);
 
-					// Remove if it's new (has isNew flag or temp ID) and has empty/blank label
-					if (subsectionToCheck &&
-						(subsectionToCheck.isNew || editingSectionId.startsWith('temp_')) &&
-						(!subsectionToCheck.label || subsectionToCheck.label.trim() === '')) {
-						shouldRemoveSection = true;
+					if (sectionToCheck) {
+						const subsectionToCheck = sectionToCheck.subsections?.find(subsection =>
+							subsection.id === editingSectionId
+						);
+
+						// Remove if it's new (has isNew flag or temp ID) and has empty/blank label
+						if (subsectionToCheck &&
+							(subsectionToCheck.isNew || editingSectionId.startsWith('temp_')) &&
+							(!subsectionToCheck.label || subsectionToCheck.label.trim() === '')) {
+							shouldRemoveSection = true;
+						}
 					}
 				}
 			}
@@ -17881,13 +18006,23 @@ createCustomElement('cadal-careiq-builder', {
 			}
 
 			if (shouldRemoveSection) {
-				// Remove the section from the assessment
-				const updatedSections = state.currentAssessment.sections.map(section => ({
+			// Remove the section from the assessment
+			let updatedSections;
+
+			if (isParentSection) {
+				// Remove parent section from the sections array
+				updatedSections = state.currentAssessment.sections.filter(section =>
+					section.id !== editingSectionId
+				);
+			} else {
+				// Remove child section (subsection) from parent's subsections
+				updatedSections = state.currentAssessment.sections.map(section => ({
 					...section,
 					subsections: section.subsections?.filter(subsection =>
 						subsection.id !== editingSectionId
 					) || []
 				}));
+			}
 
 				updateState({
 					currentAssessment: {
@@ -17927,6 +18062,38 @@ createCustomElement('cadal-careiq-builder', {
 					selectedSectionLibraryId: null
 				});
 			}
+		},
+
+		'SHOW_SECTION_EDIT_CONFIRMATION': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				showSectionEditConfirmation: true
+			});
+		},
+
+		'CANCEL_DISCARD_SECTION_EDIT': (coeffects) => {
+			const {updateState} = coeffects;
+			// User clicked "Go Back to Editing" - just hide the modal and refocus
+			updateState({
+				showSectionEditConfirmation: false
+			});
+			// Refocus the input after a short delay
+			setTimeout(() => {
+				const input = document.querySelector('.section-name-edit-input');
+				if (input) {
+					input.focus();
+				}
+			}, 100);
+		},
+
+		'CONFIRM_DISCARD_SECTION_EDIT': (coeffects) => {
+			const {updateState, dispatch} = coeffects;
+			// User clicked "Discard Changes" - hide modal and run cancel logic
+			updateState({
+				showSectionEditConfirmation: false
+			});
+			// Run the existing cancel section edit logic
+			dispatch('CANCEL_SECTION_EDIT');
 		},
 
 		'SAVE_SECTION_IMMEDIATELY': (coeffects) => {
