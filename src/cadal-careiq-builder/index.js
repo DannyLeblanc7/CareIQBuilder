@@ -10533,7 +10533,16 @@ createCustomElement('cadal-careiq-builder', {
 				assessmentDetailsLoading: true,
 				currentAssessment: null,
 				selectedSection: null,
-				currentAssessmentId: assessmentId // Store the assessment ID for later use
+				currentAssessmentId: assessmentId, // Store the assessment ID for later use
+			// Clear all section-related state for fresh start
+			currentQuestions: null,
+			questionsLoading: false,
+			selectedSectionLabel: null,
+			editingSectionId: null,
+			questionChanges: {},
+			answerChanges: {},
+			sectionChanges: {},
+			relationshipChanges: {}
 			});
 
 			// Fetch full assessment details
@@ -10779,7 +10788,15 @@ createCustomElement('cadal-careiq-builder', {
 					sectionId: sectionToSelect,
 					sectionLabel: sectionLabelToSelect
 				});
-			}
+		} else {
+			// No child sections to select - clear questions state to show "Select a section" message
+			updateState({
+				selectedSection: null,
+				selectedSectionLabel: null,
+				currentQuestions: null,
+				questionsLoading: false
+			});
+		}
 		},
 
 		'ASSESSMENT_DETAILS_ERROR': (coeffects) => {
@@ -18350,6 +18367,9 @@ createCustomElement('cadal-careiq-builder', {
 				},
 				selectedSection: state.selectedSection === sectionId ? null : state.selectedSection,
 				selectedSectionLabel: state.selectedSection === sectionId ? null : state.selectedSectionLabel,
+			currentQuestions: state.selectedSection === sectionId ? null : state.currentQuestions,
+			questionsLoading: state.selectedSection === sectionId ? false : state.questionsLoading,
+			editingSectionId: state.editingSectionId === sectionId ? null : state.editingSectionId,
 				deletedSectionInfo: deletedSectionInfo // Store for sort_order renumbering after delete
 			});
 
@@ -18454,8 +18474,12 @@ createCustomElement('cadal-careiq-builder', {
 
 			// Clear section changes for the deleted section
 			const updatedSectionChanges = {...state.sectionChanges};
+		// If the deleted section was the currently selected one, clear questions state immediately
+		const shouldClearQuestions = (sectionId === state.selectedSection);
+
 			if (sectionId) {
 				delete updatedSectionChanges[sectionId];
+
 			}
 
 			updateState({
@@ -18467,8 +18491,15 @@ createCustomElement('cadal-careiq-builder', {
 						type: 'success',
 						message: 'Section deleted successfully!',
 						timestamp: new Date().toISOString()
-					}
-				]
+				}
+			],
+			// Clear questions if deleted section was selected
+			...(shouldClearQuestions ? {
+				selectedSection: null,
+				selectedSectionLabel: null,
+				currentQuestions: null,
+				questionsLoading: false
+			} : {})
 			});
 
 			// Renumber remaining sections' sort_order
