@@ -8718,6 +8718,100 @@ const view = (state, {updateState, dispatch}) => {
 				</div>
 			)}
 
+
+		{/* Empty Sections Validation Modal */}
+		{state.emptySectionsModalOpen && (
+			<div className="modal-overlay" style={{
+				position: 'fixed',
+				top: '0',
+				left: '0',
+				width: '100%',
+				height: '100%',
+				backgroundColor: 'rgba(0,0,0,0.6)',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				zIndex: '1000100'
+			}}>
+				<div className="empty-sections-dialog" style={{
+					backgroundColor: 'white',
+					padding: '24px',
+					borderRadius: '12px',
+					width: '500px',
+					maxWidth: '90vw',
+					boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+					position: 'relative',
+					zIndex: '1000101',
+					animation: 'fadeIn 0.2s ease-out'
+				}}>
+					<div style={{
+						display: 'flex',
+						alignItems: 'flex-start',
+						marginBottom: '20px'
+					}}>
+						<span style={{
+							fontSize: '32px',
+							marginRight: '12px',
+							lineHeight: '1'
+						}}>⚠️</span>
+						<div style={{flex: 1}}>
+							<h3 style={{
+								margin: '0 0 8px 0',
+								fontSize: '18px',
+								fontWeight: '600',
+								color: '#1f2937'
+							}}>Cannot Publish Assessment</h3>
+							<p style={{
+								margin: '0 0 12px 0',
+								fontSize: '14px',
+								color: '#6b7280',
+								lineHeight: '1.5'
+							}}>
+								The following sections have no questions. Please add questions to all sections before publishing:
+							</p>
+							<p style={{
+								margin: '0',
+								fontSize: '14px',
+								color: '#dc2626',
+								fontWeight: '500',
+								lineHeight: '1.6',
+								backgroundColor: '#fef2f2',
+								padding: '12px',
+								borderRadius: '6px',
+								border: '1px solid #fee2e2'
+							}}>
+								{state.emptySectionsModalMessage}
+							</p>
+						</div>
+					</div>
+					<div style={{
+						display: 'flex',
+						justifyContent: 'flex-end'
+					}}>
+						<button
+							style={{
+								backgroundColor: '#3b82f6',
+								color: 'white',
+								border: 'none',
+								padding: '10px 24px',
+								borderRadius: '6px',
+								cursor: 'pointer',
+								fontSize: '14px',
+								fontWeight: '500',
+								transition: 'background-color 0.2s'
+							}}
+							onmouseenter={(e) => e.target.style.backgroundColor = '#2563eb'}
+							onmouseleave={(e) => e.target.style.backgroundColor = '#3b82f6'}
+							onclick={() => {
+								dispatch('CLOSE_EMPTY_SECTIONS_MODAL');
+							}}
+						>
+							OK
+						</button>
+					</div>
+				</div>
+			</div>
+		)}
 			{/* Toast Notifications */}
 			{state.toastNotifications && state.toastNotifications.length > 0 && (
 				<div className="toast-container" style={{
@@ -9009,6 +9103,9 @@ createCustomElement('cadal-careiq-builder', {
 		confirmationDialogOpen: false,            // Is confirmation dialog visible
 		confirmationDialogMessage: '',            // Message to display
 		confirmationDialogPendingAction: null,    // Action to execute if user confirms
+	// Empty sections validation modal
+	emptySectionsModalOpen: false,           // Is empty sections modal visible
+	emptySectionsModalMessage: '',           // List of empty sections
 
 		// Loading states for long operations
 		creatingVersion: false,                   // Creating new version loading state
@@ -9903,6 +10000,38 @@ createCustomElement('cadal-careiq-builder', {
 		'PUBLISH_ASSESSMENT': (coeffects) => {
 			const {action, updateState, state} = coeffects;
 			const {assessmentId, assessmentTitle} = action.payload;
+
+			// Validate that all subsections have questions before allowing publish
+			const emptySections = [];
+
+			if (state.currentAssessment?.sections) {
+				state.currentAssessment.sections.forEach(parentSection => {
+					if (parentSection.subsections && Array.isArray(parentSection.subsections)) {
+						parentSection.subsections.forEach(subsection => {
+							if (subsection.questions_quantity === 0) {
+								emptySections.push(`${parentSection.label} > ${subsection.label}`);
+							}
+						});
+					}
+				});
+			}
+
+			// If there are empty sections, show modal and don't open publish panel
+			if (emptySections.length > 0) {
+				updateState({
+				emptySectionsModalOpen: true,
+				emptySectionsModalMessage: emptySections.join(', '),
+					systemMessages: [
+						...(state.systemMessages || []),
+						{
+							type: 'error',
+							message: `Cannot publish: The following sections have no questions: ${emptySections.join(', ')}`,
+							timestamp: new Date().toISOString()
+						}
+					]
+				});
+				return; // Don't open publish panel
+			}
 
 			// Open the publish panel directly (confirmation moved to save button)
 			updateState({
@@ -21179,6 +21308,36 @@ createCustomElement('cadal-careiq-builder', {
 				// The backend should still provide some way to identify the created question
 			}
 
+			// Increment questions_quantity in the current section (publish validation needs this)
+			if (state.currentAssessment?.sections && state.selectedSection) {
+				const updatedSections = state.currentAssessment.sections.map(parentSection => {
+					if (parentSection.subsections) {
+						const updatedSubsections = parentSection.subsections.map(subsection => {
+							if (subsection.id === state.selectedSection) {
+								return {
+									...subsection,
+									questions_quantity: (subsection.questions_quantity || 0) + 1
+								};
+							}
+							return subsection;
+						});
+						return {
+							...parentSection,
+							subsections: updatedSubsections
+						};
+					}
+					return parentSection;
+				});
+
+				// Update the assessment state with incremented count
+				updateState({
+					currentAssessment: {
+						...state.currentAssessment,
+						sections: updatedSections
+					}
+				});
+			}
+
 			// CHECK IF THIS IS PART OF A QUESTION MOVE OPERATION
 			if (state.pendingQuestionMove) {
 				const moveContext = state.pendingQuestionMove;
@@ -21765,6 +21924,36 @@ createCustomElement('cadal-careiq-builder', {
 				]
 			});
 
+		// Decrement questions_quantity in the current section (publish validation needs this)
+		if (state.currentAssessment?.sections && state.selectedSection) {
+			const updatedSections = state.currentAssessment.sections.map(parentSection => {
+				if (parentSection.subsections) {
+					const updatedSubsections = parentSection.subsections.map(subsection => {
+						if (subsection.id === state.selectedSection) {
+							return {
+								...subsection,
+								questions_quantity: Math.max(0, (subsection.questions_quantity || 0) - 1)
+							};
+						}
+						return subsection;
+					});
+					return {
+						...parentSection,
+						subsections: updatedSubsections
+					};
+				}
+				return parentSection;
+			});
+
+			// Update the assessment state with decremented count
+			updateState({
+				currentAssessment: {
+					...state.currentAssessment,
+					sections: updatedSections
+				}
+			});
+		}
+
 			// Renumber remaining questions' sort_order
 			const deletedInfo = state.deletedQuestionInfo;
 			if (deletedInfo && state.currentQuestions?.questions) {
@@ -21794,7 +21983,7 @@ createCustomElement('cadal-careiq-builder', {
 					const isQuestionMove = state.pendingQuestionMove ? true : false;
 					const moveContext = isQuestionMove ? state.pendingQuestionMove : null;
 
-					// Store pending update count and context
+
 					updateState({
 						pendingQuestionSortUpdates: questionsToUpdate.length,
 						deletedQuestionInfo: null, // Clear the deleted question info
@@ -22789,6 +22978,15 @@ createCustomElement('cadal-careiq-builder', {
 				confirmationDialogOpen: false,
 				confirmationDialogMessage: '',
 				confirmationDialogPendingAction: null
+			});
+		},
+
+		// Empty Sections Modal Handler
+		'CLOSE_EMPTY_SECTIONS_MODAL': (coeffects) => {
+			const {updateState} = coeffects;
+			updateState({
+				emptySectionsModalOpen: false,
+				emptySectionsModalMessage: ''
 			});
 		},
 
