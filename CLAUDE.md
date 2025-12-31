@@ -75,32 +75,125 @@ var requestData = request.body.data;  // ServiceNow wraps in .data automatically
 - **Application scope**: All CareIQ Script Includes are in the `x_cadal_careiq_e_0` scope
 - **Use `Delta CareIQ Services - Consolidated.js`** as single source of truth for new methods
 
-### Token Refresh Pattern (CareIQ Services)
-**PROBLEM**: Normal users cannot re-authenticate when CareIQ platform token expires. Admin users work fine.
+### Configuration Storage Pattern (CareIQ Services)
+**REQUIREMENT**: ServiceNow certification requires using custom application tables instead of sys_properties table.
 
-**ROOT CAUSE**: `GlideRecordSecure.setValue()` doesn't work from scoped apps on global tables (sys_properties), even with proper ACLs and `canWrite()` returning true. This is a ServiceNow scope isolation limitation.
+**SOLUTION**: Use custom table `x_cadal_careiq_e_0_careiq_system_properties` with config caching.
 
-**SOLUTION**: Use `gs.setProperty()` instead of `GlideRecordSecure.setValue()` in the `getToken()` method:
+**Table Structure**:
+- Table: `x_cadal_careiq_e_0_careiq_system_properties`
+- Fields: `name` (property key), `value` (property value)
+- Property names use full format: `"x_cadal_careiq_e_0.careiq.platform.token"`
+
+**Implementation Pattern**:
+
+1. **Config Caching**: Instance-level cache variable
 ```javascript
-// Validate user has permission first
-if (gr_sysProperties.canWrite()) {
-    // Use gs.setProperty() because GlideRecordSecure.setValue() doesn't work from scoped apps
-    gs.setProperty('x_cadal_careiq_e_0.careiq.platform.token', token);
+_configCache: null,  // Line 3
+```
 
-    // Verify the update worked
-    var verifyToken = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token');
-    if (verifyToken === token) {
-        return true;
+2. **_getConfig() Method**: Query custom table, cache results
+```javascript
+_getConfig: function() {
+    // Check cache first
+    if (this._configCache) {
+        return this._configCache;
     }
+
+    // Query custom properties table
+    var tableName = 'x_cadal_careiq_e_0_careiq_system_properties';
+    var queryResult = this.queryRecords(tableName, fieldsObject, null);
+
+    // Build config from results
+    // Map property names to config keys
+    // Cache and return
 }
 ```
 
-**APP REVIEW NOTES**:
-- Must request exception for `gs.setProperty()` usage
-- Remove `getRowCount()` calls to avoid scalability warnings
-- Comprehensive logging added for diagnostics
+3. **updateRecord() Method**: New method for updating table records (Line 853)
+```javascript
+updateRecord: function(tableName, systemId, updateObject) {
+    // Validates table scope (x_cadal_careiq_e_0_*)
+    // Uses GlideRecordSecure for security
+    // Validates fields before updating
+    // Returns JSON response
+}
+```
 
-**STATUS (2025-11-11)**: Fix applied to `CareIQ Services.js`. Awaiting app review approval for gs.setProperty() usage.
+4. **Token Refresh Pattern**: Use custom table + cache invalidation
+```javascript
+getToken: function() {
+    // ... authenticate with CareIQ ...
+
+    // Query custom table for token record
+    var queryResult = this.queryRecords(tableName, {
+        query: { name: 'x_cadal_careiq_e_0.careiq.platform.token' }
+    });
+
+    // Update token using updateRecord()
+    this.updateRecord(tableName, tokenSysId, { value: token });
+
+    // Invalidate cache to force reload
+    this._configCache = null;
+
+    // Verify update by re-querying
+}
+```
+
+**KEY BENEFITS**:
+- No gs.setProperty() exception needed for app review
+- Config caching improves performance
+- Application-scoped table meets certification requirements
+- Consistent error handling and logging
+
+**STATUS (2025-12-10)**: ✅ **IMPLEMENTED** - Migrated from sys_properties to custom table with caching.
+
+### Global Debug Setting Access Pattern
+**USAGE**: Scripted REST APIs need to check if debug logging is enabled from the custom properties table.
+
+**SOLUTION**: Use the public `getGlobalDebugSetting()` method from CareIQ Services.
+
+**Pattern for Scripted REST APIs**:
+```javascript
+(function process(request, response) {
+    try {
+        // Instantiate CareIQ Services to get debug setting
+        var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();
+        var isDebugEnabled = careiqServices.getGlobalDebugSetting();
+
+        // Use isDebugEnabled for conditional logging
+        if (isDebugEnabled) {
+            gs.info('Debug message here...');
+        }
+
+        // ... rest of API code ...
+    } catch (e) {
+        // ... error handling ...
+    }
+})(request, response);
+```
+
+**DEPRECATED Pattern**:
+```javascript
+// ❌ OLD - Don't use gs.getProperty() directly
+var isDebugEnabled = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
+```
+
+**Why This Pattern**:
+- Queries custom table instead of sys_properties
+- Avoids circular dependency in CareIQ Services logging
+- Consistent with ServiceNow certification requirements
+- All 67 REST API files should use this pattern
+
+**Implementation Details**:
+- `_debugSettingCache` (Line 4): Cache for debug setting to minimize queries
+- `_fetchingDebugSetting` (Line 5): Flag to prevent circular dependency during fetch
+- `_isDebugEnabled()` (Line 8): Internal method uses `queryRecords()` with caching and recursion prevention
+- `getGlobalDebugSetting()` (Line 147): Public method wraps `_isDebugEnabled()`
+- Cache persists for instance lifetime, queries custom table on first call only
+
+**STATUS (2025-12-10)**: ✅ **IMPLEMENTED** - Method added to CareIQ Services. Example updated in assessment-details-api.js. 66 other REST API files need updating.
+
 
 ### CRITICAL: Save/Cancel Button Display Fix
 **PROBLEM**: Save/Cancel buttons don't disappear after saving question changes, even though `questionChanges` state is cleared correctly.

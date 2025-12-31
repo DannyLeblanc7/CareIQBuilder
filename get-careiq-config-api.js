@@ -1,26 +1,27 @@
 (function process(request, response) {
     try {
         // Check if debug logging is enabled
-        var isDebugEnabled = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
+        var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();
+        var isDebugEnabled = careiqServices.getGlobalDebugSetting();
 
         if (isDebugEnabled) {
             gs.info('=== CareIQ Config API ===');
             gs.info('Request method: ' + request.httpMethod);
         }
 
-        // Fetch only the 3 required properties
-        var gr = new GlideRecordSecure('sys_properties');
-        gr.addQuery('name', 'IN', 'x_cadal_careiq_e_0.careiq.platform.region,x_cadal_careiq_e_0.careiq.platform.version,x_cadal_careiq_e_0.careiq.platform.app');
-        gr.query();
-
-        var config = {};
-        while (gr.next()) {
-            var key = gr.getValue('name').replace('x_cadal_careiq_e_0.careiq.platform.', '');
-            config[key] = gr.getValue('value');
-        }
+        // Use CareIQ Services to get config (queries custom table)
+        var config = careiqServices.getPublicConfig();
 
         if (isDebugEnabled) {
             gs.info('Config properties found: ' + JSON.stringify(config));
+        }
+
+        // Check if config has error
+        if (config.error) {
+            response.setStatus(500);
+            response.setHeader('Content-Type', 'application/json');
+            response.getStreamWriter().writeString(JSON.stringify(config));
+            return;
         }
 
         // Return the config

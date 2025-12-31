@@ -1,8 +1,50 @@
 var CareIQExperienceServices = Class.create();
 CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxProcessor, {
+    // Configuration cache (instance-level)
+    _configCache: null,
+    _debugSettingCache: null,
+    _fetchingDebugSetting: false,
+
     // Configuration and utility methods
     _isDebugEnabled: function() {
-        return gs.getProperty('x_cadal_careiq_e_0.careiq.platform.globalDebug') === 'true';
+        // Return cached value if available
+        if (this._debugSettingCache !== null) {
+            return this._debugSettingCache;
+        }
+        
+        // Prevent circular dependency during fetch
+        if (this._fetchingDebugSetting) {
+            return false; // Default to false during fetch
+        }
+        
+        // Set flag to prevent recursion
+        this._fetchingDebugSetting = true;
+        
+        try {
+            // Query custom table using existing queryRecords method
+            var tableName = 'x_cadal_careiq_e_0_careiq_system_properties';
+            var fieldsObject = {
+                fields: ['value'],
+                query: { name: 'x_cadal_careiq_e_0.careiq.platform.globalDebug' },
+                orderBy: '',
+                limit: 1
+            };
+            
+            var queryResult = this.queryRecords(tableName, fieldsObject, null);
+            var parsedResult = JSON.parse(queryResult);
+            
+            if (!parsedResult.error && parsedResult.records && parsedResult.records.length > 0) {
+                this._debugSettingCache = parsedResult.records[0].value === 'true';
+            } else {
+                this._debugSettingCache = false; // Default to false if not found
+            }
+        } catch (e) {
+            this._debugSettingCache = false; // Default to false on error
+        } finally {
+            this._fetchingDebugSetting = false;
+        }
+        
+        return this._debugSettingCache;
     },
     
     _log: function(message, isError) {
@@ -23,16 +65,79 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
     },
   
     _getConfig: function() {
-        var config = {
-            token: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token'),
-            app: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.app'),
-            region: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.region'),
-            version: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.version'),
-            clientId: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.id'),
-            oToken: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.otoken'),
-            apiKey: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.apikey'),
-            careIQPlatformStaticURL: gs.getProperty('x_cadal_careiq_e_0.careiq.platform.staticurl')
+        // Return cached config if available
+        if (this._configCache) {
+            this._log('GetConfig - Returning cached configuration', false);
+            return this._configCache;
+        }
+        
+        this._log('GetConfig - Loading configuration from custom table', false);
+        
+        // Query the custom properties table
+        var tableName = 'x_cadal_careiq_e_0_careiq_system_properties';
+        var fieldsObject = {
+            fields: ['name', 'value'],
+            query: {},
+            orderBy: '',
+            limit: 0
         };
+        
+        var queryResult = this.queryRecords(tableName, fieldsObject, null);
+        var parsedResult;
+        
+        try {
+            parsedResult = JSON.parse(queryResult);
+        } catch (parseError) {
+            this._logError('GetConfig - Failed to parse queryRecords result: ' + parseError);
+            return null;
+        }
+        
+        if (parsedResult.error) {
+            this._logError('GetConfig - Error querying properties table: ' + parsedResult.message);
+            return null;
+        }
+        
+        // Build config object from query results
+        var config = {};
+        var records = parsedResult.records || [];
+        
+        // Map property names to config keys
+        var propertyMap = {
+            'x_cadal_careiq_e_0.careiq.platform.token': 'token',
+            'x_cadal_careiq_e_0.careiq.platform.app': 'app',
+            'x_cadal_careiq_e_0.careiq.platform.region': 'region',
+            'x_cadal_careiq_e_0.careiq.platform.version': 'version',
+            'x_cadal_careiq_e_0.careiq.platform.id': 'clientId',
+            'x_cadal_careiq_e_0.careiq.platform.otoken': 'oToken',
+            'x_cadal_careiq_e_0.careiq.platform.apikey': 'apiKey',
+            'x_cadal_careiq_e_0.careiq.platform.staticurl': 'careIQPlatformStaticURL'
+        };
+        
+        // Process each record
+        for (var i = 0; i < records.length; i++) {
+            var record = records[i];
+            var propertyName = record.name;
+            var configKey = propertyMap[propertyName];
+            
+            if (configKey) {
+                config[configKey] = record.value || '';
+            }
+        }
+        
+        // Check for missing properties and log errors
+        for (var propName in propertyMap) {
+            if (propertyMap.hasOwnProperty(propName)) {
+                var key = propertyMap[propName];
+                if (!config[key]) {
+                    this._logError('GetConfig - Missing required property: ' + propName);
+                    // Continue execution - don't fail
+                }
+            }
+        }
+        
+        // Cache the config
+        this._configCache = config;
+        this._log('GetConfig - Configuration loaded and cached successfully', false);
         
         return config;
     },
@@ -52,6 +157,42 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
         }
         
         return true;
+    },
+    
+    // ============================================
+    // PUBLIC UTILITY METHODS
+    // ============================================
+    
+    /**
+     * Public method to get global debug setting
+     * Can be called from Scripted REST APIs and other external code
+     * Usage: var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();
+     *        var isDebugEnabled = careiqServices.getGlobalDebugSetting();
+     */
+    getGlobalDebugSetting: function() {
+        return this._isDebugEnabled();
+    },
+    
+    /**
+     * Public method to get public configuration values (non-sensitive)
+     * Returns only region, version, and app - no tokens or keys
+     * Usage: var careiqServices = new x_cadal_careiq_e_0.CareIQExperienceServices();
+     *        var config = careiqServices.getPublicConfig();
+     *        // Returns: { region: "stg", version: "v1", app: "app" }
+     */
+    getPublicConfig: function() {
+        var fullConfig = this._getConfig();
+        
+        if (!fullConfig) {
+            return { error: true, message: 'Configuration not available' };
+        }
+        
+        // Return only non-sensitive config values
+        return {
+            region: fullConfig.region || '',
+            version: fullConfig.version || '',
+            app: fullConfig.app || ''
+        };
     },
     
     _buildEndpoint: function(path) {
@@ -127,9 +268,6 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
                     continue; // Try again with new token
                 }
                 
-                // For other errors, log and return response to be handled by the caller
-                this._logError(logContext + ' - Request failed with status code: ' + statusCode);
-                this._logError(logContext + ' - Error response: ' + response.getBody());
                 return response;
                 
             } catch (attemptError) {
@@ -248,90 +386,115 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 					this._log('Auth - New token prefix: ' + token.substring(0, 10) + '...', true);
 					this._log('Auth - New token length: ' + token.length, true);
 
-					// Validate permissions before updating
-					this._log('Auth - Validating user permissions to update token...', true);
-
-					var gr_sysProperties = new GlideRecordSecure('sys_properties');
-					this._log('Auth - GlideRecordSecure object created', true);
-
-					// Check if GlideRecordSecure is valid
-					if (gr_sysProperties.isValid()) {
-						this._log('Auth - GlideRecordSecure.isValid() returned TRUE', true);
-
-						gr_sysProperties.addQuery('name', 'x_cadal_careiq_e_0.careiq.platform.token');
-						this._log('Auth - Query added for token property', true);
-
-						gr_sysProperties.query();
-						this._log('Auth - Query executed', true);
-
-						if (gr_sysProperties.next()) {
-							this._log('Auth - Record found, validating permissions...', true);
-							this._log('Auth - Record sys_id: ' + gr_sysProperties.getUniqueValue(), true);
-
-							// Log current value before update
-							var oldToken = gr_sysProperties.getValue('value');
-							if (oldToken) {
-								this._log('Auth - Old token in DB prefix: ' + oldToken.substring(0, 10) + '...', true);
-								this._log('Auth - Old token in DB length: ' + oldToken.length, true);
-							} else {
-								this._log('Auth - Old token in DB is NULL or empty', true);
-							}
-
-							// Check if user can update this record
-							if (gr_sysProperties.canWrite()) {
-								this._log('Auth - canWrite() returned TRUE - user has permission to update', true);
-							} else {
-								this._logError('Auth - canWrite() returned FALSE - USER DOES NOT HAVE PERMISSION');
-								return false;
-							}
-
-							// Use gs.setProperty() because GlideRecordSecure.setValue() doesn't work from scoped apps
-							// We've already validated the user has permission via canWrite() above
-							this._log('Auth - User has permission, using gs.setProperty() to update token...', true);
-
-							try {
-								gs.setProperty('x_cadal_careiq_e_0.careiq.platform.token', token);
-								this._log('Auth - gs.setProperty() completed without error', true);
-
-								// Verify the update worked by reading it back
-								this._log('Auth - Verifying token was actually saved...', true);
-								var verifyToken = gs.getProperty('x_cadal_careiq_e_0.careiq.platform.token');
-
-								if (verifyToken) {
-									this._log('Auth - Verified token prefix: ' + verifyToken.substring(0, 10) + '...', true);
-									this._log('Auth - Verified token length: ' + verifyToken.length, true);
-
-									if (verifyToken === token) {
-										this._log('Auth - VERIFICATION PASSED: Token updated successfully', true);
-										this._log('Auth - Token refresh completed SUCCESSFULLY', true);
-										this._log('======== AUTH TOKEN REFRESH END (SUCCESS) ========', true);
-										return true;
-									} else {
-										this._logError('Auth - VERIFICATION FAILED: Saved token does not match new token');
-										this._logError('Auth - Expected prefix: ' + token.substring(0, 10) + '...');
-										this._logError('Auth - Actual prefix: ' + verifyToken.substring(0, 10) + '...');
-										return false;
-									}
-								} else {
-									this._logError('Auth - VERIFICATION FAILED: Token is NULL after gs.setProperty()');
-									return false;
-								}
-
-							} catch (updateEx) {
-								this._logError('Auth - EXCEPTION during gs.setProperty(): ' + updateEx.message);
-								return false;
-							}
-
-						} else {
-							this._logError('Auth - Token property NOT FOUND in sys_properties table');
-							this._logError('Auth - Property name: x_cadal_careiq_e_0.careiq.platform.token');
-							return false;
-						}
+				// Query custom table to find the token property record
+				this._log('Auth - Querying custom properties table for token record...', true);
+				
+				var tableName = 'x_cadal_careiq_e_0_careiq_system_properties';
+				var fieldsObject = {
+					fields: ['sys_id', 'name', 'value'],
+					query: { name: 'x_cadal_careiq_e_0.careiq.platform.token' },
+					orderBy: '',
+					limit: 1
+				};
+				
+				var queryResult = this.queryRecords(tableName, fieldsObject, null);
+				var parsedResult;
+				
+				try {
+					parsedResult = JSON.parse(queryResult);
+				} catch (parseError) {
+					this._logError('Auth - Failed to parse queryRecords result: ' + parseError);
+					return false;
+				}
+				
+				if (parsedResult.error) {
+					this._logError('Auth - Error querying properties table: ' + parsedResult.message);
+					return false;
+				}
+				
+				if (!parsedResult.records || parsedResult.records.length === 0) {
+					this._logError('Auth - Token property NOT FOUND in custom properties table');
+					this._logError('Auth - Property name: x_cadal_careiq_e_0.careiq.platform.token');
+					return false;
+				}
+				
+				var tokenRecord = parsedResult.records[0];
+				var tokenSysId = tokenRecord.sys_id;
+				
+				this._log('Auth - Token record found with sys_id: ' + tokenSysId, true);
+				
+				// Log current value before update
+				var oldToken = tokenRecord.value;
+				if (oldToken) {
+					this._log('Auth - Old token in DB prefix: ' + oldToken.substring(0, 10) + '...', true);
+					this._log('Auth - Old token in DB length: ' + oldToken.length, true);
+				} else {
+					this._log('Auth - Old token in DB is NULL or empty', true);
+				}
+				
+				// Update the token using updateRecord
+				this._log('Auth - Updating token using updateRecord()...', true);
+				
+				var updateObject = { value: token };
+				var updateResult = this.updateRecord(tableName, tokenSysId, updateObject);
+				var parsedUpdateResult;
+				
+				try {
+					parsedUpdateResult = JSON.parse(updateResult);
+				} catch (parseError) {
+					this._logError('Auth - Failed to parse updateRecord result: ' + parseError);
+					return false;
+				}
+				
+				if (parsedUpdateResult.error) {
+					this._logError('Auth - Error updating token: ' + parsedUpdateResult.message);
+					return false;
+				}
+				
+				this._log('Auth - updateRecord() completed successfully', true);
+				
+				// Invalidate config cache to force reload on next getConfig call
+				this._configCache = null;
+				this._log('Auth - Config cache invalidated', true);
+				
+				// Verify the update by re-querying
+				this._log('Auth - Verifying token was actually saved...', true);
+				var verifyResult = this.queryRecords(tableName, fieldsObject, null);
+				var parsedVerifyResult;
+				
+				try {
+					parsedVerifyResult = JSON.parse(verifyResult);
+				} catch (parseError) {
+					this._logError('Auth - Failed to parse verify query result: ' + parseError);
+					return false;
+				}
+				
+				if (parsedVerifyResult.error || !parsedVerifyResult.records || parsedVerifyResult.records.length === 0) {
+					this._logError('Auth - VERIFICATION FAILED: Could not read back token record');
+					return false;
+				}
+				
+				var verifyToken = parsedVerifyResult.records[0].value;
+				
+				if (verifyToken) {
+					this._log('Auth - Verified token prefix: ' + verifyToken.substring(0, 10) + '...', true);
+					this._log('Auth - Verified token length: ' + verifyToken.length, true);
+					
+					if (verifyToken === token) {
+						this._log('Auth - VERIFICATION PASSED: Token updated successfully', true);
+						this._log('Auth - Token refresh completed SUCCESSFULLY', true);
+						this._log('======== AUTH TOKEN REFRESH END (SUCCESS) ========', true);
+						return true;
 					} else {
-						this._logError('Auth - GlideRecordSecure.isValid() returned FALSE');
-						this._logError('Auth - User does not have read access to sys_properties table');
+						this._logError('Auth - VERIFICATION FAILED: Saved token does not match new token');
+						this._logError('Auth - Expected prefix: ' + token.substring(0, 10) + '...');
+						this._logError('Auth - Actual prefix: ' + verifyToken.substring(0, 10) + '...');
 						return false;
 					}
+				} else {
+					this._logError('Auth - VERIFICATION FAILED: Token is NULL after update');
+					return false;
+				}
 				} else {
 					this._logError('Auth - access_token not found in response body');
 					this._logError('Auth - Response body keys: ' + Object.keys(json).join(', '));
@@ -350,30 +513,31 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			return false;
 		}
 	},
-    searchAssessments: function(useCase, searchValue, admin, useCaseCategories) {
-        try {
-            var config = this._getConfig();
-            
-            if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
-                return '{"error": "Configuration invalid"}';
-            }
-            
-            var endpoint = this._buildEndpoint('/careflow/guideline-template');
-            var r = this._createRESTMessage('Get Assessments', endpoint);
-            
-            r.setQueryParameter('use_case', useCase);
-            r.setQueryParameter('search_value', searchValue);
-            r.setQueryParameter('use_case_category', useCaseCategories);
-            r.setQueryParameter('admin', admin);
-            
-            var response = this._executeRequestWithRetry(r, 'SearchAssessments');
-            return response.getBody();
-        } catch (e) {
-            this._logError('SearchAssessments - Error: ' + e);
-            return '{"error": "' + e.message + '"}';
-        }
-    },
+	searchAssessments: function(useCase, searchValue, admin, useCaseCategories, offset, limit) {
+		try {
+			var config = this._getConfig();
 
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			var endpoint = this._buildEndpoint('/careflow/guideline-template');
+			var r = this._createRESTMessage('Get Assessments', endpoint);
+
+			r.setQueryParameter('use_case', useCase);
+			r.setQueryParameter('search_value', searchValue);
+			r.setQueryParameter('use_case_category', useCaseCategories);
+			r.setQueryParameter('admin', admin);
+			r.setQueryParameter('offset', offset);
+			r.setQueryParameter('limit', limit);
+
+			var response = this._executeRequestWithRetry(r, 'SearchAssessments');
+			return response.getBody();
+		} catch (e) {
+			this._logError('SearchAssessments - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
     getUseCaseCategories: function(useCase) {
         try {
             var config = this._getConfig();
@@ -532,43 +696,6 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
         }
     },
 
-    /*getCarePlan: function(sessionToken, problemsPerPage) {
-        try {
-            var config = this._getConfig();
-            
-            if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
-                return '{"error": "Configuration invalid"}';
-            }
-            
-            var endpoint = this._buildEndpoint('/careflow/session/careplan');
-            var r = this._createRESTMessage('GET Care Plan', endpoint);
-            
-            var response = this._executeRequestWithRetry(r, 'GetCarePlan', sessionToken);
-            var theResponse = JSON.parse(response.getBody());
-            
-            if(theResponse.problems && theResponse.problems.length > 0) {
-                var self = this;
-                this._log('Processing ' + theResponse.problems.length + ' problems for care plan', false);
-				theResponse.problemCount = theResponse.problems.length;
-                //for (var i = 0; i < problemsPerPage && i < theResponse.problems.length; i++) {
-				//	var problem = theResponse.problems[i];
-				//	var problemResponse = JSON.parse(self.getProblem(sessionToken, problem.id));
-				//	problem.goals = problemResponse.goals;
-				//}
-
-				//theResponse.problems.forEach(function(problem) {
-                //    var problemResponse = JSON.parse(self.getProblem(sessionToken, problem.id));
-                //    problem.goals = problemResponse.goals;
-                //});
-            }
-            
-            return theResponse;
-        } catch (e) {
-            this._logError('GetCarePlan - Error: ' + e);
-            return '{"error": "' + e.message + '"}';
-        }
-    }, */
-
 	getCarePlan: function(sessionToken) {
 		try {
 			var config = this._getConfig();
@@ -634,7 +761,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
             r.setRequestBody(JSON.stringify(interventionPayload));
             
             var response = this._executeRequestWithRetry(r, 'AddInterventions', sessionToken);
-            return response.getStatusCode();
+            return response.getBody();
         } catch (error) {
             this._logError("API Call - Unhandled exception: " + error);
             // Return error details in a structured format
@@ -693,7 +820,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
             r.setRequestBody(JSON.stringify(barrierPayload));
             
             var response = this._executeRequestWithRetry(r, 'AddBarriers', sessionToken);
-            return response.getStatusCode();
+            return response.getBody();
         } catch (error) {
             this._logError("API Call - Unhandled exception: " + error);
             // Return error details in a structured format
@@ -725,7 +852,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 			this._log('CreateRecord - Record object size: ' + recordSize + ' characters', false);
 			
 			// Validate table is within application scope for security
-			if (!tableName.startsWith('x_cadal_careiq_e_0_')) {
+			if (!tableName.startsWith('x_cadal_careiq_e_0_') && !tableName.startsWith('x_cadal_careiq_ver_')) {
 				this._logError('CreateRecord - Table must be within application scope: ' + tableName);
 				return JSON.stringify({
 					error: true,
@@ -777,15 +904,26 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 					table: tableName,
 					message: 'Record created successfully'
 				});
-			} else {
-				this._logError('CreateRecord - Failed to create record in table: ' + tableName);
-				return JSON.stringify({
-					error: true,
-					message: 'Failed to create record',
-					table: tableName
-				});
-			}
-			
+    } else {
+        // Get detailed error information
+        var errorDetails = 'Failed to create record';
+        if (gr_dynamicTable.getLastErrorMessage) {
+            var lastError = gr_dynamicTable.getLastErrorMessage();
+            if (lastError) {
+                errorDetails = lastError;
+            }
+        }
+
+        this._logError('CreateRecord - Failed to create record in table: ' + tableName + ' - Error: ' + errorDetails);
+        this._log('CreateRecord - Record object that failed: ' + JSON.stringify(recordObject), true);
+
+        return JSON.stringify({
+            error: true,
+            message: errorDetails,
+            table: tableName,
+            attemptedFields: Object.keys(recordObject)
+        });
+    }			
 		} catch (error) {
 			this._logError('CreateRecord - Unhandled exception: ' + error);
 			
@@ -794,6 +932,133 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				error: true,
 				message: 'Error creating record: ' + error.message,
 				details: error.toString(),
+				table: tableName || 'unknown'
+			});
+		}
+	},
+	updateRecord: function(tableName, systemId, updateObject) {
+		try {
+			this._log('UpdateRecord - Starting update for table: ' + tableName + ', sys_id: ' + systemId, false);
+			
+			// Validate input parameters
+			if (!tableName || typeof tableName !== 'string') {
+				this._logError('UpdateRecord - Invalid table name provided');
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid table name provided'
+				});
+			}
+			
+			if (!systemId || typeof systemId !== 'string') {
+				this._logError('UpdateRecord - Invalid sys_id provided');
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid sys_id provided'
+				});
+			}
+			
+			if (!updateObject || typeof updateObject !== 'object') {
+				this._logError('UpdateRecord - Invalid update object provided');
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid update object provided'
+				});
+			}
+			
+			// Validate table is within application scope for security
+			if (!tableName.startsWith('x_cadal_careiq_e_0_') && !tableName.startsWith('x_cadal_careiq_ver_')) {
+				this._logError('UpdateRecord - Table must be within application scope: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Security error: Can only update records in application tables',
+					table: tableName
+				});
+			}
+			
+			// Get the record by sys_id
+			var gr_dynamicTable = new GlideRecordSecure(tableName);
+			
+			// Validate table exists
+			if (!gr_dynamicTable.isValid()) {
+				this._logError('UpdateRecord - Invalid table name: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Invalid table name',
+					table: tableName
+				});
+			}
+			
+			// Query for the specific record
+			if (!gr_dynamicTable.get(systemId)) {
+				this._logError('UpdateRecord - Record not found with sys_id: ' + systemId);
+				return JSON.stringify({
+					error: true,
+					message: 'Record not found',
+					sys_id: systemId,
+					table: tableName
+				});
+			}
+			
+			// Check if user has write access
+			if (!gr_dynamicTable.canWrite()) {
+				this._logError('UpdateRecord - User does not have write permission for table: ' + tableName);
+				return JSON.stringify({
+					error: true,
+					message: 'Permission denied: Cannot write to this table',
+					table: tableName
+				});
+			}
+			
+			// Update all field values from the update object
+			var fieldCount = 0;
+			for (var field in updateObject) {
+				if (updateObject.hasOwnProperty(field)) {
+					// Validate field exists before setting
+					if (gr_dynamicTable.isValidField(field)) {
+						gr_dynamicTable.setValue(field, updateObject[field]);
+						fieldCount++;
+						this._log('UpdateRecord - Set field "' + field + '" with value type: ' + typeof updateObject[field], false);
+					} else {
+						this._log('UpdateRecord - Warning: Skipping invalid field "' + field + '"', true);
+					}
+				}
+			}
+			
+			this._log('UpdateRecord - Updated ' + fieldCount + ' fields on record', false);
+			
+			// Update the record
+			var updateResult = gr_dynamicTable.update();
+			
+			if (updateResult) {
+				this._log('UpdateRecord - Record updated successfully: ' + systemId, false);
+				
+				// Return success response
+				return JSON.stringify({
+					success: true,
+					sys_id: systemId,
+					table: tableName,
+					fieldsUpdated: fieldCount,
+					message: 'Record updated successfully'
+				});
+			} else {
+				this._logError('UpdateRecord - Failed to update record: ' + systemId);
+				return JSON.stringify({
+					error: true,
+					message: 'Failed to update record',
+					sys_id: systemId,
+					table: tableName
+				});
+			}
+			
+		} catch (error) {
+			this._logError('UpdateRecord - Unhandled exception: ' + error);
+			
+			// Return error details in a structured format
+			return JSON.stringify({
+				error: true,
+				message: 'Error updating record: ' + error.message,
+				details: error.toString(),
+				sys_id: systemId || 'unknown',
 				table: tableName || 'unknown'
 			});
 		}
@@ -839,7 +1104,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				this._log('QueryRecords - System ID filter: ' + systemId, false);
 			}
 			// Validate table is within application scope for security
-			if (!tableName.startsWith('x_cadal_careiq_e_0_')) {
+			if (!tableName.startsWith('x_cadal_careiq_e_0_') && !tableName.startsWith('x_cadal_careiq_ver_')) {
 				this._logError('QueryRecords - Table must be within application scope: ' + tableName);
 				return JSON.stringify({
 					error: true,
@@ -1470,14 +1735,7 @@ CareIQExperienceServices.prototype = Object.extendsObject(global.AbstractAjaxPro
 				};
 			}
 
-			// DEBUG: Log the actual request body being sent to CareIQ backend
-			var requestBodyString = JSON.stringify(requestBody);
-			this._log('AddQuestionToSection - Request body being sent to CareIQ: ' + requestBodyString, false);
-			if (requestBody.custom_attributes) {
-				this._log('AddQuestionToSection - custom_attributes in payload: ' + JSON.stringify(requestBody.custom_attributes), false);
-			}
-
-			r.setRequestBody(requestBodyString);
+			r.setRequestBody(JSON.stringify(requestBody));
 
 			var response = this._executeRequestWithRetry(r, 'AddQuestionToSection');
 			return response.getBody();
@@ -2483,6 +2741,31 @@ updateIntervention: function(interventionId, label, tooltip, alternativeWording,
 			return response.getBody();
 		} catch (e) {
 			this._logError('UnpublishAssessment - Error: ' + e);
+			return '{"error": "' + e.message + '"}';
+		}
+	},
+	getFileUrl: function(fileId, sessionToken) {
+		try {
+			var config = this._getConfig();
+
+			if (!this._validateConfig(config, ['token', 'app', 'region', 'version'])) {
+				return '{"error": "Configuration invalid"}';
+			}
+
+			// Build the endpoint: /careflow/careplan/file/{fileId}
+			var endpoint = this._buildEndpoint('/careflow/careplan/file/' + fileId);
+			var r = this._createRESTMessage('GET File URL', endpoint);
+
+			// Set method to GET
+			r.setHttpMethod('GET');
+
+			// Add session token to header
+			r.setRequestHeader('token', sessionToken);
+
+			var response = this._executeRequestWithRetry(r, 'GET File URL', sessionToken);
+			return response.getBody();
+		} catch (e) {
+			this._logError('GetFileUrl - Error: ' + e);
 			return '{"error": "' + e.message + '"}';
 		}
 	},
